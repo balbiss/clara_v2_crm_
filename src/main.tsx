@@ -1,0 +1,88 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import './index.css';
+import { AppShell } from './components/AppShell';
+import { RequireAuth } from './components/RequireAuth';
+import { RequirePlataforma } from './components/RequirePlataforma';
+import { useAppStore } from './store/appStore';
+import { usePlataformaStore } from './store/plataformaStore';
+import Login from './pages/Login';
+import PlataformaLogin from './pages/plataforma/PlataformaLogin';
+import PlataformaShell from './pages/plataforma/PlataformaShell';
+import PlataformaResumo from './pages/plataforma/PlataformaResumo';
+import PlataformaImobiliarias from './pages/plataforma/PlataformaImobiliarias';
+import Dashboard from './pages/Dashboard';
+import Kanban from './pages/Kanban';
+import Conversas from './pages/Conversas';
+import Clientes from './pages/Clientes';
+import Imoveis from './pages/Imoveis';
+import Roleta from './pages/Roleta';
+import Bolsao from './pages/Bolsao';
+import Followup from './pages/Followup';
+import Credito from './pages/Credito';
+import Agenda from './pages/Agenda';
+import Equipe from './pages/Equipe';
+import Relatorios from './pages/Relatorios';
+import Manual from './pages/Manual';
+import Integracoes from './pages/Integracoes';
+import AvisosCorretor from './pages/AvisosCorretor';
+import AgenteIa from './pages/AgenteIa';
+import Importacoes from './pages/Importacoes';
+import SiteImoveis from './pages/SiteImoveis';
+import Templates from './pages/Templates';
+import LinksUteis from './pages/LinksUteis';
+import Treinamentos from './pages/Treinamentos';
+import Configuracoes from './pages/Configuracoes';
+import Denied from './pages/Denied';
+import SitePublico from './pages/site/SitePublico';
+
+useAppStore.getState().hydrateAuth();
+usePlataformaStore.getState().hydrate();
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/s/:slug" element={<SitePublico />} />
+        <Route path="/plataforma/login" element={<PlataformaLogin />} />
+        <Route element={<RequirePlataforma />}>
+          <Route path="/plataforma" element={<PlataformaShell />}>
+            <Route index element={<PlataformaResumo />} />
+            <Route path="imobiliarias" element={<PlataformaImobiliarias />} />
+          </Route>
+        </Route>
+        <Route element={<RequireAuth />}>
+        <Route path="/" element={<AppShell />}>
+          <Route index element={<Navigate to="/dash" replace />} />
+          <Route path="dash" element={<Dashboard />} />
+          <Route path="kanban" element={<Kanban />} />
+          <Route path="conversas" element={<Conversas />} />
+          <Route path="clientes" element={<Clientes />} />
+          <Route path="imoveis" element={<Imoveis />} />
+          <Route path="credito" element={<Credito />} />
+          <Route path="agenda" element={<Agenda />} />
+          <Route path="roleta" element={<Roleta />} />
+          <Route path="rebatidas" element={<Bolsao />} />
+          <Route path="followup" element={<Followup />} />
+          <Route path="templates" element={<Templates />} />
+          <Route path="integracoes" element={<Integracoes />} />
+          <Route path="avisos-corretor" element={<AvisosCorretor />} />
+          <Route path="agente-ia" element={<AgenteIa />} />
+          <Route path="importacoes" element={<Importacoes />} />
+          <Route path="site" element={<SiteImoveis />} />
+          <Route path="links-uteis" element={<LinksUteis />} />
+          <Route path="treinamentos" element={<Treinamentos />} />
+          <Route path="equipe" element={<Equipe />} />
+          <Route path="denied" element={<Denied />} />
+          <Route path="relatorios" element={<Relatorios />} />
+          <Route path="manual" element={<Manual />} />
+          <Route path="configuracoes" element={<Configuracoes />} />
+        </Route>
+        </Route>
+        <Route path="*" element={<Navigate to="/dash" replace />} />
+      </Routes>
+    </BrowserRouter>
+  </StrictMode>,
+);

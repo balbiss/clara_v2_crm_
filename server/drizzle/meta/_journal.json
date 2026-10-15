@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792102395499,
+      "tag": "0000_inicial_schema_clara_v1",
+      "breakpoints": true
+    }
+  ]
+}

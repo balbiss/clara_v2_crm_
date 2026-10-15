@@ -1,0 +1,44 @@
+# Ambiente LOCAL do CRM Clara v2 (só pra desenvolvimento/teste — nada aqui toca a v1 em produção).
+# Portas próprias pra não colidir com os outros projetos que rodam na mesma máquina.
+name: clara-v2
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: clara
+      POSTGRES_PASSWORD: clara_dev_local
+      POSTGRES_DB: clara_v2
+    ports:
+      - "55440:5432"
+    volumes:
+      - clara_v2_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clara -d clara_v2"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Anexos (fotos, áudios, documentos) — S3-compatible, igual ao MinIO da v1.
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: clara_minio
+      MINIO_ROOT_PASSWORD: clara_dev_local_minio
+    ports:
+      - "59040:9000"
+      - "59041:9001"
+    volumes:
+      - clara_v2_miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  clara_v2_pgdata:
+  clara_v2_miniodata:

@@ -372,10 +372,10 @@ export function AppShell() {
             </div>
           )}
           {disconnected && (
-            <div style={banner('#FDECEC', '#8A1C1C')}>
+            <div style={banner('var(--terraSoft)', 'var(--terra)')}>
               <span style={{ flex: 1 }}>⚠️ O WhatsApp "{disconnected.name}" está desconectado. As mensagens não estão sendo enviadas nem recebidas.</span>
-              {role === 'diretoria' && <button onClick={() => navigate('/settings/inboxes')} style={{ padding: '6px 12px', border: 'none', borderRadius: 7, background: '#B42318', color: '#fff', fontSize: 12.5, fontWeight: 600 }}>Reconectar</button>}
-              <button onClick={() => setDismissed(prev => new Set(prev).add(disconnected.id))} style={{ border: 'none', background: 'none', color: '#8A1C1C' }}><X size={15} /></button>
+              {role === 'diretoria' && <button onClick={() => navigate('/settings/inboxes')} style={{ padding: '6px 12px', border: 'none', borderRadius: 7, background: 'var(--terra)', color: '#fff', fontSize: 12.5, fontWeight: 600 }}>Reconectar</button>}
+              <button onClick={() => setDismissed(prev => new Set(prev).add(disconnected.id))} style={{ border: 'none', background: 'none', color: 'var(--terra)' }}><X size={15} /></button>
             </div>
           )}
         </div>

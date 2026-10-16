@@ -88,3 +88,21 @@ export function Section({ title, description, children }: { title: ReactNode; de
     </div>
   )
 }
+
+/** Bloco de configurações: ícone + título + descrição, conteúdo e rodapé com as ações (padrão de Conta/Caixas). */
+export function Panel({ icon, title, description, children, footer, right }: { icon: ReactNode; title: ReactNode; description?: ReactNode; children?: ReactNode; footer?: ReactNode; right?: ReactNode }) {
+  return (
+    <section style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 14, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '20px 22px 4px' }}>
+        <span style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--terraSoft)', color: 'var(--terra)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{icon}</span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h3 style={{ fontFamily: 'Newsreader,serif', fontWeight: 400, fontSize: 20, margin: 0 }}>{title}</h3>
+          {description && <p style={{ margin: '3px 0 0', fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>{description}</p>}
+        </div>
+        {right}
+      </div>
+      {children !== undefined && children !== null && children !== false && <div style={{ padding: '16px 22px 20px' }}>{children}</div>}
+      {footer && <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 22px', borderTop: '1px solid var(--line)', background: 'var(--bg)' }}>{footer}</div>}
+    </section>
+  )
+}

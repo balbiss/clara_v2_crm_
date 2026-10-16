@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Sparkles, Upload } from 'lucide-react'
+import { useSnapshot } from 'valtio'
+import { BookOpen, Bot, ChevronLeft, RotateCcw, Settings2, ShieldCheck, Sparkles, Upload, Users } from 'lucide-react'
 import api from '../api'
 import { inboxesStore } from '../store/inboxes'
-import { btn, inputStyle, labelStyle } from '../components/ui'
-import { PageHead, Section, Switch, toast } from '../components/ui2'
+import { btn, inputStyle, labelStyle, serif } from '../components/ui'
+import { Badge, Panel, Switch, toast } from '../components/ui2'
+import { WhatsAppIcon } from '../components/WhatsAppIcon'
 import PromptGeneratorModal from '../components/PromptGeneratorModal'
 import { ChatAvatar } from '../components/ChatAvatar'
 
@@ -13,29 +15,40 @@ import { ChatAvatar } from '../components/ChatAvatar'
 // os executa entra na fase do Agente de IA.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const TABS = [
-  { id: 'settings', name: 'Configurações' }, { id: 'agents', name: 'Agentes' }, { id: 'bot', name: 'Secretária virtual' },
-  { id: 'knowledge_base', name: 'Base de conhecimento' }, { id: 'followup', name: 'Resgate (follow-up)' },
+  { id: 'settings', name: 'Configurações', icon: Settings2 }, { id: 'agents', name: 'Agentes', icon: Users }, { id: 'bot', name: 'Secretária virtual', icon: Bot },
+  { id: 'knowledge_base', name: 'Base de conhecimento', icon: BookOpen }, { id: 'followup', name: 'Resgate (follow-up)', icon: RotateCcw },
 ]
 const hint: React.CSSProperties = { fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.55, margin: '4px 0 0' }
 
+/** +55 (11) 90962-4290 */
+export const fmtPhone = (p?: string | null) => {
+  const d = (p || '').replace(/\D/g, '')
+  const m = d.match(/^(55)(\d{2})(\d{4,5})(\d{4})$/)
+  return m ? `+${m[1]} (${m[2]}) ${m[3]}-${m[4]}` : p || ''
+}
+
 function Toggle({ on, onChange, title, children }: { on: boolean; onChange: (v: boolean) => void; title: string; children?: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '14px 0', borderTop: '1px solid var(--line)' }}>
+    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '14px 16px', borderBottom: '1px solid var(--line)' }}>
+      <div style={{ flex: 1 }}><b style={{ display: 'block', fontSize: 14 }}>{title}</b>{children && <p style={hint}>{children}</p>}</div>
       <Switch on={on} onChange={onChange} />
-      <div><b style={{ display: 'block', fontSize: 14 }}>{title}</b><p style={hint}>{children}</p></div>
     </div>
   )
 }
+const toggleList = (children: React.ReactNode) => <div style={{ border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden', marginBottom: -1 }}>{children}</div>
+const aiNote = <p style={{ fontSize: 12.5, color: '#9A5B00', background: '#FFF1D6', borderRadius: 8, padding: '9px 12px', margin: '0 0 16px', lineHeight: 1.5 }}>Estas configurações já ficam salvas, mas o motor da IA ainda não está ligado nesta versão — ele entra na fase do Agente de IA.</p>
 
 export default function SettingsInboxDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const inboxes = useSnapshot(inboxesStore) as any
   const [inbox, setInbox] = useState<any>(null)
   const [tab, setTab] = useState('settings')
   const [members, setMembers] = useState<any[]>([])
   const [groups, setGroups] = useState<any[]>([])
   const [promptOpen, setPromptOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const pdfRef = useRef<HTMLInputElement>(null)
   const set = (p: any) => setInbox((i: any) => ({ ...i, ...p }))
 
@@ -43,10 +56,12 @@ export default function SettingsInboxDetail() {
     api.get(`/inboxes/${id}`).then(({ data }) => setInbox(data)).catch(() => navigate('/settings/inboxes'))
     api.get(`/inboxes/${id}/members`).then(({ data }) => setMembers(data)).catch(e => console.error(e))
     api.get('/round_robin_groups').then(({ data }) => setGroups(data)).catch(e => console.error(e))
+    if (!inboxesStore.isLoadedOnce) inboxesStore.fetchInboxes()
   }, [id, navigate])
 
   const save = async () => {
     if (inbox.followup_enabled && Number(inbox.followup_wait_time_minutes) < 10) return toast('warning', 'O tempo mínimo do follow-up é 10 minutos.')
+    setSaving(true)
     try {
       await api.put(`/inboxes/${inbox.id}`, { inbox: {
         name: inbox.name, bot_prompt: inbox.bot_prompt, ai_enabled: inbox.ai_enabled, ai_name: inbox.ai_name, ai_prompt: inbox.ai_prompt,
@@ -57,7 +72,7 @@ export default function SettingsInboxDetail() {
       } })
       toast('success', 'Configurações salvas!')
       inboxesStore.fetchInboxes()
-    } catch { toast('error', 'Não foi possível salvar.') }
+    } catch { toast('error', 'Não foi possível salvar.') } finally { setSaving(false) }
   }
   const toggleMember = async (m: any) => {
     try {
@@ -83,100 +98,129 @@ export default function SettingsInboxDetail() {
   }
 
   if (!inbox) return <p style={{ color: 'var(--muted)' }}>Carregando…</p>
-  const field = (label: React.ReactNode, node: React.ReactNode, h?: React.ReactNode) => <div style={{ marginBottom: 16 }}><span style={labelStyle}>{label}</span>{node}{h && <p style={hint}>{h}</p>}</div>
-  const aiNote = <p style={{ fontSize: 12.5, color: '#9A5B00', background: '#FFF1D6', borderRadius: 8, padding: '8px 12px', margin: '0 0 16px' }}>Estas configurações já ficam salvas, mas o motor da IA ainda não está ligado nesta versão — ele entra na fase do Agente de IA.</p>
+  const field = (label: React.ReactNode, node: React.ReactNode, h?: React.ReactNode) => <label style={{ display: 'block', minWidth: 0 }}><span style={labelStyle}>{label}</span>{node}{h && <p style={hint}>{h}</p>}</label>
+  const saveBtn = (label: string) => <button onClick={save} disabled={saving} style={btn('primary')}>{saving ? 'Salvando…' : label}</button>
+  const connected = inboxes.inboxes.find((i: any) => i.id === inbox.id)?.connected
+  const memberCount = members.filter(m => m.is_member).length
 
   return (
-    <div>
-      <button onClick={() => navigate('/settings/inboxes')} style={{ ...btn('ghost'), marginBottom: 14, padding: '6px 12px' }}><ChevronLeft size={14} /> Caixas de entrada</button>
-      <PageHead title={`${inbox.name}${inbox.phone_number ? ` (${inbox.phone_number})` : ''}`} />
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--line)', marginBottom: 20, overflowX: 'auto' }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: '10px 16px', border: 'none', background: 'none', fontSize: 13.5, fontWeight: tab === t.id ? 700 : 500, color: tab === t.id ? 'var(--terra)' : 'var(--muted)', boxShadow: tab === t.id ? 'inset 0 -2px 0 var(--terra)' : 'none', whiteSpace: 'nowrap' }}>{t.name}</button>
-        ))}
+    <div style={{ maxWidth: 900 }}>
+      <button onClick={() => navigate('/settings/inboxes')} style={{ border: 'none', background: 'none', color: 'var(--muted)', fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, marginBottom: 14 }}><ChevronLeft size={15} /> Caixas de entrada</button>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 14, padding: '18px 22px', marginBottom: 18 }}>
+        <span style={{ width: 54, height: 54, borderRadius: 14, background: '#E8F8EE', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><WhatsAppIcon size={32} /></span>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <h1 style={{ ...serif, fontSize: 28, margin: 0, lineHeight: 1.15 }}>{inbox.name}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 6, fontSize: 13, color: 'var(--muted)' }}>
+            <span>{fmtPhone(inbox.phone_number) || 'Sem número'}</span>
+            <Badge tone={connected === true ? 'green' : connected === false ? 'red' : 'muted'}>{connected === true ? 'Conectado' : connected === false ? 'Desconectado' : 'Verificando…'}</Badge>
+            {inbox.restrict_by_portfolio && <Badge tone="blue">Por carteira</Badge>}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 22, fontSize: 12, color: 'var(--muted)' }}>
+          <span><b style={{ display: 'block', fontSize: 20, color: 'var(--ink)' }}>{memberCount}</b>com acesso</span>
+          <span><b style={{ display: 'block', fontSize: 20, color: inbox.ai_enabled ? 'var(--plantao)' : 'var(--ink)' }}>{inbox.ai_enabled ? 'Ligada' : 'Desligada'}</b>secretária IA</span>
+        </div>
       </div>
 
-      <div style={{ maxWidth: 760 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
+        {TABS.map(t => {
+          const on = tab === t.id
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 20, border: '1px solid ' + (on ? 'var(--terra)' : 'var(--line)'), background: on ? 'var(--terra)' : 'var(--card)', color: on ? '#fff' : 'var(--ink)', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+              <t.icon size={14} /> {t.name}
+            </button>
+          )
+        })}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {tab === 'settings' && (
-          <Section title="Configurações da caixa">
-            {field('Nome da caixa de entrada', <input value={inbox.name || ''} onChange={e => set({ name: e.target.value })} style={inputStyle} />)}
-            {field('Provedor de API', <input value="WAHA (WhatsApp)" disabled style={{ ...inputStyle, color: 'var(--muted)' }} />)}
-            {groups.length > 0 && field('Grupo de rodízio', (
-              <select value={inbox.round_robin_group_id ?? ''} onChange={e => set({ round_robin_group_id: e.target.value ? Number(e.target.value) : null })} style={inputStyle}>
-                <option value="">Sem grupo (rodízio com todas as consultoras da conta)</option>
-                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
-            ), 'Leads que chegarem por este número vão só para as consultoras deste grupo.')}
-            <Toggle on={!!inbox.restrict_by_portfolio} onChange={v => set({ restrict_by_portfolio: v })} title="Restringir por carteira">
-              Ligado: quem tem acesso a esta caixa só vê as conversas das revendedoras que já são da carteira da pessoa, ou que ainda não têm responsável. Desligado: quem tem acesso vê todas as conversas da caixa (use assim em caixas como Marketing ou Gerência).
-            </Toggle>
-            <Toggle on={!!inbox.sign_messages} onChange={v => set({ sign_messages: v })} title="Assinar mensagens com o nome de quem respondeu">
-              Ligado: a revendedora recebe o primeiro nome de quem respondeu em negrito, em cima da mensagem (ex.: <b>*Bel:*</b>). Vale só para mensagens digitadas no CRM — respostas da IA, follow-up e mensagens agendadas não são assinadas.
-            </Toggle>
-            <button onClick={save} style={btn('primary', { marginTop: 12 })}>Atualizar</button>
-          </Section>
+          <>
+            <Panel icon={<Settings2 size={19} />} title="Identificação" description="Nome que a equipe vê na lista de conversas e o número conectado." footer={saveBtn('Salvar alterações')}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+                {field('Nome da caixa de entrada', <input value={inbox.name || ''} onChange={e => set({ name: e.target.value })} style={inputStyle} />)}
+                {field('Provedor', <input value="WhatsApp (não oficial)" disabled style={{ ...inputStyle, color: 'var(--muted)', cursor: 'not-allowed' }} />)}
+              </div>
+              {groups.length > 0 && <div style={{ marginTop: 14 }}>{field('Grupo de rodízio', (
+                <select value={inbox.round_robin_group_id ?? ''} onChange={e => set({ round_robin_group_id: e.target.value ? Number(e.target.value) : null })} style={inputStyle}>
+                  <option value="">Sem grupo (rodízio com todas as consultoras da conta)</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              ), 'Leads que chegarem por este número vão só para as consultoras deste grupo.')}</div>}
+            </Panel>
+            <Panel icon={<ShieldCheck size={19} />} title="Regras de atendimento" description="Quem enxerga o quê e como as mensagens saem para a revendedora." footer={saveBtn('Salvar alterações')}>
+              {toggleList(<>
+                <Toggle on={!!inbox.restrict_by_portfolio} onChange={v => set({ restrict_by_portfolio: v })} title="Restringir por carteira">
+                  Ligado: quem tem acesso a esta caixa só vê as conversas das revendedoras da própria carteira, ou que ainda não têm responsável. Desligado: vê todas as conversas da caixa (use assim em caixas como Marketing ou Gerência).
+                </Toggle>
+                <Toggle on={!!inbox.sign_messages} onChange={v => set({ sign_messages: v })} title="Assinar mensagens com o nome de quem respondeu">
+                  A revendedora recebe o primeiro nome de quem respondeu em negrito, em cima da mensagem (ex.: <b>*Bel:*</b>). Só vale para mensagens digitadas no CRM — IA, follow-up e mensagens agendadas não são assinadas.
+                </Toggle>
+              </>)}
+            </Panel>
+          </>
         )}
 
         {tab === 'agents' && (
-          <Section title="Gerenciar acesso" description="Quais pessoas podem ver e responder mensagens por esta caixa de entrada.">
+          <Panel icon={<Users size={19} />} title="Gerenciar acesso" description={`Quais pessoas podem ver e responder mensagens por esta caixa — ${memberCount} de ${members.length} com acesso.`}>
             <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
               {members.map(m => (
                 <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: '1px solid var(--line)', background: 'var(--card)' }}>
-                  <ChatAvatar nome={m.name || m.email || '?'} size={32} />
+                  <ChatAvatar nome={m.name || m.email || '?'} size={34} />
                   <span style={{ flex: 1, minWidth: 0 }}><b style={{ display: 'block', fontSize: 13.5 }}>{m.name || 'Sem nome'}</b><span style={{ fontSize: 12, color: 'var(--muted)' }}>{m.email}</span></span>
-                  <button onClick={() => toggleMember(m)} style={btn(m.is_member ? 'ghost' : 'soft', { padding: '6px 12px', fontSize: 12.5, color: m.is_member ? '#B42318' : undefined })}>{m.is_member ? 'Remover' : 'Adicionar'}</button>
+                  {m.is_member && <Badge tone="green">Com acesso</Badge>}
+                  <Switch on={!!m.is_member} onChange={() => toggleMember(m)} />
                 </div>
               ))}
               {members.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', margin: 0 }}>Nenhum agente encontrado nesta conta.</p>}
             </div>
-          </Section>
+          </Panel>
         )}
 
         {tab === 'bot' && (
-          <Section title="Secretária virtual">
+          <Panel icon={<Bot size={19} />} title="Secretária virtual" description="A inteligência artificial que atende as revendedoras por esta caixa." footer={saveBtn('Salvar configurações da IA')}>
             {aiNote}
-            <Toggle on={!!inbox.ai_enabled} onChange={v => set({ ai_enabled: v })} title="Ativar secretária virtual autônoma">Se ativado, a inteligência artificial assume as conversas desta caixa.</Toggle>
+            {toggleList(<Toggle on={!!inbox.ai_enabled} onChange={v => set({ ai_enabled: v })} title="Ativar secretária virtual autônoma">Se ativado, a inteligência artificial assume as conversas desta caixa.</Toggle>)}
             {inbox.ai_enabled && (
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {field('Nome da secretária', <input value={inbox.ai_name || ''} onChange={e => set({ ai_name: e.target.value })} placeholder="Ex.: Ana, Júlia, Assistente Virtual" style={inputStyle} />)}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ ...labelStyle, marginBottom: 0 }}>Prompt de comportamento</span>
-                  <button onClick={() => setPromptOpen(true)} style={btn('soft', { padding: '5px 10px', fontSize: 12 })}><Sparkles size={13} /> Criar prompt com IA</button>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ ...labelStyle, marginBottom: 0 }}>Prompt de comportamento</span>
+                    <button onClick={() => setPromptOpen(true)} style={btn('soft', { padding: '5px 10px', fontSize: 12 })}><Sparkles size={13} /> Criar prompt com IA</button>
+                  </div>
+                  <textarea value={inbox.ai_prompt || ''} onChange={e => set({ ai_prompt: e.target.value })} rows={12} placeholder="Instrua a IA: como agir, tom de voz, regras de negócio e limites de atendimento…" style={{ ...inputStyle, resize: 'vertical' }} />
                 </div>
-                <textarea value={inbox.ai_prompt || ''} onChange={e => set({ ai_prompt: e.target.value })} rows={12} placeholder="Instrua a IA: como agir, tom de voz, regras de negócio e limites de atendimento…" style={{ ...inputStyle, resize: 'vertical' }} />
               </div>
             )}
-            <button onClick={save} style={btn('primary', { marginTop: 18 })}>Salvar configurações da IA</button>
-          </Section>
+          </Panel>
         )}
 
         {tab === 'knowledge_base' && (
-          <Section title="Base de conhecimento" description="Informações da empresa (políticas, catálogo, perguntas frequentes) que a secretária consulta para responder. Cole o texto ou envie um PDF — o texto extraído entra abaixo para você revisar antes de salvar.">
+          <Panel icon={<BookOpen size={19} />} title="Base de conhecimento" description="Políticas, catálogo e perguntas frequentes que a secretária consulta. Cole o texto ou envie um PDF — o texto extraído entra abaixo para você revisar antes de salvar."
+            right={<><button disabled={uploading} onClick={() => pdfRef.current?.click()} style={btn('soft', { padding: '7px 12px', fontSize: 12.5 })}><Upload size={13} /> {uploading ? 'Extraindo…' : 'Enviar PDF'}</button><input ref={pdfRef} type="file" accept="application/pdf" hidden onChange={uploadPdf} /></>}
+            footer={saveBtn('Salvar base de conhecimento')}>
             {aiNote}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ ...labelStyle, marginBottom: 0 }}>Conteúdo</span>
-              <button disabled={uploading} onClick={() => pdfRef.current?.click()} style={btn('soft', { padding: '5px 10px', fontSize: 12 })}><Upload size={13} /> {uploading ? 'Extraindo…' : 'Enviar PDF'}</button>
-              <input ref={pdfRef} type="file" accept="application/pdf" hidden onChange={uploadPdf} />
-            </div>
             <textarea value={inbox.knowledge_base || ''} onChange={e => set({ knowledge_base: e.target.value })} rows={16} placeholder="Ex.: horário de atendimento, política de trocas, formas de pagamento, catálogo, perguntas frequentes…" style={{ ...inputStyle, resize: 'vertical' }} />
-            <button onClick={save} style={btn('primary', { marginTop: 14 })}>Salvar base de conhecimento</button>
-          </Section>
+          </Panel>
         )}
 
         {tab === 'followup' && (
-          <Section title="Resgate automático (follow-up)">
+          <Panel icon={<RotateCcw size={19} />} title="Resgate automático (follow-up)" description="A IA chama quem parou de responder, depois do tempo definido." footer={saveBtn('Salvar configurações de resgate')}>
             {aiNote}
-            <Toggle on={!!inbox.followup_enabled} onChange={v => set({ followup_enabled: v })} title="Ativar agente de resgate">A IA chama quem abandonou a conversa, depois do tempo definido.</Toggle>
+            {toggleList(<Toggle on={!!inbox.followup_enabled} onChange={v => set({ followup_enabled: v })} title="Ativar agente de resgate">A IA chama quem abandonou a conversa, depois do tempo definido.</Toggle>)}
             {inbox.followup_enabled && (
-              <div style={{ marginTop: 8 }}>
-                {field('Tempo de espera sem resposta (minutos)', <input type="number" min={10} value={inbox.followup_wait_time_minutes ?? ''} onChange={e => set({ followup_wait_time_minutes: e.target.value })} placeholder="120" style={inputStyle} />, 'Ex.: 120 para esperar 2 horas antes de agir. Mínimo 10.')}
-                {field('Máximo de tentativas', <input type="number" min={1} max={10} value={inbox.followup_max_attempts ?? ''} onChange={e => set({ followup_max_attempts: e.target.value })} placeholder="3" style={inputStyle} />, 'Passado esse limite o contato é marcado como frio e o fluxo encerra.')}
-                <Toggle on={!!inbox.followup_send_closing_message} onChange={v => set({ followup_send_closing_message: v })} title="Mensagem de encerramento">Enviar uma última mensagem avisando que o atendimento será encerrado por falta de resposta.</Toggle>
-                {inbox.followup_send_closing_message && <textarea value={inbox.followup_closing_message || ''} onChange={e => set({ followup_closing_message: e.target.value })} rows={4} placeholder="Ex.: Como não tivemos retorno, estou encerrando seu atendimento por aqui. Se precisar, é só chamar! 😊" style={{ ...inputStyle, resize: 'vertical' }} />}
+              <div style={{ marginTop: 18 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 16 }}>
+                  {field('Tempo sem resposta (minutos)', <input type="number" min={10} value={inbox.followup_wait_time_minutes ?? ''} onChange={e => set({ followup_wait_time_minutes: e.target.value })} placeholder="120" style={inputStyle} />, 'Ex.: 120 para esperar 2 horas. Mínimo 10.')}
+                  {field('Máximo de tentativas', <input type="number" min={1} max={10} value={inbox.followup_max_attempts ?? ''} onChange={e => set({ followup_max_attempts: e.target.value })} placeholder="3" style={inputStyle} />, 'Depois disso o contato é marcado como frio.')}
+                </div>
+                {toggleList(<Toggle on={!!inbox.followup_send_closing_message} onChange={v => set({ followup_send_closing_message: v })} title="Mensagem de encerramento">Enviar uma última mensagem avisando que o atendimento será encerrado por falta de resposta.</Toggle>)}
+                {inbox.followup_send_closing_message && <textarea value={inbox.followup_closing_message || ''} onChange={e => set({ followup_closing_message: e.target.value })} rows={4} placeholder="Ex.: Como não tivemos retorno, estou encerrando seu atendimento por aqui. Se precisar, é só chamar! 😊" style={{ ...inputStyle, resize: 'vertical', marginTop: 12 }} />}
               </div>
             )}
-            <button onClick={save} style={btn('primary', { marginTop: 18 })}>Salvar configurações de resgate</button>
-          </Section>
+          </Panel>
         )}
       </div>
 

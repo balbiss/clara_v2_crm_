@@ -1,88 +1,94 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import './index.css';
-import { AppShell } from './components/AppShell';
-import { RequireAuth } from './components/RequireAuth';
-import { RequirePlataforma } from './components/RequirePlataforma';
-import { useAppStore } from './store/appStore';
-import { usePlataformaStore } from './store/plataformaStore';
-import Login from './pages/Login';
-import PlataformaLogin from './pages/plataforma/PlataformaLogin';
-import PlataformaShell from './pages/plataforma/PlataformaShell';
-import PlataformaResumo from './pages/plataforma/PlataformaResumo';
-import PlataformaImobiliarias from './pages/plataforma/PlataformaImobiliarias';
-import Dashboard from './pages/Dashboard';
-import Kanban from './pages/Kanban';
-import Conversas from './pages/Conversas';
-import Clientes from './pages/Clientes';
-import Imoveis from './pages/Imoveis';
-import Roleta from './pages/Roleta';
-import Bolsao from './pages/Bolsao';
-import Followup from './pages/Followup';
-import Credito from './pages/Credito';
-import Agenda from './pages/Agenda';
-import Equipe from './pages/Equipe';
-import Relatorios from './pages/Relatorios';
-import Manual from './pages/Manual';
-import Integracoes from './pages/Integracoes';
-import AvisosCorretor from './pages/AvisosCorretor';
-import AgenteIa from './pages/AgenteIa';
-import Importacoes from './pages/Importacoes';
-import SiteImoveis from './pages/SiteImoveis';
-import Templates from './pages/Templates';
-import LinksUteis from './pages/LinksUteis';
-import Treinamentos from './pages/Treinamentos';
-import Configuracoes from './pages/Configuracoes';
-import Denied from './pages/Denied';
-import SitePublico from './pages/site/SitePublico';
+import { StrictMode, Suspense, lazy, type ReactNode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import './styles/global.scss'
+import { FULL_PORTFOLIO_ROLES, CRITICAL_CONFIG_ROLES } from './config/roles'
+import { readUser } from './lib/hooks'
+import ComingSoon from './pages/ComingSoon'
 
-useAppStore.getState().hydrateAuth();
-usePlataformaStore.getState().hydrate();
+const Login = lazy(() => import('./pages/Login'))
+const DashboardLayout = lazy(() => import('./pages/DashboardLayout'))
+const Conversas = lazy(() => import('./pages/Conversas'))
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+// Mesmas regras do router/index.js da v1 (beforeEach).
+const FINANCE_BLOCKED = ['/carteira', '/tarefas']
+
+function Guard({ children, fullPortfolio, criticalConfig }: { children: ReactNode; fullPortfolio?: boolean; criticalConfig?: boolean }) {
+  const { pathname } = useLocation()
+  if (!localStorage.getItem('auth_token')) return <Navigate to="/login" replace />
+  const user = readUser()
+  if (fullPortfolio && user?.role && !FULL_PORTFOLIO_ROLES.includes(user.role)) return <Navigate to="/dashboard" replace />
+  if (criticalConfig && user?.role && !CRITICAL_CONFIG_ROLES.includes(user.role)) return <Navigate to="/dashboard" replace />
+  if (user?.role === 'financeiro' && FINANCE_BLOCKED.includes(pathname)) return <Navigate to="/inativas" replace />
+  return <>{children}</>
+}
+
+const emMigracao = (title: string) => <ComingSoon title={title} description="Tela em migração para a v2 — ainda não portada." />
+const g = (el: ReactNode, opts: { fullPortfolio?: boolean; criticalConfig?: boolean } = {}) => <Guard {...opts}>{el}</Guard>
+
+function App() {
+  return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/s/:slug" element={<SitePublico />} />
-        <Route path="/plataforma/login" element={<PlataformaLogin />} />
-        <Route element={<RequirePlataforma />}>
-          <Route path="/plataforma" element={<PlataformaShell />}>
-            <Route index element={<PlataformaResumo />} />
-            <Route path="imobiliarias" element={<PlataformaImobiliarias />} />
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={emMigracao('Esqueci a senha')} />
+          <Route path="/users/password/edit" element={emMigracao('Redefinir senha')} />
+          <Route path="/" element={g(<DashboardLayout />)}>
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={g(emMigracao('Início'))} />
+            <Route path="carteira" element={g(emMigracao('Minhas Revendedoras'))} />
+            <Route path="inativas" element={g(emMigracao('Inativas'))} />
+            <Route path="atacado" element={g(emMigracao('Atacado'))} />
+            <Route path="pedidos-pendentes" element={g(emMigracao('Pedidos Pendentes'))} />
+            <Route path="tarefas" element={g(emMigracao('Tarefas'))} />
+            <Route path="gerencial" element={g(emMigracao('Gerencial'), { fullPortfolio: true })} />
+            <Route path="atividades" element={g(emMigracao('Atividades'), { criticalConfig: true })} />
+            <Route path="conversas" element={g(<Conversas />)} />
+            <Route path="conversas/inbox/:inboxId" element={g(<Conversas />)} />
+            <Route path="conversas/:filter" element={g(<Conversas />)} />
+            <Route path="chat-equipe" element={g(emMigracao('Chat da Equipe'))} />
+            <Route path="contatos" element={g(emMigracao('Contatos'))} />
+            <Route path="contatos/:id" element={g(emMigracao('Detalhe do contato'))} />
+            <Route path="pipelines/todos-leads" element={g(emMigracao('Todos os leads'), { fullPortfolio: true })} />
+            <Route path="pipelines/:slug" element={g(emMigracao('Pipeline'), { fullPortfolio: true })} />
+            <Route path="pipelines/:slug/automatize" element={g(emMigracao('Automação do pipeline'), { criticalConfig: true })} />
+            <Route path="calendario" element={g(emMigracao('Calendário'))} />
+            <Route path="automacoes" element={g(<ComingSoon title="Automações" description="Regras automáticas de tarefas e mensagens — ainda não disponível." />, { criticalConfig: true })} />
+            <Route path="fluxos" element={g(emMigracao('Fluxos'), { criticalConfig: true })} />
+            <Route path="fluxos/novo" element={g(emMigracao('Novo fluxo'), { criticalConfig: true })} />
+            <Route path="fluxos/:id" element={g(emMigracao('Construtor de fluxo'), { criticalConfig: true })} />
+            <Route path="agentes" element={g(emMigracao('Agentes'), { criticalConfig: true })} />
+            <Route path="agentes/novo" element={g(emMigracao('Novo agente'), { criticalConfig: true })} />
+            <Route path="agentes/:id/editar" element={g(emMigracao('Editar agente'), { criticalConfig: true })} />
+            <Route path="settings/inboxes" element={g(emMigracao('Caixas de Entrada'), { criticalConfig: true })} />
+            <Route path="settings/inboxes/new" element={g(emMigracao('Nova caixa'), { criticalConfig: true })} />
+            <Route path="settings/inboxes/:id" element={g(emMigracao('Caixa de entrada'), { criticalConfig: true })} />
+            <Route path="settings/account" element={g(emMigracao('Conta'), { criticalConfig: true })} />
+            <Route path="settings/tags" element={g(emMigracao('Etiquetas'), { criticalConfig: true })} />
+            <Route path="settings/times-de-vendas" element={g(emMigracao('Times de Vendas'), { fullPortfolio: true })} />
+            <Route path="settings/campos-contato" element={g(emMigracao('Campos do Contato'), { criticalConfig: true })} />
+            <Route path="settings/modelos-mensagem" element={g(emMigracao('Modelos de Mensagem'), { criticalConfig: true })} />
+            <Route path="funil" element={g(emMigracao('Consignado'))} />
+            <Route path="funil/automatize" element={g(emMigracao('Automação da régua'), { criticalConfig: true })} />
+            <Route path="relatorios" element={g(emMigracao('Relatórios'), { fullPortfolio: true })} />
+            <Route path="manual" element={g(emMigracao('Manual'))} />
           </Route>
-        </Route>
-        <Route element={<RequireAuth />}>
-        <Route path="/" element={<AppShell />}>
-          <Route index element={<Navigate to="/dash" replace />} />
-          <Route path="dash" element={<Dashboard />} />
-          <Route path="kanban" element={<Kanban />} />
-          <Route path="conversas" element={<Conversas />} />
-          <Route path="clientes" element={<Clientes />} />
-          <Route path="imoveis" element={<Imoveis />} />
-          <Route path="credito" element={<Credito />} />
-          <Route path="agenda" element={<Agenda />} />
-          <Route path="roleta" element={<Roleta />} />
-          <Route path="rebatidas" element={<Bolsao />} />
-          <Route path="followup" element={<Followup />} />
-          <Route path="templates" element={<Templates />} />
-          <Route path="integracoes" element={<Integracoes />} />
-          <Route path="avisos-corretor" element={<AvisosCorretor />} />
-          <Route path="agente-ia" element={<AgenteIa />} />
-          <Route path="importacoes" element={<Importacoes />} />
-          <Route path="site" element={<SiteImoveis />} />
-          <Route path="links-uteis" element={<LinksUteis />} />
-          <Route path="treinamentos" element={<Treinamentos />} />
-          <Route path="equipe" element={<Equipe />} />
-          <Route path="denied" element={<Denied />} />
-          <Route path="relatorios" element={<Relatorios />} />
-          <Route path="manual" element={<Manual />} />
-          <Route path="configuracoes" element={<Configuracoes />} />
-        </Route>
-        </Route>
-        <Route path="*" element={<Navigate to="/dash" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
-  </StrictMode>,
-);
+  )
+}
+
+createRoot(document.getElementById('app')!).render(<StrictMode><App /></StrictMode>)
+
+// novo service worker assumiu (nova versão publicada): recarrega uma vez
+if ('serviceWorker' in navigator) {
+  let reloading = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return
+    reloading = true
+    window.location.reload()
+  })
+}

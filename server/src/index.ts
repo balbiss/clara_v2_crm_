@@ -17,6 +17,7 @@ import { webhooksRouter } from './routes/webhooks.js';
 import { basicsRouter } from './routes/basics.js';
 import { contactsRouter } from './routes/contacts.js';
 import { salesTeamsRouter } from './routes/salesTeams.js';
+import { internalMessagesRouter } from './routes/internalMessages.js';
 import { startJobs } from './jobs/index.js';
 
 const app = express();
@@ -32,6 +33,7 @@ app.use(conversationsRouter);
 app.use(inboxesRouter);
 app.use(contactsRouter);
 app.use(salesTeamsRouter);
+app.use(internalMessagesRouter);
 app.use(basicsRouter);
 
 const httpServer = http.createServer(app);

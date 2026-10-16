@@ -119,6 +119,9 @@ export async function formatConversations(convs: Conversation[], accountId: numb
         neighborhood: c.neighborhood, state: c.state, address_number: c.addressNumber,
         address_complement: c.addressComplement, custom_attributes: c.customAttributes,
         pecas_abertas_atual: c.pecasAbertasAtual,
+        // a v1 não mandava estes: "Editar campos" salvava o responsável como vazio (apagava a
+        // carteira) e Data de cadastro / Nível / Dias na etapa ficavam sempre "..." no painel
+        user_id: c.userId, nivel: c.nivel, created_at: c.createdAt, status_changed_at: c.statusChangedAt,
         pedidos: (pedidosBy.get(c.id) ?? []).map(p => ({
           id: p.id, jueri_pedido_id: p.jueriPedidoId, data_criacao: p.dataCriacao, data_baixa: p.dataBaixa,
           data_cancelamento: p.dataCancelamento, quantidade: p.quantidade, valor_total: p.valorTotal, status_id: p.statusId,

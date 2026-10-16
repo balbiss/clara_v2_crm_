@@ -1,0 +1,54 @@
+// GERADO de C:\Users\inoov\crm_clara_ferreira_pro\frontend\src\components\ConversationSortPopover.vue (Clara v1) — não editar à mão; rode tools/vue-style.mjs
+
+.vs-ConversationSortPopover {
+
+.sort-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  width: 250px;
+  max-width: calc(100vw - 2rem);
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-color);
+  padding: 1rem;
+  z-index: 100;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sort-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sort-row label {
+  font-size: 0.9rem;
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.sort-select {
+  padding: 0.4rem 0.5rem;
+  border: none;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.04);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  min-width: 130px;
+}
+
+.sort-select:hover {
+  background: rgba(0,0,0,0.08);
+}
+
+
+}

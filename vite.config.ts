@@ -2,39 +2,49 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vite.dev/config/
+// Mesmo PWA da Clara v1 (manifest, ícones e service worker com push).
 export default defineConfig({
-  // Porta fixa e própria deste projeto — o CRM Hinode (projeto irmão) roda na 5173.
-  server: { port: 5175, strictPort: true },
+  server: { port: 5183, strictPort: true },
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
-      includeAssets: ['icon-192.png', 'icon-512.png', 'push-sw.js', 'favicon.svg'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icons.svg'],
       manifest: {
-        name: 'Visita IA — CRM',
-        short_name: 'Visita IA',
-        description: 'CRM para incorporadoras e imobiliárias de alto padrão.',
-        theme_color: '#0A0F1A',
-        background_color: '#F2F5FA',
+        name: 'Clara Ferreira CRM',
+        short_name: 'ClaraCRM',
+        description: 'CRM de relacionamento — conversas, revendedoras e régua consignada em um só lugar.',
+        theme_color: '#d49ba7',
+        background_color: '#0f172a',
         display: 'standalone',
-        start_url: '/login',
+        orientation: 'portrait',
+        start_url: '/dashboard',
         scope: '/',
+        lang: 'pt-BR',
+        categories: ['business', 'productivity'],
         icons: [
-          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
-          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
-      },
-      workbox: {
-        navigateFallback: '/index.html',
-        globPatterns: ['**/*.{js,css,html,png,svg}'],
-        importScripts: ['/push-sw.js'],
-      },
-      devOptions: {
-        enabled: true,
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (id.includes('react') || id.includes('zustand')) return 'vendor-react'
+          if (id.includes('chart.js')) return 'vendor-charts'
+          if (id.includes('sweetalert2') || id.includes('lucide')) return 'vendor-ui'
+          if (id.includes('axios') || id.includes('socket.io')) return 'vendor-net'
+        },
+      },
+    },
+  },
 })

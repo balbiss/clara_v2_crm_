@@ -1,0 +1,34 @@
+import { chromium } from 'playwright-core'
+
+const out = 'C:/Users/inoov/AppData/Local/Temp/claude/C--Users-inoov/caf96043-0d6d-453a-abc9-20a9814ff2eb/scratchpad/'
+const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true })
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+const errors = []
+page.on('pageerror', e => errors.push('pageerror: ' + e.message))
+page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()) })
+
+await page.goto('http://localhost:5183/login')
+await page.waitForSelector('#email')
+await page.screenshot({ path: out + 'ui-1-login.png' })
+await page.fill('#email', 'diretoria@teste.local')
+await page.fill('#password', '123456')
+await page.click('button[type=submit]')
+await page.waitForURL('**/dashboard', { timeout: 15000 })
+await page.goto('http://localhost:5183/conversas')
+try { await page.waitForSelector('.conv-list', { timeout: 15000 }) } catch (e) { await page.screenshot({ path: out + 'ui-err.png' }); console.log('ERROS:', errors.join(' | ')); console.log((await page.content()).slice(0, 1500)); process.exit(1) }
+await page.waitForTimeout(2500)
+await page.screenshot({ path: out + 'ui-2-conversas.png' })
+
+const items = await page.$$('.conv-item')
+console.log('conversas na lista:', items.length)
+if (items.length) {
+  await items[0].click()
+  await page.waitForTimeout(1500)
+  await page.fill('.chat-input-area textarea', 'Teste pela tela v2 ' + new Date().toLocaleTimeString())
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(1500)
+  console.log('mensagens no chat:', await page.$$eval('.message-wrapper', els => els.length))
+  await page.screenshot({ path: out + 'ui-3-chat.png' })
+}
+console.log('ERROS:', errors.length ? errors.join('\n') : 'nenhum')
+await browser.close()

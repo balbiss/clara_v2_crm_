@@ -1,0 +1,139 @@
+// GERADO de C:\Users\inoov\crm_clara_ferreira_pro\frontend\src\components\NewConversationModal.vue (Clara v1) — não editar à mão; rode tools/vue-style.mjs
+
+.vs-NewConversationModal {
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 450px;
+  max-width: 90%;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #1a1a1a;
+}
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #666;
+}
+.description {
+  color: #4a5568;
+  font-size: 0.95rem;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.form-group {
+  margin-bottom: 4px;
+}
+.contact-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.icon-xs {
+  width: 16px;
+  height: 16px;
+}
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: #a0aec0;
+}
+.contact-search input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+.contact-search input:focus {
+  outline: none;
+  border-color: #cc0066;
+}
+.search-status {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #718096;
+}
+.btn-novo-numero {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #ff007f;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.btn-novo-numero:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.search-hint {
+  display: block;
+  margin-top: 4px;
+}
+.contact-results {
+  margin-top: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.contact-result-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #f1f1f1;
+  cursor: pointer;
+  text-align: left;
+}
+.contact-result-item:last-child {
+  border-bottom: none;
+}
+.contact-result-item:hover {
+  background: #fdf2f8;
+}
+.contact-result-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.contact-result-name {
+  font-weight: 500;
+  color: #1a1a1a;
+  font-size: 0.9rem;
+}
+.contact-result-phone {
+  font-size: 0.8rem;
+  color: #718096;
+}
+
+
+}

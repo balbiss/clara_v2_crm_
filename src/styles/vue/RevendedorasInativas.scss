@@ -1,0 +1,193 @@
+// GERADO de C:\Users\inoov\crm_clara_ferreira_pro\frontend\src\views\RevendedorasInativas.vue (Clara v1) — não editar à mão; rode tools/vue-style.mjs
+
+.vs-RevendedorasInativas {
+
+.revendedoras-page {
+  // Padding lateral enxuto (mesmo ajuste da tela Ativas) — cada cm de
+  // largura conta pra tabela caber sem cortar coluna.
+  padding: 1.25rem 0.9rem;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.page-header {
+  margin-bottom: 1.25rem;
+
+  h1 { font-size: 1.35rem; font-weight: 700; color: var(--text-main); }
+  p { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  min-width: 260px;
+
+  .icon-sm { width: 16px; height: 16px; color: var(--text-muted); }
+
+  input {
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    flex: 1;
+  }
+}
+
+.stage-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.stage-chip {
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover { background: var(--bg-hover); }
+  &.active { background: var(--primary-hover); border-color: var(--primary-hover); color: white; }
+}
+
+.table-wrapper {
+  background: var(--bg-secondary);
+  // Sem borda/raio lateral — deixa a tabela usar a largura disponível
+  // até a borda da tela em vez de ficar "encaixotada" (mesmo ajuste da
+  // tela Ativas).
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  overflow-x: hidden;
+}
+
+.revendedoras-table {
+  // table-layout: fixed + largura % por coluna + quebra de linha (em vez
+  // de nowrap) — garante que as 7 colunas cabem na tela sem cortar
+  // "Motivo"/"Atualizado" pra fora da área visível, sem precisar de zoom
+  // out nem rolagem horizontal (mesmo pedido resolvido na tela Ativas).
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+
+  thead th {
+    text-align: left;
+    padding: 0.6rem 0.6rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    // Quebra só entre palavras, nunca no meio delas.
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+
+  .cell-name { width: 24%; }
+  .cell-status { width: 13%; }
+  .cell-tel { width: 14%; }
+  .cell-cidade { width: 12%; }
+  .cell-resp { width: 14%; }
+  .cell-motivo { width: 15%; }
+  .cell-data { width: 8%; }
+
+  tbody tr {
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--border-color);
+
+    &:hover { background: var(--bg-hover); }
+    &:last-child { border-bottom: none; }
+  }
+
+  td {
+    padding: 0.55rem 0.6rem;
+    color: var(--text-main);
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+
+  td.cell-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+
+  .row-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #6b7280;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+}
+
+.status-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  white-space: nowrap;
+
+  &.status-sem_maleta { background: #e0e7ff; color: #3730a3; }
+  &.status-inativa_pendencia { background: #fef3c7; color: #92400e; }
+  &.status-suspensa_atraso { background: #fee2e2; color: #991b1b; }
+  &.status-negativado_juridico { background: #1f2937; color: #f9fafb; }
+  &.status-resgate { background: #fecaca; color: #7f1d1d; }
+  &.status-reativacao { background: #d1fae5; color: #065f46; }
+  &.status-descadastrada { background: #e5e7eb; color: #4b5563; }
+}
+
+.empty-state {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+
+  .empty-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: var(--bg-tertiary);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+  }
+
+  h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem; }
+  p { font-size: 0.85rem; }
+}
+
+
+}

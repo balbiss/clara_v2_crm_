@@ -1,0 +1,50 @@
+// GERADO de C:\Users\inoov\crm_clara_ferreira_pro\frontend\src\views\TodosLeadsView.vue (Clara v1) — não editar à mão; rode tools/vue-style.mjs
+
+.vs-TodosLeadsView {
+
+.page-container { padding: 1.5rem 2rem; height: 100%; overflow-y: auto; }
+
+.page-header {
+  margin-bottom: 1.25rem;
+  h1 { font-size: 1.35rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; .h-icon { width: 20px; height: 20px; color: var(--primary); } }
+  p { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+}
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+
+.search-box {
+  display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary);
+  border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem 0.75rem; min-width: 260px;
+  .icon-sm { width: 16px; height: 16px; color: var(--text-muted); }
+  input { border: none; outline: none; background: transparent; color: var(--text-main); font-size: 0.85rem; flex: 1; }
+}
+
+.pipeline-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chip {
+  padding: 0.4rem 0.75rem; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-secondary);
+  color: var(--text-muted); font-size: 0.78rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  &:hover { background: var(--bg-hover); }
+  &.active { background: var(--primary-hover); border-color: var(--primary-hover); color: white; }
+}
+
+.table-wrapper { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; overflow-x: auto; }
+
+.leads-table {
+  width: 100%; border-collapse: collapse; font-size: 0.85rem;
+  thead th { text-align: left; padding: 0.75rem 1rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); background: var(--bg-tertiary); border-bottom: 1px solid var(--border-color); }
+  tbody tr { cursor: pointer; transition: background 0.15s; border-bottom: 1px solid var(--border-color); &:hover { background: var(--bg-hover); } &:last-child { border-bottom: none; } }
+  td { padding: 0.7rem 1rem; color: var(--text-main); white-space: nowrap; }
+  .cell-name { font-weight: 600; }
+}
+
+.phone-cell { display: flex; align-items: center; gap: 0.3rem; color: var(--text-muted); .icon-xs { width: 12px; height: 12px; } }
+
+.pipeline-badge { font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(255, 0, 127,0.1); color: var(--primary); }
+
+.empty-state { padding: 3rem 1.5rem; text-align: center; color: var(--text-muted); h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); margin: 0.75rem 0 0.4rem; } p { font-size: 0.85rem; } }
+
+.loading-state { text-align: center; padding: 5rem; color: var(--text-muted); }
+
+
+}

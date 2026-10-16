@@ -2,19 +2,31 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" href="/icon-192.png" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0A0F1A" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+
+    <!-- PWA / App -->
+    <meta name="application-name" content="Clara Ferreira CRM" />
+    <meta name="description" content="CRM de relacionamento — conversas, revendedoras e régua consignada em um só lugar." />
+    <meta name="theme-color" content="#d49ba7" />
+    <meta name="color-scheme" content="light dark" />
+
+    <!-- iOS PWA -->
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Visita IA" />
-    <meta name="description" content="CRM para incorporadoras e imobiliárias de alto padrão." />
-    <title>Visita IA — CRM</title>
+    <meta name="apple-mobile-web-app-title" content="ClaraCRM" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/pwa-64x64.png" />
+
+    <title>Clara Ferreira CRM</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Carregado pelo nginx no startup — injeta marca/URL da API sem rebuild -->
+    <script src="/config.js"></script>
+    <div id="app"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

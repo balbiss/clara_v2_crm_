@@ -1,0 +1,147 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  color-scheme: light;
+
+  // Antes #d49ba7 (rosa apagado, lia como "botão desativado" — reclamação
+  // real do usuário). #FF007F já era a cor "oficial" documentada da marca
+  // Clara Ferreira (config/brand.js) mas nunca tinha sido conectada aqui.
+  --primary: #ff007f;
+  --primary-hover: #cc0066;
+
+  // Cores de identidade visual passadas pelo dono em 2026-09-14 (hsl(347,52%,88%)
+  // e hsl(347,40%,72%) — essa segunda é a mesma do #d49ba7 acima, por isso não
+  // vira --primary de novo: usada só como acento/detalhe, não em botão.
+  --brand-soft: #f0d0d7;
+  --brand-accent: #d49ba7;
+
+  /* Light Theme Variables */
+  --bg-primary: #f5f0f2;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: var(--brand-soft);
+  --bg-hover: #f6e3e8;
+
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --text-inverse: #ffffff;
+
+  --border-color: #e8ccd2;
+  --input-focus: rgba(255, 0, 127, 0.2);
+  --shadow-color: rgba(43, 0, 22, 0.14);
+  --shadow-sm: rgba(43, 0, 22, 0.07);
+
+  --card-bg: #ffffff;
+}
+
+.dark-theme {
+  color-scheme: dark;
+
+  /* Dark Theme Variables (Chatwoot Precise Match) */
+  --bg-primary: #151b2b; /* Very dark blue for almost everything */
+  --bg-secondary: #171d2d; /* Slightly different shade for panels */
+  --bg-tertiary: #1f2937; /* Hover states, selected states */
+  --bg-hover: #1f2937;
+  
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-inverse: #111827;
+  
+  --border-color: rgba(255, 255, 255, 0.05); /* Very subtle borders */
+  --input-focus: rgba(255, 255, 255, 0.05);
+  --shadow-color: rgba(0, 0, 0, 0.5);
+  --shadow-sm: rgba(0, 0, 0, 0.3);
+  
+  --card-bg: #1f2937;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input, button {
+  font-family: inherit;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--primary-hover);
+  }
+}
+
+/* SweetAlert2 Global Custom Animations */
+@keyframes slowPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05) translateY(-3px); }
+  100% { transform: scale(1); }
+}
+
+.swal-icon-pulse-slow {
+  animation: slowPulse 2.5s ease-in-out infinite !important;
+}
+
+/* Custom Scrollbar for Dark Theme */
+body.dark-theme {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: var(--bg-primary); 
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary); 
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #475569; 
+  }
+}
+
+/* Wrapper reutilizavel pra tabelas nao estourarem a tela no mobile */
+.table-scroll-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Custom Scrollbar for Light Theme */
+body:not(.dark-theme) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent; 
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #d1d5db; 
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af; 
+  }
+}

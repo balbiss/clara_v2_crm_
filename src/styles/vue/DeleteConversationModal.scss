@@ -1,0 +1,85 @@
+// GERADO de C:\Users\inoov\crm_clara_ferreira_pro\frontend\src\components\DeleteConversationModal.vue (Clara v1) — não editar à mão; rode tools/vue-style.mjs
+
+.vs-DeleteConversationModal {
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.delete-modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 380px;
+  max-width: 90%;
+  padding: 24px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  text-align: left;
+}
+
+.delete-title {
+  margin: 0 0 12px 0;
+  font-size: 1.25rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.delete-message {
+  color: #6b7280;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 24px;
+
+  strong { color: #374151; }
+}
+
+.delete-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.btn-cancel {
+  background: #f3f4f6;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #374151;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: background 0.2s;
+}
+
+.btn-cancel:hover {
+  background: #e5e7eb;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: background 0.2s;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.btn-danger:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+
+}

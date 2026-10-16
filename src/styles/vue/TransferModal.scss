@@ -1,0 +1,158 @@
+// GERADO de C:\Users\inoov\crm_clara_ferreira_pro\frontend\src\components\TransferModal.vue (Clara v1) — não editar à mão; rode tools/vue-style.mjs
+
+.vs-TransferModal {
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  padding: 0.25rem;
+  border-radius: 4px;
+  &:hover { background: var(--bg-hover); }
+}
+
+.modal-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  position: relative;
+
+  label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .required { color: #ef4444; }
+}
+
+.select-field {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  outline: none;
+  width: 100%;
+  &:focus { border-color: #ff007f; }
+}
+
+.textarea-field {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  width: 100%;
+  &:focus { border-color: #ff007f; }
+}
+
+.char-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: right;
+  margin-top: -0.2rem;
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid #ff007f;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-cancel {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  &:hover { background: var(--bg-hover); }
+}
+
+.btn-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #ff007f;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  &:hover:not(:disabled) { background: #cc0066; }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+}
+
+
+}

@@ -1,0 +1,457 @@
+// GERADO de C:\Users\inoov\crm_clara_ferreira_pro\frontend\src\views\RevendedorasAtivas.vue (Clara v1) — não editar à mão; rode tools/vue-style.mjs
+
+.vs-RevendedorasAtivas {
+
+.revendedoras-page {
+  // Padding lateral enxuto — com 13 colunas de dado, cada cm de largura
+  // conta; 2rem de "parede" de cada lado tirava ~64px que fariam falta
+  // pra tabela caber sem quebrar palavra no cabeçalho.
+  padding: 1.25rem 0.9rem;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.page-header {
+  margin-bottom: 1.25rem;
+
+  h1 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+
+  p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+  }
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  min-width: 260px;
+
+  .icon-sm { width: 16px; height: 16px; color: var(--text-muted); }
+
+  input {
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    flex: 1;
+  }
+}
+
+.responsavel-select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  font-size: 0.82rem;
+}
+
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--primary, #ff007f);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.btn-primary-sm {
+  background: var(--primary, #ff007f);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  &:hover { color: var(--text-main); }
+}
+
+.cell-check {
+  width: 2rem;
+  text-align: center;
+}
+
+.time-travel-box {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+
+  .icon-sm { width: 16px; height: 16px; color: var(--text-muted); }
+
+  input[type="date"] {
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 0.82rem;
+  }
+
+  .clear-tt-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    color: var(--text-muted);
+    &:hover { background: var(--bg-hover); }
+  }
+}
+
+.time-travel-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+
+  strong { color: var(--text-main); }
+}
+
+.stage-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.stage-chip {
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover { background: var(--bg-hover); }
+  &.active { background: var(--primary-hover); border-color: var(--primary-hover); color: white; }
+}
+
+.table-wrapper {
+  background: var(--bg-secondary);
+  // Sem borda/raio lateral: numa tabela de 13 colunas, o "quadro" em
+  // volta só rouba largura sem ajudar em nada — deixa a tabela usar o
+  // espaço disponível até a borda da tela em vez de ficar "encaixotada".
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  // Cliente pediu pra caber todas as colunas na tela sem precisar dar
+  // zoom out no navegador (antes só resolvia com rolagem horizontal, que
+  // ele não queria). Solução: table-layout: fixed com largura por coluna
+  // (abaixo) + quebra de linha no texto em vez de cortar/rolar — troca
+  // linha mais alta por não perder nenhuma coluna de vista.
+  overflow-x: hidden;
+}
+
+.revendedoras-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+
+  thead th {
+    text-align: left;
+    padding: 0.55rem 0.4rem;
+    font-size: 0.64rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    // keep-all em vez de break-word: quebra só entre palavras, nunca no
+    // meio de uma palavra (era isso que deixava "AGENDAMENTO" e "AÇÃO"
+    // cortados de um jeito feio/ilegível).
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+
+  .cell-check { width: 2.2%; }
+  .cell-name { width: 13.5%; }
+  .cell-nivel { width: 7.5%; }
+  .cell-etapa { width: 6.5%; }
+  .cell-tarefa { width: 10.5%; }
+  .cell-dias { width: 6.5%; }
+  .cell-pecas { width: 5.5%; }
+  .cell-valor { width: 7.5%; }
+  .cell-previsao { width: 7%; }
+  .cell-agendamento { width: 7.5%; }
+  .cell-interacao { width: 7.5%; }
+  .cell-alerta { width: 5.5%; }
+  .cell-carteira { width: 6.5%; }
+  .cell-acao { width: 3.7%; text-align: center; }
+
+  tbody tr {
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--border-color);
+
+    &:hover { background: var(--bg-hover); }
+    &:last-child { border-bottom: none; }
+
+    &.row-atrasada { background: rgba(239, 68, 68, 0.05); }
+  }
+
+  td {
+    padding: 0.5rem 0.4rem;
+    color: var(--text-main);
+    // Quebra em vez de cortar/rolar — é o que garante que as 13 colunas
+    // cabem na largura da tela (pedido do cliente).
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+
+  td.cell-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+
+  .nivel-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    padding: 0.15rem 0.4rem;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  .cell-tarefa {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+  }
+
+  .row-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+}
+
+.stage-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  white-space: nowrap;
+
+  &.stage-revendedor_ativo { background: #e0e7ff; color: #3730a3; }
+  &.stage-terceiro_dia { background: #fef3c7; color: #92400e; }
+  &.stage-decimo_dia { background: #fde68a; color: #92400e; }
+  &.stage-vigesimo_dia { background: #fed7aa; color: #9a3412; }
+  &.stage-agendado { background: #d1fae5; color: #065f46; }
+  &.stage-reagendar { background: #ede9fe; color: #5b21b6; }
+  &.stage-atrasada { background: #fee2e2; color: #991b1b; }
+}
+
+.alerta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.55rem;
+  border-radius: 20px;
+  background: #fee2e2;
+  color: #991b1b;
+  white-space: nowrap;
+
+  .icon-xxs { width: 12px; height: 12px; }
+}
+
+.alerta-ok {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.btn-start-conversation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--primary);
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: var(--primary); color: white; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.empty-state {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+
+  .empty-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: var(--bg-tertiary);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+  }
+
+  h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 0.4rem;
+  }
+
+  p { font-size: 0.85rem; }
+}
+
+// Abaixo de 768px a tabela de 13 colunas fica ilegível (colunas espremidas,
+// texto sobrepondo texto — reportado pelo dono no celular). Layout de
+// desktop acima desse breakpoint fica intocado; aqui a tabela vira uma
+// lista de cards (1 card por revendedora, linha "rótulo: valor" por dado)
+// usando o data-label de cada <td> como rótulo.
+@media (max-width: 768px) {
+  .table-wrapper {
+    overflow-x: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .revendedoras-table {
+    table-layout: auto;
+
+    thead { display: none; }
+
+    tbody, tr, td { display: block; width: 100% !important; }
+
+    tbody {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    tr {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.75rem 0.9rem;
+
+      &.row-atrasada { border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.05); }
+    }
+
+    td {
+      padding: 0.3rem 0;
+      border-bottom: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      text-align: right;
+      font-size: 0.82rem;
+
+      &::before {
+        content: attr(data-label);
+        font-size: 0.66rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        color: var(--text-muted);
+        text-align: left;
+        flex-shrink: 0;
+      }
+    }
+
+    td.cell-check {
+      justify-content: flex-start;
+      padding-bottom: 0.5rem;
+    }
+
+    td.cell-name {
+      justify-content: flex-start;
+      padding-bottom: 0.6rem;
+      margin-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border-color);
+
+      span { font-size: 0.95rem; }
+    }
+
+    td.cell-acao {
+      justify-content: stretch;
+      padding-top: 0.6rem;
+      margin-top: 0.4rem;
+      border-top: 1px solid var(--border-color);
+
+      .btn-start-conversation {
+        width: 100%;
+        height: 36px;
+        border-radius: 8px;
+        gap: 0.4rem;
+
+        &::after { content: "Iniciar conversa"; font-size: 0.8rem; font-weight: 600; }
+      }
+    }
+  }
+}
+
+
+}

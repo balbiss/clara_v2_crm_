@@ -1,0 +1,115 @@
+// GERADO de C:\Users\inoov\crm_clara_ferreira_pro\frontend\src\views\FluxoNovo.vue (Clara v1) — não editar à mão; rode tools/vue-style.mjs
+
+.vs-FluxoNovo {
+
+.page-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 2.5rem 3rem;
+  background: var(--bg-primary);
+  overflow-y: auto;
+}
+
+.page-content { max-width: 560px; width: 100%; margin: 0; }
+
+.icon-sm { width: 16px; height: 16px; }
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  margin-bottom: 1.5rem;
+
+  &:hover { color: var(--text-main); }
+}
+
+.header {
+  margin-bottom: 1.5rem;
+
+  h1 { font-size: 1.25rem; font-weight: 500; color: var(--text-main); margin-bottom: 0.5rem; }
+  .description { color: var(--text-muted); font-size: 0.9rem; }
+}
+
+.form-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+
+  label { display: block; margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--text-main); font-weight: 500; }
+
+  .form-input {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: var(--bg-tertiary);
+    color: var(--text-main);
+    font-family: inherit;
+
+    &:focus { outline: none; border-color: var(--primary); }
+  }
+}
+
+.status-toggle { display: flex; gap: 0.5rem; }
+
+.toggle-btn {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &.active { background: var(--primary, #ff007f); color: white; border-color: var(--primary, #ff007f); }
+}
+
+.error-text { color: #ef4444; font-size: 0.82rem; margin-bottom: 1rem; }
+.hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; }
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.btn-cancel {
+  padding: 0.6rem 1.1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  text-decoration: none;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+}
+
+.btn-primary {
+  background: var(--primary, #ff007f);
+  color: white;
+  padding: 0.6rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+
+}

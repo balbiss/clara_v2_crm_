@@ -1,0 +1,493 @@
+// GERADO de C:\Users\inoov\crm_clara_ferreira_pro\frontend\src\views\Calendario.vue (Clara v1) — não editar à mão; rode tools/vue-style.mjs
+
+.vs-Calendario {
+
+.calendario-page {
+  --wine: #2b0016;
+  --alert: #a24a3a;
+
+  padding: 1.5rem;
+  height: 100%;
+  overflow-y: auto;
+}
+
+// Mesmo padrão visual da barra "Agendadas/Atrasadas" do Dashboard.vue —
+// conceito diferente (compromissos da agenda, não status da régua), mas
+// mantém a linguagem visual consistente entre as telas.
+.metrics-bar {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(255, 0, 127, 0.1), rgba(43, 0, 22, 0.04));
+  border: 1px solid rgba(43, 0, 22, 0.12);
+  border-radius: 14px;
+  padding: 1.1rem 1.5rem;
+  margin-bottom: 1.25rem;
+  gap: 1.5rem;
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+
+  &.alert {
+    .metric-ic { color: var(--alert); }
+    .metric-val { color: var(--alert); }
+  }
+}
+
+.metric-sep {
+  width: 1px;
+  height: 32px;
+  background: rgba(43, 0, 22, 0.12);
+  flex-shrink: 0;
+}
+
+.metric-ic {
+  width: 22px;
+  height: 22px;
+  color: var(--wine);
+  flex-shrink: 0;
+}
+
+.metric-val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--wine);
+  line-height: 1.1;
+}
+
+.metric-lbl {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 0.15rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+
+  h1 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 0.2rem;
+  }
+
+  p {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin: 0;
+  }
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.month-label {
+  font-weight: 600;
+  color: var(--text-main);
+  min-width: 160px;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.btn-hoje {
+  margin-left: 0.5rem;
+}
+
+.calendar-grid {
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-primary, #fff);
+}
+
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--bg-tertiary, #f1e9ed);
+}
+
+.weekday-cell {
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(90px, auto);
+}
+
+.day-cell {
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  border-right: 1px solid var(--border-color, #e2e8f0);
+  padding: 0.35rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  &:nth-child(7n) {
+    border-right: none;
+  }
+
+  &:hover {
+    background: var(--bg-tertiary, #f8f4f6);
+  }
+
+  &.is-outside {
+    opacity: 0.4;
+  }
+
+  &.is-today .day-number {
+    background: var(--primary-hover, #cc0066);
+    color: white;
+    font-weight: 700;
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(204, 0, 102, 0.2);
+  }
+}
+
+.day-number {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-main);
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.event-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  padding: 0.15rem 0.35rem;
+  border-radius: 5px;
+  border: none;
+  background: var(--bg-tertiary, #f1e9ed);
+  color: var(--text-main);
+  font-size: 0.7rem;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  overflow: hidden;
+
+  &.is-mine {
+    background: var(--primary, #ff007f);
+    color: white;
+  }
+}
+
+.event-time {
+  font-weight: 700;
+  font-size: 0.65rem;
+}
+
+.event-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.event-contact {
+  font-size: 0.62rem;
+  font-style: italic;
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.event-owner {
+  font-size: 0.6rem;
+  opacity: 0.8;
+}
+
+.btn-primary, .btn-secondary, .btn-danger {
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: filter 0.15s, box-shadow 0.15s;
+}
+
+.btn-primary {
+  background: var(--primary-hover, #cc0066);
+  border-color: var(--primary-hover, #cc0066);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(204, 0, 102, 0.4);
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(0.92);
+  box-shadow: 0 3px 8px rgba(204, 0, 102, 0.5);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  background: var(--bg-primary, #ffffff);
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btn-secondary:hover {
+  background: #f1f5f9;
+  border-color: #64748b;
+}
+
+.btn-danger {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #f87171;
+}
+
+.btn-danger:hover {
+  background: #fee2e2;
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 6px;
+  padding: 0.4rem;
+  cursor: pointer;
+  display: flex;
+  color: var(--text-main);
+}
+
+.responsavel-select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-primary, #fff);
+  color: var(--text-main);
+  font-size: 0.85rem;
+}
+
+.icon-sm {
+  width: 16px;
+  height: 16px;
+}
+
+.icon-xs {
+  width: 13px;
+  height: 13px;
+}
+
+.contact-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 6px;
+  background: var(--bg-tertiary, #f1e9ed);
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.contact-search {
+  position: relative;
+
+  input {
+    padding-left: 2rem;
+  }
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.contact-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.contact-result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.82rem;
+  color: var(--text-main);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--bg-tertiary, #f8f4f6);
+  }
+}
+
+.contact-result-phone {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-secondary, #f8fafc);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 460px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.modal-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+}
+
+.modal-body {
+  padding: 1.25rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+  flex: 1;
+
+  label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 500;
+    color: var(--text-main);
+    font-size: 0.85rem;
+  }
+}
+
+.form-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+input[type="text"], input[type="date"], input[type="time"], input[type="number"], textarea, select {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 6px;
+  background: var(--bg-primary, #fff);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+// Esconde as setinhas nativas do input number — nenhum outro campo do
+// formulário tem esse tipo de controle, e com elas a caixa destoava
+// visualmente das outras (motivo do "Valor" parecer diferente/feio).
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.footer-spacer {
+  flex: 1;
+}
+
+
+}

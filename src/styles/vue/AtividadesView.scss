@@ -1,0 +1,125 @@
+// GERADO de C:\Users\inoov\crm_clara_ferreira_pro\frontend\src\views\AtividadesView.vue (Clara v1) — não editar à mão; rode tools/vue-style.mjs
+
+.vs-AtividadesView {
+
+.atividades-page {
+  padding: 1.5rem 2rem;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.page-header {
+  margin-bottom: 1.25rem;
+
+  h1 { font-size: 1.35rem; font-weight: 700; color: var(--text-main); }
+  p { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+}
+
+.toolbar {
+  display: flex;
+  margin-bottom: 1.25rem;
+}
+
+.evento-select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  font-size: 0.82rem;
+}
+
+.feed {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.feed-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+
+  &:last-child { border-bottom: none; }
+  &.clickable { cursor: pointer; }
+  &.clickable:hover { background: var(--bg-hover); }
+}
+
+.feed-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  .icon-sm { width: 16px; height: 16px; }
+}
+
+.feed-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.feed-desc {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.feed-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.btn-secondary {
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: var(--bg-hover); }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+.empty-state {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+
+  .empty-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: var(--bg-tertiary);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+  }
+
+  h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem; }
+  p { font-size: 0.85rem; }
+}
+
+
+}

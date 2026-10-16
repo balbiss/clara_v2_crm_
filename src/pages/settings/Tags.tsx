@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tag as TagIcon } from 'lucide-react'
 import api from '../../api'
 import { Modal, btn, inputStyle, labelStyle, Tag } from '../../components/ui'
-import { PageHead, DataTable, IconBtn, toast, confirmBox } from '../../components/ui2'
+import { PageHead, IconBtn, toast, confirmBox } from '../../components/ui2'
 
 // Etiquetas da conta (só diretoria cria/edita/apaga; todos usam)
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -37,18 +37,25 @@ export default function Tags() {
 
   return (
     <div>
-      <PageHead title="Etiquetas" subtitle="Organize contatos e conversas. Todos podem usar; só a diretoria cria, edita e apaga.">
+      <PageHead title="Etiquetas" subtitle={`${tags.length} etiqueta${tags.length === 1 ? "" : "s"} · organize contatos e conversas. Todos podem usar; só a diretoria cria, edita e apaga.`}>
         <button onClick={() => setForm({ id: null, name: '', color: COLORS[0] })} style={btn('primary')}><Plus size={15} /> Nova etiqueta</button>
       </PageHead>
-      <DataTable loading={loading} empty="Nenhuma etiqueta criada ainda."
-        columns={[{ label: 'Etiqueta' }, { label: 'Ações', width: 110, align: 'right' }]}
-        rows={tags.map(t => [
-          <Tag key="t" name={t.name} color={t.color} />,
-          <span key="a" style={{ display: 'inline-flex', gap: 6 }}>
-            <IconBtn title="Editar" onClick={() => setForm({ ...t })}><Pencil size={14} /></IconBtn>
-            <IconBtn title="Excluir" danger onClick={() => remove(t)}><Trash2 size={14} /></IconBtn>
-          </span>,
-        ])} />
+      {loading ? <p style={{ color: 'var(--muted)' }}>Carregando…</p> : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 10 }}>
+          {tags.map(t => (
+            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 10px 10px 12px', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 10 }}>
+              <span style={{ width: 30, height: 30, borderRadius: 8, background: t.color + '1f', color: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><TagIcon size={14} /></span>
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}><Tag name={t.name} color={t.color} /></span>
+              <IconBtn title="Editar" onClick={() => setForm({ ...t })}><Pencil size={13} /></IconBtn>
+              <IconBtn title="Excluir" danger onClick={() => remove(t)}><Trash2 size={13} /></IconBtn>
+            </div>
+          ))}
+          <button onClick={() => setForm({ id: null, name: '', color: COLORS[0] })}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, minHeight: 52, border: '1.5px dashed var(--line)', borderRadius: 10, background: 'none', color: 'var(--muted)', fontSize: 13, fontWeight: 600 }}>
+            <Plus size={14} /> Nova etiqueta
+          </button>
+        </div>
+      )}
       {form && (
         <Modal title={form.id ? 'Editar etiqueta' : 'Nova etiqueta'} width={420} onClose={() => setForm(null)}
           footer={<><button onClick={() => setForm(null)} style={btn('ghost')}>Cancelar</button><button onClick={save} style={btn('primary')}>Salvar</button></>}>

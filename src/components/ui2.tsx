@@ -6,18 +6,18 @@ import { PILL, serif } from './ui'
 
 export function PageHead({ title, subtitle, children }: { title: ReactNode; subtitle?: ReactNode; children?: ReactNode }) {
   return (
-    <div className="page-head" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 22 }}>
+    <div className="page-head" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
       <div style={{ minWidth: 0 }}>
-        <h1 style={{ ...serif, fontSize: 32, margin: 0 }}>{title}</h1>
-        {subtitle && <p style={{ color: 'var(--muted)', fontSize: 14, margin: '6px 0 0', maxWidth: '70ch', lineHeight: 1.55 }}>{subtitle}</p>}
+        <h1 style={{ ...serif, fontSize: 27, margin: 0, lineHeight: 1.15 }}>{title}</h1>
+        {subtitle && <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0', maxWidth: '70ch', lineHeight: 1.55 }}>{subtitle}</p>}
       </div>
       {children && <div className="page-toolbar" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>{children}</div>}
     </div>
   )
 }
 
-export const th: CSSProperties = { textAlign: 'left', padding: '11px 14px', fontSize: 10.5, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--muted)', borderBottom: '1px solid var(--line)', background: 'var(--bg)', whiteSpace: 'nowrap' }
-export const td: CSSProperties = { padding: '12px 14px', fontSize: 13.5, borderBottom: '1px solid var(--line)', verticalAlign: 'middle' }
+export const th: CSSProperties = { textAlign: 'left', padding: '9px 14px', fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--muted)', borderBottom: '1px solid var(--line)', background: 'var(--bg)', whiteSpace: 'nowrap' }
+export const td: CSSProperties = { padding: '9px 14px', fontSize: 13, borderBottom: '1px solid var(--line)', verticalAlign: 'middle' }
 
 type Col = { label: ReactNode; width?: number | string; align?: 'left' | 'right' | 'center' }
 

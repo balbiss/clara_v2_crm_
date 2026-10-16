@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
-import { Plus, Pencil, Trash2, Lock, Unlock, RefreshCw, X, Check, ShieldAlert } from 'lucide-react'
+import { Plus, Pencil, Trash2, Lock, Unlock, RefreshCw, X, Check } from 'lucide-react'
 import api from '../api'
 import { agentsStore } from '../store/agents'
 import { btn, inputStyle } from '../components/ui'
 import { PageHead, DataTable, IconBtn, Badge, Section, toast, confirmBox } from '../components/ui2'
 import { readUser } from '../lib/hooks'
+import { ChatAvatar } from '../components/ChatAvatar'
 
 // Equipe (usuários do CRM) + rodízio de atribuição + grupos de rodízio
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const DEPT: Record<string, { label: string; tone: 'blue' | 'green' | 'amber' | 'red' }> = {
-  corretor: { label: 'Consultora', tone: 'blue' }, suporte: { label: 'Suporte', tone: 'green' },
-  financeiro: { label: 'Financeiro', tone: 'amber' }, manutencao: { label: 'Manutenção', tone: 'red' },
+const ROLE: Record<string, { label: string; tone: 'blue' | 'green' | 'amber' | 'red' | 'muted' }> = {
+  diretoria: { label: 'Diretoria', tone: 'red' }, gerente: { label: 'Gerente', tone: 'amber' },
+  consultor: { label: 'Consultora', tone: 'blue' }, financeiro: { label: 'Financeiro', tone: 'green' },
 }
 
 export default function Agents() {
@@ -43,7 +44,7 @@ export default function Agents() {
   }
 
   // fila por grupo: só consultoras ativas no rodízio, ordenadas pela posição
-  const consultoras = store.agents.filter((a: any) => a.available_for_roundrobin && a.status === 'active' && a.department === 'corretor')
+  const consultoras = store.agents.filter((a: any) => a.available_for_roundrobin && a.status === 'active' && (a.role === 'consultor' || !a.role))
   const sortFn = (a: any, b: any) => (a.queue_position ?? 9999) - (b.queue_position ?? 9999)
   const buckets: { group: any | null; agents: any[] }[] = groups.map(g => ({ group: g, agents: consultoras.filter((a: any) => a.round_robin_group_id === g.id).sort(sortFn) }))
   const semGrupo = consultoras.filter((a: any) => !a.round_robin_group_id).sort(sortFn)
@@ -123,32 +124,42 @@ export default function Agents() {
       ) : !store.isLoading && <p style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: 'var(--muted)', marginBottom: 18 }}><RefreshCw size={14} /> Nenhuma consultora na fila de rodízio. Ative o rodízio nas pessoas abaixo.</p>}
 
       <DataTable loading={store.isLoading && !store.agents.length} empty="Nenhum agente cadastrado."
-        columns={[{ label: 'Status' }, { label: 'Nome' }, { label: 'Departamento' }, { label: 'E-mail' }, { label: 'WhatsApp' }, { label: 'Rodízio' }, { label: 'Ações', width: 130, align: 'right' }]}
-        rows={store.agents.map((a: any) => [
-          <Badge key="s" tone={a.status === 'blocked' ? 'red' : 'green'}>{a.status === 'blocked' ? 'Bloqueado' : 'Ativo'}</Badge>,
-          <span key="n" style={{ fontWeight: 600 }}>{a.first_name} {a.last_name} {a.role === 'diretoria' && <span style={{ marginLeft: 6 }}><Badge tone="blue"><ShieldAlert size={10} style={{ verticalAlign: -1 }} /> Diretoria</Badge></span>}</span>,
-          <Badge key="d" tone={(DEPT[a.department] || DEPT.corretor).tone}>{(DEPT[a.department] || DEPT.corretor).label}</Badge>,
-          <span key="e" style={{ color: 'var(--muted)' }}>{a.email}</span>,
-          <span key="w" style={{ color: 'var(--muted)' }}>{a.phone || '—'}</span>,
-          a.department === 'corretor' || !a.department ? (
-            <button key="r" disabled={toggling === a.id || a.status === 'blocked'} onClick={() => toggleRR(a)} title={a.available_for_roundrobin ? 'Remover da fila' : 'Adicionar à fila'}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: 'none', fontSize: 12.5, color: a.available_for_roundrobin ? 'var(--terra)' : 'var(--muted)', fontWeight: 600 }}>
-              <span style={{ position: 'relative', width: 30, height: 17, borderRadius: 9, background: a.available_for_roundrobin ? 'var(--terra)' : 'var(--line)' }}>
-                <span style={{ position: 'absolute', top: 2, left: a.available_for_roundrobin ? 15 : 2, width: 13, height: 13, borderRadius: '50%', background: '#fff', transition: 'left .15s' }} />
+        columns={[{ label: 'Pessoa' }, { label: 'Perfil' }, { label: 'WhatsApp' }, { label: 'Rodízio' }, { label: 'Status' }, { label: '', width: 110, align: 'right' }]}
+        rows={store.agents.map((a: any) => {
+          const role = ROLE[a.role] || ROLE.consultor
+          return [
+            <span key="n" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <ChatAvatar nome={`${a.first_name || ''} ${a.last_name || ''}`.trim() || a.email} foto={a.avatar_url} size={32} />
+              <span style={{ minWidth: 0 }}>
+                <b style={{ display: 'block', fontSize: 13.5 }}>{a.first_name} {a.last_name}{a.id === me.id && <span style={{ fontWeight: 500, color: 'var(--muted)', fontSize: 12 }}> (você)</span>}</b>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{a.email}</span>
               </span>
-              {a.available_for_roundrobin ? `${queuePos(a)}º na fila` : 'Desligado'}
-            </button>
-          ) : <span key="r" style={{ fontSize: 12, color: 'var(--muted)' }}>—</span>,
-          <span key="a" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-            <IconBtn title="Editar" onClick={() => navigate(`/agentes/${a.id}/editar`)}><Pencil size={14} /></IconBtn>
-            {a.id !== me.id ? (
-              <>
-                {a.status === 'active' ? <IconBtn title="Bloquear" onClick={() => block(a)}><Lock size={14} /></IconBtn> : <IconBtn title="Desbloquear" onClick={() => unblock(a)}><Unlock size={14} /></IconBtn>}
-                <IconBtn title="Excluir" danger onClick={() => remove(a)}><Trash2 size={14} /></IconBtn>
-              </>
-            ) : <span style={{ fontSize: 12, color: 'var(--muted)' }}>(você)</span>}
-          </span>,
-        ])} />
+            </span>,
+            <Badge key="p" tone={role.tone}>{role.label}</Badge>,
+            <span key="w" style={{ color: 'var(--muted)' }}>{a.phone || '—'}</span>,
+            a.role === 'consultor' || !a.role ? (
+              <button key="r" disabled={toggling === a.id || a.status === 'blocked'} onClick={() => toggleRR(a)} title={a.available_for_roundrobin ? 'Remover da fila' : 'Adicionar à fila'}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: 'none', padding: 0, fontSize: 12.5, color: a.available_for_roundrobin ? 'var(--terra)' : 'var(--muted)', fontWeight: 600 }}>
+                <span style={{ position: 'relative', width: 30, height: 17, borderRadius: 9, background: a.available_for_roundrobin ? 'var(--terra)' : 'var(--line)', flex: 'none' }}>
+                  <span style={{ position: 'absolute', top: 2, left: a.available_for_roundrobin ? 15 : 2, width: 13, height: 13, borderRadius: '50%', background: '#fff', transition: 'left .15s' }} />
+                </span>
+                {a.available_for_roundrobin ? `${queuePos(a)}º na fila` : 'Fora da fila'}
+              </button>
+            ) : <span key="r" style={{ fontSize: 12, color: 'var(--muted)' }}>—</span>,
+            <span key="s" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: a.status === 'blocked' ? '#B42318' : 'var(--plantao)' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'currentColor' }} />{a.status === 'blocked' ? 'Bloqueado' : 'Ativo'}
+            </span>,
+            <span key="a" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+              <IconBtn title="Editar" onClick={() => navigate(`/agentes/${a.id}/editar`)}><Pencil size={13} /></IconBtn>
+              {a.id !== me.id && (
+                <>
+                  {a.status === 'active' ? <IconBtn title="Bloquear" onClick={() => block(a)}><Lock size={13} /></IconBtn> : <IconBtn title="Desbloquear" onClick={() => unblock(a)}><Unlock size={13} /></IconBtn>}
+                  <IconBtn title="Excluir" danger onClick={() => remove(a)}><Trash2 size={13} /></IconBtn>
+                </>
+              )}
+            </span>,
+          ]
+        })} />
     </div>
   )
 }

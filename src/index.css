@@ -219,3 +219,4 @@ div:where(.swal2-container) div:where(.swal2-popup).swal2-toast h2:where(.swal2-
 
 /* preenchimento automático do navegador não pinta o campo de cinza/amarelo */
 input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0 40px var(--bg) inset !important; -webkit-text-fill-color: var(--ink) !important; caret-color: var(--ink); }
+@media (max-width: 900px) { .cfg-grid { grid-template-columns: 1fr !important; } }

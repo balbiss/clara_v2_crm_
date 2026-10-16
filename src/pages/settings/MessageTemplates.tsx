@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Pencil, Trash2, Paperclip, FileText, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Paperclip, FileText, X, MessageSquareText } from 'lucide-react'
 import api from '../../api'
 import { Modal, btn, inputStyle, labelStyle } from '../../components/ui'
-import { PageHead, DataTable, IconBtn, toast, confirmBox } from '../../components/ui2'
+import { PageHead, IconBtn, Badge, toast, confirmBox } from '../../components/ui2'
 
 // Modelos de mensagem ("/" na conversa). Pode ser só anexo, sem texto.
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -58,18 +58,30 @@ export default function MessageTemplates() {
       <PageHead title="Modelos de mensagem" subtitle={'Digite "/" no campo de mensagem da conversa para usar um modelo salvo aqui.'}>
         <button onClick={() => open()} style={btn('primary')}><Plus size={15} /> Novo modelo</button>
       </PageHead>
-      <DataTable loading={loading} empty="Nenhum modelo criado ainda."
-        columns={[{ label: 'Nome' }, { label: 'Categoria' }, { label: 'Mensagem' }, { label: 'Anexo', width: 70, align: 'center' }, { label: 'Ações', width: 110, align: 'right' }]}
-        rows={list.map(t => [
-          <b key="n">{t.nome}</b>,
-          <span key="c" style={{ color: 'var(--muted)' }}>{t.categoria || '—'}</span>,
-          <span key="m" style={{ color: 'var(--muted)', display: 'block', maxWidth: 380, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.mensagem || '—'}</span>,
-          t.attachment_url ? <Paperclip key="p" size={15} color="var(--terra)" /> : null,
-          <span key="a" style={{ display: 'inline-flex', gap: 6 }}>
-            <IconBtn title="Editar" onClick={() => open(t)}><Pencil size={14} /></IconBtn>
-            <IconBtn title="Excluir" danger onClick={() => remove(t)}><Trash2 size={14} /></IconBtn>
-          </span>,
-        ])} />
+      {loading ? <p style={{ color: 'var(--muted)' }}>Carregando…</p> : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 12 }}>
+          {list.map(t => (
+            <div key={t.id} onClick={() => open(t)} className="hoverable" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 12px 12px 14px', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, cursor: 'pointer', minHeight: 112 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--terraSoft)', color: 'var(--terra)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><MessageSquareText size={14} /></span>
+                <b style={{ flex: 1, minWidth: 0, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>/{t.nome}</b>
+                <span onClick={e => e.stopPropagation()} style={{ display: 'inline-flex', gap: 4 }}>
+                  <IconBtn title="Editar" onClick={() => open(t)}><Pencil size={13} /></IconBtn>
+                  <IconBtn title="Excluir" danger onClick={() => remove(t)}><Trash2 size={13} /></IconBtn>
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', flex: 1 }}>{t.mensagem || <i>Só anexo, sem texto</i>}</p>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {t.categoria && <Badge tone="blue">{t.categoria}</Badge>}
+                {t.attachment_url && <Badge><Paperclip size={10} style={{ verticalAlign: -1 }} /> Anexo</Badge>}
+              </div>
+            </div>
+          ))}
+          <button onClick={() => open()} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 112, border: '1.5px dashed var(--line)', borderRadius: 12, background: 'none', color: 'var(--muted)', fontSize: 13, fontWeight: 600 }}>
+            <Plus size={14} /> Novo modelo
+          </button>
+        </div>
+      )}
       {form && (
         <Modal title={form.id ? 'Editar modelo' : 'Novo modelo'} width={520} onClose={() => setForm(null)}
           footer={<><button onClick={() => setForm(null)} style={btn('ghost')}>Cancelar</button><button onClick={save} style={btn('primary')}>Salvar</button></>}>

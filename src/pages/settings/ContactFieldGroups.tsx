@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, X } from 'lucide-react'
+import { Layers, Plus, Sparkles, Trash2, X } from 'lucide-react'
 import api from '../../api'
 import { btn, inputStyle, labelStyle } from '../../components/ui'
-import { PageHead, Section, IconBtn, toast, confirmBox } from '../../components/ui2'
+import { PageHead, Panel, IconBtn, toast, confirmBox } from '../../components/ui2'
 import { useContactFields } from '../../composables/useContactFields'
 
 // Campos do Contato: grupos configuráveis do painel de conversa + campos criados pela dona.
 // "Dados do Jueri" nunca entra aqui (sincronizado do ERP, fica sempre separado).
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const chip = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 6px 4px 11px', borderRadius: 20, background: 'var(--terraSoft)', color: 'var(--terra)', fontSize: 12.5, fontWeight: 600 } as const
+const chip = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 5px 3px 10px', borderRadius: 20, background: 'var(--terraSoft)', color: 'var(--terra)', fontSize: 12, fontWeight: 600 } as const
 const chipX = { border: 'none', background: 'none', color: 'inherit', display: 'flex', padding: 2 } as const
 
 export default function ContactFieldGroups() {
@@ -92,42 +92,51 @@ export default function ContactFieldGroups() {
         <button onClick={addGroup} style={btn('primary')}><Plus size={15} /> Novo grupo</button>
       </PageHead>
 
-      <Section title="Campos criados por você" description={'Precisa de uma informação que não está na lista (ex.: "Mais vende", "Precisa ter na maleta")? Crie aqui e depois coloque no grupo que quiser.'}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-          {customFields.length === 0 && <span style={{ fontSize: 13, color: 'var(--muted)' }}>Nenhum campo criado ainda.</span>}
-          {customFields.map((f: any) => <span key={f.key} style={chip}>{f.label}<button title="Apagar campo" onClick={() => deleteField(f)} style={chipX}><X size={13} /></button></span>)}
-        </div>
-        <form onSubmit={e => { e.preventDefault(); createField() }} style={{ display: 'flex', gap: 8 }}>
-          <input value={newLabel} onChange={e => setNewLabel(e.target.value)} maxLength={60} placeholder="Nome do novo campo" style={inputStyle} />
-          <button type="submit" disabled={!newLabel.trim() || creating} style={btn('primary', { opacity: newLabel.trim() ? 1 : 0.5 })}><Plus size={14} /> Criar campo</button>
-        </form>
-      </Section>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 300px) 1fr', gap: 14, alignItems: 'start' }} className="cfg-grid">
+        <Panel icon={<Sparkles size={16} />} title="Campos criados por você" description={'Informações que não estão na lista (ex.: "Mais vende"). Crie aqui e coloque num grupo.'}>
+          <form onSubmit={e => { e.preventDefault(); createField() }} style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            <input value={newLabel} onChange={e => setNewLabel(e.target.value)} maxLength={60} placeholder="Nome do novo campo" style={{ ...inputStyle, padding: '7px 10px', fontSize: 13 }} />
+            <button type="submit" title="Criar campo" disabled={!newLabel.trim() || creating} style={btn('primary', { padding: '7px 10px', opacity: newLabel.trim() ? 1 : 0.5 })}><Plus size={15} /></button>
+          </form>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {customFields.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Nenhum campo criado ainda.</span>}
+            {customFields.map((f: any) => <span key={f.key} style={chip}>{f.label}<button title="Apagar campo" onClick={() => deleteField(f)} style={chipX}><X size={12} /></button></span>)}
+          </div>
+          {unassigned.length > 0 && (
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--line)' }}>
+              <span style={labelStyle}>Sem grupo (vão para "Outros")</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{unassigned.map((k: string) => <span key={k} style={{ ...chip, background: 'var(--bg)', color: 'var(--muted)', padding: '3px 10px' }}>{labelOf(k)}</span>)}</div>
+            </div>
+          )}
+        </Panel>
 
-      {loading ? <p style={{ color: 'var(--muted)' }}>Carregando…</p> : (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
+        {loading ? <p style={{ color: 'var(--muted)' }}>Carregando…</p> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14, alignItems: 'start' }}>
             {groups.map(g => (
-              <div key={g.id} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: 16 }}>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                  <input defaultValue={g.name} key={g.name} onBlur={e => rename(g, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} style={{ ...inputStyle, fontWeight: 700 }} />
-                  <IconBtn title="Apagar grupo" danger onClick={() => removeGroup(g)}><Trash2 size={14} /></IconBtn>
+              <div key={g.id} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px 8px 14px', borderBottom: '1px solid var(--line)', background: 'var(--bg)' }}>
+                  <Layers size={14} color="var(--terra)" />
+                  <input defaultValue={g.name} key={g.name} title="Clique para renomear" onBlur={e => rename(g, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                    style={{ flex: 1, minWidth: 0, border: 'none', background: 'none', fontWeight: 700, fontSize: 13.5, color: 'var(--ink)', padding: '4px 0', outline: 'none' }} />
+                  <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>{(g.field_keys || []).length} campos</span>
+                  <IconBtn title="Apagar grupo" danger onClick={() => removeGroup(g)}><Trash2 size={13} /></IconBtn>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12, minHeight: 28 }}>
-                  {(g.field_keys || []).length === 0 && <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Nenhum campo neste grupo ainda.</span>}
-                  {(g.field_keys || []).map((key: string) => <span key={key} style={chip}>{labelOf(key)}<button onClick={() => removeField(g, key)} style={chipX}><X size={13} /></button></span>)}
+                <div style={{ padding: 12 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                    {(g.field_keys || []).length === 0 && <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Nenhum campo neste grupo ainda.</span>}
+                    {(g.field_keys || []).map((key: string) => <span key={key} style={chip}>{labelOf(key)}<button title="Tirar do grupo" onClick={() => removeField(g, key)} style={chipX}><X size={12} /></button></span>)}
+                  </div>
+                  <select value="" onChange={e => addField(g, e.target.value)} style={{ ...inputStyle, padding: '6px 10px', fontSize: 12.5, color: 'var(--muted)' }}>
+                    <option value="" disabled>+ Adicionar campo…</option>
+                    {allFields.map((f: any) => { const o = ownerOf(f.key); return <option key={f.key} value={f.key}>{o ? `${labelOf(f.key)} (em: ${o.name})` : labelOf(f.key)}</option> })}
+                  </select>
                 </div>
-                <span style={labelStyle}>Adicionar campo</span>
-                <select value="" onChange={e => addField(g, e.target.value)} style={inputStyle}>
-                  <option value="" disabled>+ Escolher campo…</option>
-                  {allFields.map((f: any) => { const o = ownerOf(f.key); return <option key={f.key} value={f.key}>{o ? `${labelOf(f.key)} (em: ${o.name})` : labelOf(f.key)}</option> })}
-                </select>
               </div>
             ))}
+            {groups.length === 0 && <p style={{ color: 'var(--muted)' }}>Nenhum grupo criado ainda.</p>}
           </div>
-          {groups.length === 0 && <p style={{ color: 'var(--muted)' }}>Nenhum grupo criado ainda.</p>}
-          {unassigned.length > 0 && <p style={{ marginTop: 16, fontSize: 13, color: 'var(--muted)', background: 'var(--card)', border: '1px dashed var(--line)', borderRadius: 10, padding: '10px 14px' }}>Campos sem grupo (aparecem em "Outros" na conversa): {unassigned.map(labelOf).join(', ')}</p>}
-        </>
-      )}
+        )}
+      </div>
     </div>
   )
 }

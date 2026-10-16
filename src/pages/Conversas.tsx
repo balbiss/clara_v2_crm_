@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
 import Swal from 'sweetalert2'
@@ -26,7 +26,9 @@ import DeleteConversationModal from '../components/DeleteConversationModal'
 import ScheduleMessageModal from '../components/ScheduleMessageModal'
 import TransferModal from '../components/TransferModal'
 import ForwardMessageModal from '../components/ForwardMessageModal'
-import '../styles/vue/Conversas.scss'
+import { serif, inputStyle, labelStyle, btn, Card, Field, PILL, Tag, Dropdown, MenuItem } from '../components/ui'
+import { ChatAvatar } from '../components/ChatAvatar'
+import { inboxesStore } from '../store/inboxes'
 
 // Porte de views/Conversas.vue (lista + chat + painel da revendedora).
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -130,6 +132,9 @@ export default function Conversas() {
   const store = useSnapshot(conversationsStore) as Any
   const conv = store.activeConversation as Any
   const { allFields: principalFields, labelOf: fieldLabelOf } = useContactFields()
+  const [detailsOpen, setDetailsOpen] = useState(() => window.innerWidth > 1150)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900)
+  useEffect(() => { const f = () => setIsMobile(window.innerWidth <= 900); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
 
   const [s, v] = useLocal(() => ({
     newMessageText: '',
@@ -707,741 +712,571 @@ export default function Conversas() {
   }
 
   const stop = (e: React.MouseEvent) => e.stopPropagation()
-  const fieldRow = (key: string, label: string) => (
-    <div className="lead-field" key={key}>
-      <span className="lf-label">{label}</span>
-      {v.editingFieldKey === key ? (
-        <input ref={fieldInputRef} value={v.editingFieldValue} className="lf-input"
-          onChange={e => { s.editingFieldValue = e.target.value }}
-          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveFieldValue() } else if (e.key === 'Escape') { e.preventDefault(); s.editingFieldKey = null } }}
-          onBlur={saveFieldValue} />
-      ) : (
-        <span className={`lf-value lf-editable${!getAttr(key) ? ' empty' : ''}`} title="Clique pra preencher" onClick={() => startEditingField(key)}>{getAttr(key) || 'Clique pra preencher'}</span>
-      )}
-    </div>
-  )
-  const accordionToggle = (open: boolean) => (open ? <Minus className="icon-sm" /> : <Plus className="icon-sm" />)
   const semResposta = store.sidebarFilteredConversations.filter(isSemResposta).length
   const minhas = store.sidebarFilteredConversations.filter((c: Any) => c.assignee_id === store.currentUser.id).length
   const naoAtribuidas = store.sidebarFilteredConversations.filter((c: Any) => !c.assignee).length
+  const inboxes = useSnapshot(inboxesStore) as Any
+  const tabs = [
+    { id: 'all', label: 'Todas', n: store.sidebarFilteredConversations.length },
+    { id: 'sem-resposta', label: 'Sem resposta', n: semResposta },
+    { id: 'minhas', label: 'Minhas', n: minhas },
+    { id: 'nao-atribuidos', label: 'Não atribuídas', n: naoAtribuidas },
+  ]
+  const fieldRow = (key: string, label: string) => (v.editingFieldKey === key ? (
+    <div key={key} style={{ padding: '6px 0', borderBottom: '1px dashed var(--line)' }}>
+      <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{label}</span>
+      <input ref={fieldInputRef} value={v.editingFieldValue} style={{ ...inputStyle, padding: '7px 10px', fontSize: 12.5 }}
+        onChange={e => { s.editingFieldValue = e.target.value }}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveFieldValue() } else if (e.key === 'Escape') { e.preventDefault(); s.editingFieldKey = null } }}
+        onBlur={saveFieldValue} />
+    </div>
+  ) : <Field key={key} label={label} value={getAttr(key) || 'Clique pra preencher'} empty={!getAttr(key)} onClick={() => startEditingField(key)} />)
+  const toggle = (open: boolean) => (open ? <Minus size={14} color="var(--muted)" /> : <Plus size={14} color="var(--muted)" />)
+  const small: React.CSSProperties = { fontSize: 12.5, color: 'var(--muted)', margin: 0 }
+  const chipBtn = (on: boolean): React.CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: '1px solid ' + (on ? 'var(--terra)' : 'var(--line)'), background: on ? 'var(--terra)' : 'var(--bg)', color: on ? '#fff' : 'var(--muted)' })
+  const squareBtn: React.CSSProperties = { width: 34, height: 34, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--card)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)', flex: 'none' }
+
+  // separador de dia entre as mensagens (padrão do v2)
+  let lastDay = ''
+  const dayOf = (iso: string) => {
+    const d = new Date(iso)
+    const hoje = new Date()
+    const ontem = new Date(); ontem.setDate(hoje.getDate() - 1)
+    if (d.toDateString() === hoje.toDateString()) return 'Hoje'
+    if (d.toDateString() === ontem.toDateString()) return 'Ontem'
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: d.getFullYear() === hoje.getFullYear() ? undefined : 'numeric' }).replace('.', '')
+  }
+  const hora = (iso: string) => (iso && iso.includes('T') ? new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : iso)
+  const listTime = (iso: string) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    return d.toDateString() === new Date().toDateString() ? hora(iso) : dayOf(iso) + ' ' + hora(iso)
+  }
+  const showDetails = isMobile ? v.mobileView === 'details' : detailsOpen
+  const gridCols = isMobile ? '1fr' : conv && showDetails ? '340px minmax(0,1fr) 340px' : '340px minmax(0,1fr)'
 
   return (
-    <div className="vs-Conversas" style={{ display: 'contents' }}>
-      <div className="conversations-container">
-        {/* Lista de conversas */}
-        <div className={`conv-list-pane${v.mobileView !== 'list' ? ' mobile-hidden' : ''}`}>
-          <div className="list-header">
-            <div className="header-top">
-              <h2>{listTitle} <span className="badge">Abertas</span></h2>
-              <div className="actions" style={{ position: 'relative', display: 'flex', gap: '0.5rem' }}>
-                <button className="icon-btn" title="Nova conversa" onClick={e => { stop(e); s.isNewConversationModalOpen = true }}><Plus className="icon" /></button>
-                <div style={{ position: 'relative' }}>
-                  <button className="icon-btn" onClick={e => { stop(e); s.isFilterPopoverOpen = !s.isFilterPopoverOpen; s.isSortPopoverOpen = false }}><Filter className="icon" /></button>
-                  <ConversationFilterPopover isOpen={v.isFilterPopoverOpen} initialFilters={store.advancedFilters}
-                    onClose={() => { s.isFilterPopoverOpen = false }} onApply={(f: Any) => conversationsStore.setAdvancedFilters(f)} />
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <button className="icon-btn" onClick={e => { stop(e); s.isSortPopoverOpen = !s.isSortPopoverOpen; s.isFilterPopoverOpen = false }}><ArrowDownUp className="icon" /></button>
-                  <ConversationSortPopover isOpen={v.isSortPopoverOpen} onClose={() => { s.isSortPopoverOpen = false }} />
-                </div>
+    <div className="conv-fullbleed">
+      <div className="conv-grid conv-grid-3" style={{ gridTemplateColumns: gridCols }}>
+        {/* ---------------- lista ---------------- */}
+        <div className="conv-col" data-hide={v.mobileView !== 'list' ? '1' : '0'} style={{ borderRight: '1px solid var(--line)', background: 'var(--card)', display: 'flex', flexDirection: 'column', overflow: 'visible', minHeight: 0, position: 'relative', zIndex: 3 }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <h1 style={{ ...serif, fontSize: 21, margin: 0, flex: 1 }}>{listTitle}</h1>
+              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{store.filteredConversations.length}</span>
+              <button title="Nova conversa" style={squareBtn} onClick={e => { stop(e); s.isNewConversationModalOpen = true }}><Plus size={16} /></button>
+              <div style={{ position: 'relative' }}>
+                <button title="Filtrar" style={{ ...squareBtn, borderColor: store.advancedFilters.length ? 'var(--terra)' : 'var(--line)', color: store.advancedFilters.length ? 'var(--terra)' : 'var(--ink)' }}
+                  onClick={e => { stop(e); s.isFilterPopoverOpen = !s.isFilterPopoverOpen; s.isSortPopoverOpen = false }}><Filter size={15} /></button>
+                <ConversationFilterPopover isOpen={v.isFilterPopoverOpen} initialFilters={store.advancedFilters}
+                  onClose={() => { s.isFilterPopoverOpen = false }} onApply={(f: Any) => conversationsStore.setAdvancedFilters(f)} />
+              </div>
+              <div style={{ position: 'relative' }}>
+                <button title="Ordenar" style={squareBtn} onClick={e => { stop(e); s.isSortPopoverOpen = !s.isSortPopoverOpen; s.isFilterPopoverOpen = false }}><ArrowDownUp size={15} /></button>
+                <ConversationSortPopover isOpen={v.isSortPopoverOpen} onClose={() => { s.isSortPopoverOpen = false }} />
               </div>
             </div>
-
-            <div className="conv-search">
-              <input value={v.searchQuery} type="text" placeholder="Pesquisar nome, telefone ou mensagem..."
+            <div style={{ position: 'relative' }}>
+              <input value={v.searchQuery} placeholder="Pesquisar nome, telefone ou mensagem…" style={{ ...inputStyle, paddingRight: 32 }}
                 onChange={e => { s.searchQuery = e.target.value }} onKeyDown={e => { if (e.key === 'Escape') clearSearch() }} />
-              {v.searchQuery && <button className="conv-search-clear" title="Limpar pesquisa" onClick={clearSearch}><X className="icon-xxs" /></button>}
+              {v.searchQuery && <button title="Limpar pesquisa" onClick={clearSearch} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', color: 'var(--muted)', display: 'flex' }}><X size={14} /></button>}
             </div>
-
-            <div className="tabs" style={{ display: isSearchActive ? 'none' : undefined }}>
-              <button className={`tab${store.currentFilter === 'all' ? ' active' : ''}`} onClick={() => conversationsStore.setFilter('all')}>
-                Todos <span className="count">{store.sidebarFilteredConversations.length}</span>
-              </button>
-              <button className={`tab${store.currentFilter === 'sem-resposta' ? ' active' : ''}`} onClick={() => conversationsStore.setFilter('sem-resposta')}>
-                Sem resposta <span className="count">{semResposta}</span>
-              </button>
-              <button className={`tab${store.currentFilter === 'minhas' ? ' active' : ''}`} onClick={() => conversationsStore.setFilter('minhas')}>
-                Minhas <span className="count">{minhas}</span>
-              </button>
-              <button className={`tab${store.currentFilter === 'nao-atribuidos' ? ' active' : ''}`} onClick={() => conversationsStore.setFilter('nao-atribuidos')}>
-                Não atribuídas <span className="count">{naoAtribuidas}</span>
-              </button>
-            </div>
+            {inboxes.inboxes.length > 1 && !isSearchActive && (
+              <select value={params.inboxId || ''} style={inputStyle}
+                onChange={e => navigate(e.target.value ? `/conversas/inbox/${e.target.value}` : '/conversas')}>
+                <option value="">Todas as caixas</option>
+                {inboxes.inboxes.map((i: Any) => <option key={i.id} value={i.id}>{i.name}{i.connected === false ? ' (desconectada)' : ''}</option>)}
+              </select>
+            )}
+            {!isSearchActive && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {tabs.map(t => (
+                  <button key={t.id} style={chipBtn(store.currentFilter === t.id)} onClick={() => conversationsStore.setFilter(t.id)}>
+                    {t.label}<span style={{ opacity: 0.75, fontWeight: 700 }}>{t.n}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {isSearchActive && (
-            <div className="conv-list search-results">
-              {v.isSearching && !v.searchResults ? (
-                <div className="all-loaded">Pesquisando...</div>
-              ) : v.searchResults ? (
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+            {isSearchActive ? (
+              v.isSearching && !v.searchResults ? <p style={{ ...small, padding: 20, textAlign: 'center' }}>Pesquisando…</p> : v.searchResults ? (
                 <>
-                  {v.searchResults.conversations.length > 0 && <div className="search-section-title">Revendedoras</div>}
+                  {v.searchResults.conversations.length > 0 && <p style={{ ...labelStyle, margin: '14px 16px 6px' }}>Revendedoras</p>}
                   {v.searchResults.conversations.map((r: Any) => (
-                    <div key={'c' + r.conversation_id} className="search-result" onClick={() => openSearchResult(r.conversation_id)}>
-                      <div className="search-result-top">
-                        <strong>{r.contact_name}</strong>
-                        <span className="search-result-date">{formatSearchDate(r.last_activity_iso)}</span>
-                      </div>
-                      <div className="search-result-sub">{r.contact_phone}{r.inbox_name && <span> · 📱 {r.inbox_name}</span>}{r.status === 'resolved' && <span> · Resolvida</span>}</div>
-                    </div>
+                    <button key={'c' + r.conversation_id} onClick={() => openSearchResult(r.conversation_id)} style={{ width: '100%', textAlign: 'left', padding: '11px 16px', border: 'none', borderBottom: '1px solid var(--line)', background: 'none' }}>
+                      <span style={{ display: 'flex', gap: 8 }}><b style={{ flex: 1, fontSize: 13.5 }}>{r.contact_name}</b><span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{formatSearchDate(r.last_activity_iso)}</span></span>
+                      <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{r.contact_phone}{r.inbox_name && ' · ' + r.inbox_name}{r.status === 'resolved' && ' · Resolvida'}</span>
+                    </button>
                   ))}
-                  {v.searchResults.messages.length > 0 && <div className="search-section-title">Mensagens</div>}
+                  {v.searchResults.messages.length > 0 && <p style={{ ...labelStyle, margin: '14px 16px 6px' }}>Mensagens</p>}
                   {v.searchResults.messages.map((m: Any) => (
-                    <div key={'m' + m.id} className="search-result" onClick={() => openSearchResult(m.conversation_id, m.id)}>
-                      <div className="search-result-top">
-                        <strong>{m.contact_name}</strong>
-                        <span className="search-result-date">{formatSearchDate(m.timestamp)}</span>
-                      </div>
-                      <div className="search-result-snippet">
-                        {m.sender && <span className="search-result-sender">{m.sender}: </span>}
-                        {highlightParts(m.text).map((part, i) => (part.hit ? <mark key={i}>{part.text}</mark> : <Fragment key={i}>{part.text}</Fragment>))}
-                      </div>
-                      {m.inbox_name && <div className="search-result-sub">📱 {m.inbox_name}</div>}
-                    </div>
+                    <button key={'m' + m.id} onClick={() => openSearchResult(m.conversation_id, m.id)} style={{ width: '100%', textAlign: 'left', padding: '11px 16px', border: 'none', borderBottom: '1px solid var(--line)', background: 'none' }}>
+                      <span style={{ display: 'flex', gap: 8 }}><b style={{ flex: 1, fontSize: 13.5 }}>{m.contact_name}</b><span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{formatSearchDate(m.timestamp)}</span></span>
+                      <span style={{ display: 'block', fontSize: 12.5, color: 'var(--ink)', marginTop: 3, lineHeight: 1.5 }}>
+                        {m.sender && <span style={{ color: 'var(--muted)' }}>{m.sender}: </span>}
+                        {highlightParts(m.text).map((part, i) => (part.hit ? <mark key={i} style={{ background: 'var(--terraSoft)', color: 'var(--terra)', fontWeight: 700 }}>{part.text}</mark> : <Fragment key={i}>{part.text}</Fragment>))}
+                      </span>
+                      {m.inbox_name && <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{m.inbox_name}</span>}
+                    </button>
                   ))}
-                  {!v.searchResults.conversations.length && !v.searchResults.messages.length && (
-                    <div className="all-loaded" style={{ marginTop: '2rem' }}>Nada encontrado para "{v.searchQuery}".</div>
-                  )}
+                  {!v.searchResults.conversations.length && !v.searchResults.messages.length && <p style={{ ...small, padding: '40px 20px', textAlign: 'center' }}>Nada encontrado para "{v.searchQuery}".</p>}
                 </>
-              ) : null}
-            </div>
-          )}
-
-          <div className="conv-list" style={{ display: isSearchActive ? 'none' : undefined }}>
-            {store.filteredConversations.map((c: Any) => (
-              <div key={c.id} className={`conv-item${c.unread > 0 ? ' unread' : ''}${c.id === store.activeConversationId ? ' active' : ''}`} onClick={() => openConversationMobile(c.id)}>
-                <div className="conv-avatar" style={{ backgroundColor: c.contact.avatarBg, color: 'white', overflow: 'hidden' }}>
-                  {c.contact.avatar_url
-                    ? <img src={c.contact.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                    : <span className="avatar-text">{c.contact.avatarInitials}</span>}
-                </div>
-                <div className="conv-info">
-                  <div className="conv-title-row">
-                    <span className="conv-name">
-                      {c.contact.name}
-                      <span className={`channel-icon ${c.source}`} title={c.source === 'instagram' ? 'Instagram' : 'WhatsApp'}><WhatsappIcon source={c.source} /></span>
-                    </span>
-                    <span className="conv-time">{formatMessageTime(c.timestamp)}</span>
+              ) : null
+            ) : (
+              <>
+                {store.filteredConversations.map((c: Any) => {
+                  const on = c.id === store.activeConversationId
+                  const last = c.messages?.[c.messages.length - 1]
+                  return (
+                    <button key={c.id} onClick={() => openConversationMobile(c.id)}
+                      style={{ width: '100%', display: 'flex', gap: 11, alignItems: 'center', padding: '13px 14px', border: 'none', borderBottom: '1px solid var(--line)', background: on ? 'var(--bg)' : 'transparent', boxShadow: 'inset 3px 0 0 ' + (on ? 'var(--terra)' : 'transparent') }}>
+                      <ChatAvatar nome={c.contact.name || ''} foto={c.contact.avatar_url} size={38} />
+                      <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.contact.name}</span>
+                          <span style={{ fontSize: 10.5, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{listTime(c.last_activity_iso)}</span>
+                        </span>
+                        {c.tags?.length > 0 && <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>{c.tags.slice(0, 2).map((t: Any) => <Tag key={t.id} name={t.name} color={t.color} />)}{c.tags.length > 2 && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>+{c.tags.length - 2}</span>}</span>}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          {c.inbox_name && <span title={'Caixa: ' + c.inbox_name + (c.inbox_phone ? ' (' + c.inbox_phone + ')' : '')} style={{ flex: 'none', maxWidth: 96, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 4, color: 'var(--olive)', background: 'var(--oliveSoft)' }}>{c.inbox_name}</span>}
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: c.unread > 0 ? 'var(--ink)' : 'var(--muted)', fontWeight: c.unread > 0 ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(last?.senderType === 'agent' ? 'Você: ' : '') + (c.preview || '')}</span>
+                          {c.unread > 0 && <span style={{ flex: 'none', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: 'var(--olive)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.unread > 99 ? '99+' : c.unread}</span>}
+                        </span>
+                        {c.assignee && <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>Atendente: {c.assignee}</span>}
+                      </span>
+                    </button>
+                  )
+                })}
+                {store.filteredConversations.length === 0 && (
+                  <div style={{ padding: '44px 20px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 13.5, margin: '0 0 4px' }}>Nenhuma conversa neste filtro.</p>
+                    <p style={small}>Ajuste os filtros, a caixa ou a aba.</p>
                   </div>
-                  <div className="conv-preview">
-                    {c.unread > 0 && <span className="unread-badge"></span>}
-                    <span className="conv-preview-text">{c.preview}</span>
-                  </div>
-                  {((c.tags && c.tags.length > 0) || c.assignee || c.inbox_name) && (
-                    <div className="conv-tags">
-                      {c.inbox_name && <span className="conv-tag conv-tag-inbox" title={'Caixa: ' + c.inbox_name + (c.inbox_phone ? ' (' + c.inbox_phone + ')' : '')}>📱 {c.inbox_name}</span>}
-                      {c.tags.map((tag: Any) => <span key={tag.id} className="conv-tag" style={{ background: tag.color, color: '#fff' }}>{tag.name}</span>)}
-                      {c.assignee && <span className="conv-tag conv-tag-agent" title={'Atendente: ' + c.assignee}>👤 {c.assignee}</span>}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-            {store.filteredConversations.length > 0
-              ? <div className="all-loaded">Todas as conversas carregadas 🎉</div>
-              : <div className="all-loaded" style={{ marginTop: '2rem' }}>Não há conversas ativas neste grupo.</div>}
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        {/* Chat */}
-        <div className={`chat-pane${v.mobileView === 'list' ? ' mobile-hidden' : ''}`}>
-          {conv && (
-            <div className="chat-header">
-              <div className="chat-title">
-                <button className="btn-back-mobile" onClick={() => { s.mobileView = 'list' }} title="Voltar">←</button>
-                <div className="conv-avatar" style={{ backgroundColor: conv.contact.avatarBg, color: 'white', overflow: 'hidden' }}>
-                  {conv.contact.avatar_url
-                    ? <img src={conv.contact.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                    : <span>{conv.contact.avatarInitials}</span>}
-                </div>
-                <div className="title-info">
-                  <h3>{conv.contact.name}</h3>
-                  <span className="ticket-id">#{conv.id}</span>
-                </div>
-              </div>
-              <div className="chat-actions">
-                <button className="btn-details-mobile" onClick={() => { s.mobileView = 'details' }} title="Detalhes do contato"><Info className="icon-sm" /></button>
+        {/* ---------------- chat ---------------- */}
+        <div className="conv-col" data-hide={v.mobileView === 'chat' ? '0' : '1'} style={{ background: 'var(--bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+          {conv ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderBottom: '1px solid var(--line)', background: 'var(--card)', flex: 'none' }}>
+                <button className="conv-back" onClick={() => { s.mobileView = 'list' }} style={{ display: 'none', width: 30, height: 30, flex: 'none', border: '1px solid var(--line)', borderRadius: 8, background: 'none', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>‹</button>
+                <button onClick={() => { if (isMobile) s.mobileView = 'details'; else setDetailsOpen(o => !o) }} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', textAlign: 'left', padding: 0 }}>
+                  <ChatAvatar nome={conv.contact.name || ''} foto={conv.contact.avatar_url} size={38} />
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{conv.contact.name}</span>
+                    <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>
+                      #{conv.id}{conv.contact.id_jueri ? ' · ' + statusLabel(conv.contact.status) : ''}{conv.assignee ? ' · ' + conv.assignee : ''}{conv.inbox_name ? ' · pela caixa ' + conv.inbox_name : ''}
+                    </span>
+                  </span>
+                </button>
                 <ConversationStatusDropdown conversationId={conv.id} currentStatus={conv.status} />
                 <ConversationMoreOptionsDropdown conversationId={conv.id} contactId={conv.contact?.id} contactStatus={conv.contact?.status}
                   onContactBlocked={() => { activeProxy().contact.status = 'blocked' }}
                   onContactUnblocked={() => { activeProxy().contact.status = 'active' }} />
-              </div>
-            </div>
-          )}
-
-          {conv && (
-            <div className="chat-messages" ref={messagesContainerRef}>
-              {conv.messages.map((msg: Any) => (
-                <div key={msg.id} id={'msg-' + msg.id} className={`message-wrapper ${msg.senderType}${v.highlightedMessageId === msg.id ? ' search-hit' : ''}`}>
-                  {msg.senderType === 'contact' && (
-                    <div className="msg-avatar">
-                      {conv.contact.avatar_url ? <img src={conv.contact.avatar_url} /> : <span>{conv.contact.avatarInitials}</span>}
-                    </div>
-                  )}
-                  <div className="message-content">
-                    <div className={`bubble${msg.isPrivate ? ' private' : ''}`}>
-                      {msg.attachmentUrl && (
-                        <div className="attachment-preview">
-                          {msg.attachmentType?.startsWith('image/') ? (
-                            <a href={msg.attachmentUrl} target="_blank" title="Clique para ampliar" className="image-link">
-                              <img src={msg.attachmentUrl} className="msg-image" onLoad={scrollToBottom} />
-                            </a>
-                          ) : msg.attachmentType?.startsWith('audio/') ? (
-                            <div className="audio-row">
-                              <audio src={msg.attachmentUrl} controls className="msg-audio"></audio>
-                              {!msg.transcription && (
-                                <button className={`transcribe-btn${v.transcribingIds[msg.id] ? ' loading' : ''}`} disabled={!!v.transcribingIds[msg.id]}
-                                  title={v.transcribingIds[msg.id] ? 'Transcrevendo...' : 'Transcrever áudio'} onClick={() => transcribeAudio(msg.id)}>
-                                  {v.transcribingIds[msg.id] ? '…' : 'T'}
-                                </button>
-                              )}
-                            </div>
-                          ) : msg.attachmentType?.startsWith('video/') ? (
-                            <div className="video-wrapper">
-                              <video src={msg.attachmentUrl} controls className="msg-video" onLoadedData={scrollToBottom}></video>
-                              <a href={msg.attachmentUrl} target="_blank" download className="media-download-link">Baixar Vídeo</a>
-                            </div>
-                          ) : (
-                            <a href={msg.attachmentUrl} target="_blank" className="msg-doc">📎 Ver Anexo</a>
-                          )}
-                        </div>
-                      )}
-                      {msg.transcription && <div className="msg-transcription">{msg.transcription}</div>}
-                      {msg.text && <div className="msg-text">{msg.text}</div>}
-                      <div className="bubble-meta">
-                        {!msg.isPrivate && (msg.attachmentUrl || msg.text) && (
-                          <button className="forward-btn" title="Encaminhar" onClick={() => { s.forwardingMessage = { ...msg } }}><Forward className="icon-xxs" /> Encaminhar</button>
-                        )}
-                        <span className="time">{formatMessageTime(msg.timestamp)}</span>
-                        {msg.senderType === 'agent' && <CheckCheck className="icon-xxs" />}
-                      </div>
-                    </div>
-                  </div>
-                  {msg.senderType === 'agent' && (
-                    <div className="msg-avatar agent-avatar">
-                      {msg.agentAvatarUrl ? <img src={msg.agentAvatarUrl} /> : msg.agentName ? <span>{msg.agentName.charAt(0).toUpperCase()}</span> : <span>A</span>}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {conv.messages.length === 0 && (
-                <div className="empty-state">
-                  <div className="icon-circle"><MessageCircle className="icon-lg" /></div>
-                  <p>Não há mensagens nesta conversa ainda.</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {conv && v.aiPauseStatus.paused && (
-            <div className="ai-paused-banner">
-              <BotOff className="banner-icon" />
-              <span>IA pausada — <strong>{formatAiRemaining(v.aiPauseStatus.remaining_seconds)}</strong> para voltar automaticamente</span>
-              <button className="btn-resume-ai" onClick={resumeAi}><Bot className="icon-xs" /> Reativar agora</button>
-            </div>
-          )}
-
-          {conv && (
-            <div className="chat-input-area">
-              <div className="input-tabs">
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <button className={`input-tab${!v.isPrivateMessage ? ' active' : ''}`} onClick={() => { s.isPrivateMessage = false }}>Responder</button>
-                  <button className={`input-tab${v.isPrivateMessage ? ' active' : ''}`} onClick={() => { s.isPrivateMessage = true }}>Mensagem Privada</button>
-                  {!v.isPrivateMessage && conv.inbox_name && (
-                    <span className="sending-via" title={conv.inbox_phone || ''}>Enviando por: <strong>{conv.inbox_name}</strong></span>
-                  )}
-                </div>
-                <button className="btn-magic-sm" onClick={generateSummary} disabled={v.isGeneratingSummary}>
-                  {v.isGeneratingSummary ? <Loader2 className="icon-sm spin" /> : <Sparkles className="icon-sm" />}
-                  <span className="btn-magic-label">{v.isGeneratingSummary ? 'Resumindo...' : 'Gerar Resumo'}</span>
+                <button onClick={() => { if (isMobile) s.mobileView = 'details'; else setDetailsOpen(o => !o) }} style={btn('ghost', { padding: '7px 12px', fontSize: 12.5 })}>
+                  {detailsOpen ? 'Ocultar ficha' : 'Ver revendedora'}
                 </button>
               </div>
-              <div className="input-box">
+
+              <div ref={messagesContainerRef} className="chat-messages" style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {conv.messages.map((msg: Any) => {
+                  const day = dayOf(msg.timestamp)
+                  const sep = day !== lastDay
+                  lastDay = day
+                  const out = msg.senderType === 'agent'
+                  const bubble: React.CSSProperties = msg.isPrivate
+                    ? { background: '#FFF6DB', border: '1px solid #F1D37A', color: '#5B4300' }
+                    : out ? { background: 'var(--terra)', color: '#fff' } : { background: 'var(--card)', border: '1px solid var(--line)' }
+                  const hit = v.highlightedMessageId === msg.id
+                  return (
+                    <div key={msg.id} id={'msg-' + msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {sep && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '6px 0' }}>
+                          <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>{day}</span>
+                          <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: out ? 'flex-end' : 'flex-start' }}>
+                        <span style={{ maxWidth: '72%', padding: '11px 14px', borderRadius: 12, fontSize: 13.5, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', outline: hit ? '2px solid var(--olive)' : undefined, ...bubble }}>
+                          {(msg.isPrivate || (out && msg.agentName)) && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', background: msg.isPrivate ? 'rgba(91,67,0,.1)' : 'rgba(255,255,255,.18)', padding: '3px 8px', borderRadius: 20, marginBottom: 7 }}>
+                              {msg.isPrivate ? 'Nota privada' : ''}{msg.isPrivate && msg.agentName ? ' · ' : ''}{msg.agentName || ''}
+                            </span>
+                          )}
+                          {msg.attachmentUrl && (
+                            msg.attachmentType?.startsWith('image/') ? (
+                              <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginBottom: 6 }}>
+                                <img src={msg.attachmentUrl} alt="Anexo" onLoad={scrollToBottom} style={{ display: 'block', maxWidth: 260, maxHeight: 320, borderRadius: 8, objectFit: 'cover', cursor: 'zoom-in' }} />
+                              </a>
+                            ) : msg.attachmentType?.startsWith('audio/') ? (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                                <audio src={msg.attachmentUrl} controls style={{ maxWidth: 240, height: 36 }} />
+                                {!msg.transcription && (
+                                  <button disabled={!!v.transcribingIds[msg.id]} onClick={() => transcribeAudio(msg.id)} title={v.transcribingIds[msg.id] ? 'Transcrevendo…' : 'Transcrever áudio'}
+                                    style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid currentColor', background: 'none', color: 'inherit', fontWeight: 800, fontSize: 12, opacity: 0.85 }}>{v.transcribingIds[msg.id] ? '…' : 'T'}</button>
+                                )}
+                              </span>
+                            ) : msg.attachmentType?.startsWith('video/') ? (
+                              <video src={msg.attachmentUrl} controls onLoadedData={scrollToBottom} style={{ display: 'block', maxWidth: 280, maxHeight: 360, borderRadius: 8, marginBottom: 6, background: '#000' }} />
+                            ) : (
+                              <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', border: '1px solid currentColor', borderRadius: 8, marginBottom: 6, color: 'inherit', fontSize: 12.5 }}>
+                                <Paperclip size={14} /> Ver anexo
+                              </a>
+                            )
+                          )}
+                          {msg.transcription && <span style={{ display: 'block', fontSize: 12.5, fontStyle: 'italic', opacity: 0.85, marginBottom: 4 }}>Transcrição: “{msg.transcription}”</span>}
+                          {msg.text && <span style={{ display: 'block' }}>{msg.text}</span>}
+                          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, fontSize: 10.5, opacity: 0.75, marginTop: 5 }}>
+                            {!msg.isPrivate && (msg.attachmentUrl || msg.text) && (
+                              <button onClick={() => { s.forwardingMessage = { ...msg } }} title="Encaminhar" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 'none', background: 'none', color: 'inherit', fontSize: 10.5, padding: 0 }}><Forward size={11} /> Encaminhar</button>
+                            )}
+                            {hora(msg.timestamp)}
+                            {out && <CheckCheck size={13} strokeWidth={2.5} />}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+                {conv.messages.length === 0 && <p style={{ ...small, textAlign: 'center', marginTop: 40 }}>Não há mensagens nesta conversa ainda.</p>}
+              </div>
+
+              {v.aiPauseStatus.paused && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: '#FFF6DB', color: '#5B4300', fontSize: 12.5, borderTop: '1px solid #F1D37A' }}>
+                  <BotOff size={15} /><span style={{ flex: 1 }}>IA pausada — <b>{formatAiRemaining(v.aiPauseStatus.remaining_seconds)}</b> para voltar sozinha</span>
+                  <button onClick={resumeAi} style={btn('ghost', { padding: '5px 10px', fontSize: 12 })}><Bot size={13} /> Reativar agora</button>
+                </div>
+              )}
+
+              <div style={{ borderTop: '1px solid var(--line)', padding: '12px 18px 14px', position: 'relative', background: 'var(--card)', flex: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                  <button style={chipBtn(!v.isPrivateMessage)} onClick={() => { s.isPrivateMessage = false }}>Responder</button>
+                  <button style={chipBtn(v.isPrivateMessage)} onClick={() => { s.isPrivateMessage = true }}>Nota privada</button>
+                  {!v.isPrivateMessage && conv.inbox_name && <span title={conv.inbox_phone || ''} style={{ fontSize: 11.5, color: 'var(--muted)', marginLeft: 4 }}>Enviando por <b style={{ color: 'var(--ink)' }}>{conv.inbox_name}</b></span>}
+                  <span style={{ flex: 1 }} />
+                  <button onClick={generateSummary} disabled={v.isGeneratingSummary} style={btn('soft', { padding: '5px 10px', fontSize: 12 })}>
+                    {v.isGeneratingSummary ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={13} />}
+                    {v.isGeneratingSummary ? 'Resumindo…' : 'Gerar resumo'}
+                  </button>
+                </div>
+
+                {slashSuggestions.length > 0 && !v.isRecording && (
+                  <div style={{ position: 'absolute', left: 18, right: 18, bottom: '100%', marginBottom: 6, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 10, padding: 6, boxShadow: '0 12px 28px rgba(28,27,26,.14)', maxHeight: 280, overflowY: 'auto', zIndex: 5 }}>
+                    <p style={{ ...labelStyle, margin: '6px 10px 8px' }}>Modelos de mensagem</p>
+                    {slashSuggestions.map((tpl: Any) => (
+                      <button key={tpl.id} onClick={() => applyTemplate(tpl)} style={{ width: '100%', textAlign: 'left', padding: '9px 10px', border: 'none', background: 'none', borderRadius: 6, fontSize: 13, display: 'flex', gap: 10, alignItems: 'center' }}>
+                        <span style={{ color: 'var(--terra)', fontWeight: 700, fontSize: 12.5, flex: 'none' }}>{tpl.nome}</span>
+                        {tpl.attachment_url && <Paperclip size={12} color="var(--muted)" />}
+                        {tpl.categoria && <span style={{ ...PILL, border: '1px solid var(--line)', color: 'var(--muted)' }}>{tpl.categoria}</span>}
+                        <span style={{ flex: 1, minWidth: 0, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tpl.mensagem || (tpl.attachment_url ? 'Anexo' : '')}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {v.isRecording ? (
-                  <div className="recording-bar">
-                    <button className="cancel-recording-btn" onClick={cancelRecording} title="Cancelar gravação"><X className="icon-sm" /></button>
-                    <div className="recording-indicator"><span className="recording-dot"></span>Gravando áudio... {formatRecordingTime(v.recordingSeconds)}</div>
-                    <button className="btn-send" onClick={finishRecording} title="Enviar áudio"><Send className="icon-sm" /> Enviar</button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button onClick={cancelRecording} title="Cancelar gravação" style={squareBtn}><X size={16} /></button>
+                    <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#D92D20', animation: 'pulse 1s infinite' }} />Gravando áudio… {formatRecordingTime(v.recordingSeconds)}
+                    </span>
+                    <button onClick={finishRecording} style={btn('primary')}><Send size={14} /> Enviar</button>
                   </div>
                 ) : (
                   <>
                     {v.selectedFile && (
-                      <div className="file-preview-area">
-                        <div className="file-preview-content">
-                          {v.selectedFilePreview ? <img src={v.selectedFilePreview} className="preview-img" /> : <div className="file-icon">📄</div>}
-                          <span className="file-name">{v.selectedFile.name}</span>
-                        </div>
-                        <button className="clear-file-btn" onClick={clearSelectedFile}>&times;</button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, border: '1px solid var(--line)', borderRadius: 8, marginBottom: 8, background: 'var(--bg)' }}>
+                        {v.selectedFilePreview ? <img src={v.selectedFilePreview} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6 }} /> : <Paperclip size={18} />}
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.selectedFile.name}</span>
+                        <button onClick={clearSelectedFile} style={{ border: 'none', background: 'none', color: 'var(--muted)' }}><X size={15} /></button>
                       </div>
                     )}
-                    {slashSuggestions.length > 0 && (
-                      <div className="slash-suggestions">
-                        {slashSuggestions.map((tpl: Any) => (
-                          <button key={tpl.id} type="button" className="slash-suggestion-item" onClick={() => applyTemplate(tpl)}>
-                            <span className="slash-suggestion-nome">{tpl.nome} {tpl.attachment_url && <Paperclip className="icon-xxs" />}</span>
-                            {tpl.categoria && <span className="slash-suggestion-categoria">{tpl.categoria}</span>}
-                            <span className="slash-suggestion-preview">{tpl.mensagem || (tpl.attachment_url ? 'Anexo' : '')}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <textarea value={v.newMessageText} onChange={e => { s.newMessageText = e.target.value }}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); handleSendMessage() } }}
-                      onPaste={handlePaste}
-                      placeholder={v.isPrivateMessage ? 'Digite uma nota privada... (dica: use / pra abrir um modelo salvo)' : 'Digite sua mensagem aqui... (dica: use / pra abrir um modelo salvo)'} />
-                    <div className="input-actions">
-                      <div className="left-actions">
-                        <input type="file" ref={fileInputRef} onChange={e => { const f = e.target.files?.[0]; if (f) setSelectedFile(f) }} hidden />
-                        <button className="icon-btn" onClick={() => fileInputRef.current?.click()} title="Anexar arquivo"><Paperclip className="icon-sm" /></button>
-                        <div className="emoji-wrapper">
-                          <button className="icon-btn" onClick={e => { stop(e); s.isEmojiPickerOpen = !s.isEmojiPickerOpen }}><Smile className="icon-sm" /></button>
-                          {v.isEmojiPickerOpen && (
-                            <div className="emoji-picker-container" onClick={stop}>
-                              <EmojiPicker emojiStyle={EmojiStyle.NATIVE} onEmojiClick={e => { s.newMessageText += e.emoji }} lazyLoadEmojis />
-                            </div>
-                          )}
-                        </div>
-                        {!v.newMessageText.trim() && !v.selectedFile && (
-                          <button className="icon-btn" onClick={startRecording} title="Gravar áudio"><Mic className="icon-sm" /></button>
-                        )}
-                        {v.aiPauseStatus.paused && (
-                          <div className="ai-paused-pill">
-                            <BotOff className="pill-icon" />
-                            <span>IA pausada · {formatAiRemaining(v.aiPauseStatus.remaining_seconds)}</span>
-                            <button className="pill-resume" onClick={resumeAi} title="Reativar IA agora"><Bot className="pill-icon" /></button>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                      <input type="file" ref={fileInputRef} hidden onChange={e => { const f = e.target.files?.[0]; if (f) setSelectedFile(f) }} />
+                      <button title="Anexar arquivo" onClick={() => fileInputRef.current?.click()} style={{ ...squareBtn, width: 38, height: 38, color: 'var(--muted)' }}><Paperclip size={16} /></button>
+                      <div style={{ position: 'relative', flex: 'none' }}>
+                        <button title="Emojis" onClick={e => { stop(e); s.isEmojiPickerOpen = !s.isEmojiPickerOpen }} style={{ ...squareBtn, width: 38, height: 38, color: 'var(--muted)' }}><Smile size={16} /></button>
+                        {v.isEmojiPickerOpen && (
+                          <div onClick={stop} style={{ position: 'absolute', bottom: 46, left: 0, zIndex: 30 }}>
+                            <EmojiPicker emojiStyle={EmojiStyle.NATIVE} onEmojiClick={e => { s.newMessageText += e.emoji }} lazyLoadEmojis theme={(document.querySelector('[data-theme="dark"]') ? 'dark' : 'light') as Any} />
                           </div>
                         )}
                       </div>
-                      <button className="btn-send" onClick={handleSendMessage}>Enviar (↵)</button>
+                      {!v.newMessageText.trim() && !v.selectedFile && (
+                        <button title="Gravar áudio" onClick={startRecording} style={{ ...squareBtn, width: 38, height: 38, color: 'var(--muted)' }}><Mic size={16} /></button>
+                      )}
+                      <textarea value={v.newMessageText} rows={1} onChange={e => { s.newMessageText = e.target.value }} onPaste={handlePaste}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); handleSendMessage() } }}
+                        placeholder={v.isPrivateMessage ? 'Nota privada (só a equipe vê) · digite / para modelos' : 'Mensagem · Shift+Enter pula linha · digite / para modelos'}
+                        style={{ flex: 1, minWidth: 0, padding: '10px 14px', border: '1px solid ' + (v.isPrivateMessage ? '#F1D37A' : 'var(--line)'), borderRadius: 8, background: v.isPrivateMessage ? '#FFFBEB' : 'var(--bg)', fontSize: 13.5, resize: 'none', minHeight: 40, maxHeight: 140, fieldSizing: 'content' } as React.CSSProperties} />
+                      <button onClick={handleSendMessage} style={btn('primary', { padding: '11px 20px' })}>Enviar</button>
                     </div>
                   </>
                 )}
               </div>
+            </>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 40 }}>
+              <span style={{ width: 64, height: 64, border: '1.5px solid var(--line)', borderRadius: '16px 16px 4px 16px', marginBottom: 24, display: 'block' }} />
+              <h2 style={{ ...serif, fontSize: 28, margin: '0 0 10px' }}>Conversas</h2>
+              <p style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--muted)', margin: 0, maxWidth: '38ch' }}>Selecione uma conversa à esquerda para ver o histórico da revendedora, responder e abrir a ficha completa.</p>
             </div>
           )}
         </div>
 
-        {/* Painel da revendedora */}
-        {conv && (
-          <div className={`details-pane${v.mobileView !== 'details' ? ' mobile-hidden' : ''}`}>
-            <div className="details-header-top">
-              <h3>Contatos</h3>
-              <div className="details-header-actions">
-                <div className="details-menu-wrapper">
-                  <button className="icon-btn" onClick={e => { stop(e); s.isDetailsMenuOpen = !s.isDetailsMenuOpen }} title="Mais opções"><MoreVertical className="icon-sm" /></button>
-                  {v.isDetailsMenuOpen && (
-                    <div className="details-menu" onClick={stop}>
-                      <button className="details-menu-item" onClick={() => { s.isMergeModalOpen = true; s.isDetailsMenuOpen = false }}><GitMerge className="icon-xs" /> Mesclar contato</button>
-                      <button className="details-menu-item danger" onClick={() => { s.isDeleteConversationModalOpen = true; s.isDetailsMenuOpen = false }}><MessageCircle className="icon-xs" /> Apagar conversa</button>
-                    </div>
-                  )}
+        {/* ---------------- ficha da revendedora ---------------- */}
+        {conv && showDetails && (
+          <div className="conv-col conv-details" data-hide='0' style={{ borderLeft: '1px solid var(--line)', background: 'var(--bg)', overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <button className="conv-back" onClick={() => { s.mobileView = 'chat' }} style={{ ...btn('ghost', { padding: '5px 10px', fontSize: 12 }), display: 'none' }}>‹ Conversa</button>
+                <span style={{ flex: 1 }} />
+                <div style={{ position: 'relative' }}>
+                  <button title="Mais opções" onClick={e => { stop(e); s.isDetailsMenuOpen = !s.isDetailsMenuOpen }} style={{ ...squareBtn, width: 30, height: 30 }}><MoreVertical size={14} /></button>
+                  <Dropdown open={v.isDetailsMenuOpen}>
+                    <MenuItem onClick={() => { s.isMergeModalOpen = true; s.isDetailsMenuOpen = false }}><GitMerge size={14} /> Mesclar contato</MenuItem>
+                    <MenuItem danger onClick={() => { s.isDeleteConversationModalOpen = true; s.isDetailsMenuOpen = false }}><MessageCircle size={14} /> Apagar conversa</MenuItem>
+                  </Dropdown>
                 </div>
-                <button className="icon-btn details-close-mobile" onClick={() => { s.mobileView = 'chat' }} title="Voltar pra conversa"><X className="icon-sm" /></button>
               </div>
-            </div>
-
-            <div className="contact-profile">
-              <div className="contact-avatar" style={{ backgroundColor: conv.contact.avatarBg, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 'bold', overflow: 'hidden' }}>
-                {conv.contact.avatar_url
-                  ? <img src={conv.contact.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                  : <span>{conv.contact.avatarInitials}</span>}
-              </div>
-              <div className="contact-name-row" style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 6 }}>
+                <ChatAvatar nome={conv.contact.name || ''} foto={conv.contact.avatar_url} size={64} />
                 {v.isEditingName ? (
-                  <input ref={nameInputRef} value={v.editingName} className="contact-name-input" maxLength={120}
+                  <input ref={nameInputRef} value={v.editingName} maxLength={120} style={{ ...inputStyle, textAlign: 'center', fontWeight: 600 }}
                     onChange={e => { s.editingName = e.target.value }}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveContactName() } else if (e.key === 'Escape') { e.preventDefault(); s.isEditingName = false } }}
                     onBlur={saveContactName} />
                 ) : (
-                  <h4 className="contact-name-editable" title="Clique pra editar o nome" onClick={startEditingName}>
-                    {conv.contact.name}
-                    <Pencil className="icon-xs contact-name-pencil" />
-                  </h4>
+                  <h3 onClick={startEditingName} title="Clique pra editar o nome" style={{ ...serif, fontSize: 22, margin: '4px 0 0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {conv.contact.name} <Pencil size={13} color="var(--muted)" />
+                  </h3>
                 )}
-                <Info className="icon-xs contact-quick-info" onClick={e => { stop(e); s.showQuickInfo = !s.showQuickInfo }}><title>Ver telefone/e-mail/cidade</title></Info>
-                <ExternalLink className="icon-xs contact-open-profile" onClick={() => navigate(`/contatos/${conv.contact.id}`)}><title>Abrir perfil completo</title></ExternalLink>
-                {v.showQuickInfo && (
-                  <div className="quick-info-popover" onClick={stop}>
-                    {contactQuickInfoLines.length ? contactQuickInfoLines.map(line => (
-                      <div className="quick-info-row" key={line.label}>
-                        <span className="quick-info-label">{line.label}</span>
-                        <span className="quick-info-value">{line.value}</span>
-                      </div>
-                    )) : <p className="quick-info-empty">Sem informações adicionais</p>}
-                  </div>
-                )}
-              </div>
-
-              {conv.contact.id && (
-                <div className="lead-badges">
-                  <span className="lead-id-badge">#{conv.contact.id}</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
+                  <span style={{ ...PILL, border: '1px solid var(--line)', color: 'var(--muted)' }}>#{conv.contact.id}</span>
                   {conv.contact.id_jueri
-                    ? (conv.contact.nivel && (
-                      <span className="lead-tag nivel-tag" style={{ color: nivelInfo(conv.contact.nivel).color, backgroundColor: nivelInfo(conv.contact.nivel).bg }}>
-                        {nivelInfo(conv.contact.nivel).emoji} {nivelInfo(conv.contact.nivel).nome.toUpperCase()}
-                      </span>))
-                    : <span className="lead-tag lead-tag-novo">NOVO CONTATO</span>}
+                    ? conv.contact.nivel && <span style={{ ...PILL, color: nivelInfo(conv.contact.nivel).color, background: nivelInfo(conv.contact.nivel).bg }}>{nivelInfo(conv.contact.nivel).emoji} {nivelInfo(conv.contact.nivel).nome}</span>
+                    : <span style={{ ...PILL, background: 'var(--oliveSoft)', color: 'var(--olive)' }}>Novo contato</span>}
+                  {conv.contact.id_jueri && <span style={{ ...PILL, background: 'var(--terraSoft)', color: 'var(--terra)' }}>{statusLabel(conv.contact.status)}{daysInStage(conv.contact) ? ` · ${daysInStage(conv.contact)}d` : ''}</span>}
                 </div>
-              )}
-
-              {conv.contact.id_jueri && (
-                <div className="lead-stage-row">
-                  <span className="stage-pipeline">Consignado</span>
-                  <span className="stage-badge">{statusLabel(conv.contact.status)}</span>
-                  {!!daysInStage(conv.contact) && <span className="stage-days">({daysInStage(conv.contact)} dias)</span>}
-                  <ChevronDown className="icon-xs" style={{ marginLeft: 'auto' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}><Phone size={12} /> {formatPhoneDisplay(conv.contact.phone) || 'Sem telefone'}</span>
+                  {conv.contact.email && <span style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}><Mail size={12} /> {conv.contact.email}</span>}
                 </div>
-              )}
-
-              <div className="contact-attributes">
-                <div className="attr-row">
-                  <Phone className="icon-xs" />
-                  <span>{formatPhoneDisplay(conv.contact.phone) || 'Indisponível'}</span>
-                  {conv.contact.phone && <Copy className="icon-xs action-icon" />}
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <button onClick={focusMessageInput} style={btn('ghost', { padding: '6px 10px', fontSize: 12 })}><MessageCircle size={13} /> Responder</button>
+                  <button onClick={() => navigate(`/contatos/${conv.contact.id}`)} style={btn('ghost', { padding: '6px 10px', fontSize: 12 })}><ExternalLink size={13} /> Perfil completo</button>
                 </div>
-                <div className="attr-row">
-                  <Mail className="icon-xs" />
-                  <span>{conv.contact.email || 'Indisponível'}</span>
-                </div>
-              </div>
-
-              <div className="contact-actions-row">
-                <button className="action-btn" title="Focar Mensagem" onClick={focusMessageInput}><MessageCircle className="icon-sm" /></button>
-                <button className="action-btn" title="Mesclar Contato" onClick={() => { s.isMergeModalOpen = true }}><GitMerge className="icon-sm" /></button>
               </div>
             </div>
 
-            <div className="details-tabs">
-              {detailsTabs.map(tab => (
-                <button key={tab.id} className={`details-tab${v.activeDetailsTab === tab.id ? ' active' : ''}`} onClick={() => { s.activeDetailsTab = tab.id }}>{tab.label}</button>
-              ))}
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {detailsTabs.map(tab => <button key={tab.id} style={chipBtn(v.activeDetailsTab === tab.id)} onClick={() => { s.activeDetailsTab = tab.id }}>{tab.label}</button>)}
             </div>
 
             {v.activeDetailsTab === 'principal' && (
               <>
-                <div className="accordion-card">
-                  <div className="card-header"><h3>Principal</h3></div>
-                  <div className="card-body" style={{ paddingTop: '0.5rem' }}>
-                    <div className="lead-field"><span className="lf-label">Atendente</span><span className="lf-value">{conv.assignee || 'Não atribuído'}</span></div>
-                    <div className="lead-field">
-                      <span className="lf-label">Carteira</span>
-                      <span className={`lf-value${!conv.contact.custom_attributes?.gerente_jueri_nome ? ' empty' : ''}`}>{conv.contact.custom_attributes?.gerente_jueri_nome || 'Sem time'}</span>
-                    </div>
-                    <button className="lead-fields-edit" onClick={() => { s.isEditModalOpen = true }}><Edit2 className="icon-xs" /> Editar campos</button>
+                <Card title="Atendimento">
+                  <Field label="Atendente" value={conv.assignee || 'Não atribuído'} empty={!conv.assignee} />
+                  <Field label="Carteira" value={conv.contact.custom_attributes?.gerente_jueri_nome || 'Sem time'} empty={!conv.contact.custom_attributes?.gerente_jueri_nome} />
+                  <select value={conv.assignee_id || ''} onChange={e => handleAssign(e.target.value)} disabled={v.isAssigning} style={{ ...inputStyle, marginTop: 10 }}>
+                    <option value="">Nenhum atendente</option>
+                    {agentsByDepartment.map(group => (
+                      <optgroup key={group.dept} label={group.label}>
+                        {group.agents.map((agent: Any) => <option key={agent.id} value={agent.id}>{agent.first_name} {agent.last_name}</option>)}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    <button disabled={!conv.assignee_id || v.isAssigning} onClick={() => { s.showTransferModal = true }} style={btn('ghost', { flex: '1 1 auto', fontSize: 12, padding: '8px 10px', opacity: !conv.assignee_id ? 0.5 : 1 })}>Transferir com nota</button>
+                    <button onClick={() => { s.isEditModalOpen = true }} style={btn('soft', { flex: '1 1 auto', fontSize: 12, padding: '8px 10px' })}><Edit2 size={13} /> Editar campos</button>
                   </div>
-                </div>
+                </Card>
 
-                {v.contactFieldGroups.map((group: Any) => (
-                  <div className="accordion-card" key={group.id}>
-                    <div className="card-header" onClick={() => toggleGroup(group.id)} style={{ cursor: 'pointer' }}>
-                      <h3>{group.name}</h3>
-                      {accordionToggle(v.openGroupIds.includes(group.id))}
-                    </div>
-                    {v.openGroupIds.includes(group.id) && (
-                      <div className="card-body" style={{ paddingTop: '0.5rem' }}>
-                        {(group.field_keys || []).map((key: string) => fieldRow(key, fieldLabelOf(key)))}
-                        {(!group.field_keys || group.field_keys.length === 0) && <p className="empty-text">Nenhum campo neste grupo ainda. Adicione em Configurações → Campos do Contato.</p>}
+                {v.contactFieldGroups.map((group: Any) => {
+                  const open = v.openGroupIds.includes(group.id)
+                  return (
+                    <Card key={group.id} title={group.name} right={toggle(open)} onHeaderClick={() => toggleGroup(group.id)}>
+                      {open && ((group.field_keys || []).length
+                        ? (group.field_keys || []).map((key: string) => fieldRow(key, fieldLabelOf(key)))
+                        : <p style={small}>Nenhum campo neste grupo ainda. Adicione em Configurações → Campos do Contato.</p>)}
+                    </Card>
+                  )
+                })}
+                {unassignedFields.length > 0 && (
+                  <Card title="Outros" right={toggle(v.isUnassignedOpen)} onHeaderClick={() => { s.isUnassignedOpen = !s.isUnassignedOpen }}>
+                    {v.isUnassignedOpen && unassignedFields.map((f: Any) => fieldRow(f.key, f.label))}
+                  </Card>
+                )}
+                <Card title="Dados do Jueri (sincronizado)" right={toggle(v.isDadosJueriOpen)} onHeaderClick={() => { s.isDadosJueriOpen = !s.isDadosJueriOpen }}>
+                  {v.isDadosJueriOpen && (
+                    <>
+                      {dadosFields.map(f => <Field key={'j-' + f.key} label={f.label} value={getDadoValue(f) || '—'} empty={!getDadoValue(f)} />)}
+                      {extraAttributes.map(a => <Field key={'x-' + a.key} label={a.label} value={String(a.value)} />)}
+                    </>
+                  )}
+                </Card>
+
+                <Card title="Etiquetas">
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+                    {(conv.tags || []).map((t: Any) => <Tag key={t.id} name={t.name} color={t.color} onRemove={() => removeTag(t.id)} />)}
+                    {!conv.tags?.length && <span style={small}>Nenhuma etiqueta</span>}
+                  </div>
+                  <div style={{ position: 'relative', display: 'flex', gap: 6 }}>
+                    <input value={v.newTagName} onChange={e => { s.newTagName = e.target.value }} onKeyUp={e => { if (e.key === 'Enter') addTag() }}
+                      onFocus={() => { s.showTagSuggestions = true }} onClick={e => { stop(e); s.showTagSuggestions = true }}
+                      placeholder="Escolha ou crie uma etiqueta…" autoComplete="off" style={{ ...inputStyle, fontSize: 12.5 }} />
+                    <button onClick={addTag} disabled={!v.newTagName.trim()} style={btn('primary', { padding: '8px 12px', opacity: v.newTagName.trim() ? 1 : 0.5 })}><Plus size={13} /></button>
+                    {v.showTagSuggestions && tagSuggestions.length > 0 && (
+                      <div onClick={stop} style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, maxHeight: 220, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 12px 28px rgba(8,17,31,.14)', zIndex: 20, padding: 4 }}>
+                        {tagSuggestions.map((t: Any) => (
+                          <button key={t.id} onClick={() => pickTagSuggestion(t)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', border: 'none', background: 'none', borderRadius: 6, fontSize: 12.5, textAlign: 'left' }}>
+                            <span style={{ width: 9, height: 9, borderRadius: '50%', background: t.color }} />{t.name}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
-                ))}
-
-                {unassignedFields.length > 0 && (
-                  <div className="accordion-card">
-                    <div className="card-header" onClick={() => { s.isUnassignedOpen = !s.isUnassignedOpen }} style={{ cursor: 'pointer' }}>
-                      <h3>Outros</h3>
-                      {accordionToggle(v.isUnassignedOpen)}
-                    </div>
-                    {v.isUnassignedOpen && <div className="card-body" style={{ paddingTop: '0.5rem' }}>{unassignedFields.map((f: Any) => fieldRow(f.key, f.label))}</div>}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    {TAG_COLORS.map(c => <button key={c} title={c} onClick={() => { s.newTagColor = c }} style={{ width: 18, height: 18, borderRadius: '50%', background: c, border: v.newTagColor === c ? '2px solid var(--ink)' : '2px solid transparent' }} />)}
                   </div>
-                )}
+                </Card>
 
-                <div className="accordion-card">
-                  <div className="card-header" onClick={() => { s.isDadosJueriOpen = !s.isDadosJueriOpen }} style={{ cursor: 'pointer' }}>
-                    <h3>Dados do Jueri (sincronizado)</h3>
-                    {accordionToggle(v.isDadosJueriOpen)}
-                  </div>
-                  {v.isDadosJueriOpen && (
-                    <div className="card-body" style={{ paddingTop: '0.5rem' }}>
-                      {dadosFields.map(f => (
-                        <div className="lead-field" key={'jueri-' + f.key}>
-                          <span className="lf-label">{f.label}</span>
-                          <span className={`lf-value${!getDadoValue(f) ? ' empty' : ''}`}>{getDadoValue(f) || '...'}</span>
-                        </div>
-                      ))}
-                      {extraAttributes.map(attr => (
-                        <div className="lead-field" key={'extra-' + attr.key}>
-                          <span className="lf-label">{attr.label}</span>
-                          <span className="lf-value">{String(attr.value)}</span>
-                        </div>
-                      ))}
+                <Card title="Mensagens agendadas" right={<button onClick={() => { s.isScheduleModalOpen = true }} style={{ border: 'none', background: 'none', color: 'var(--terra)', fontSize: 12, fontWeight: 700 }}>+ Agendar</button>}>
+                  {v.scheduledMessages.length ? v.scheduledMessages.map((m: Any) => (
+                    <div key={m.id} style={{ display: 'flex', gap: 8, padding: '8px 0', borderBottom: '1px dashed var(--line)' }}>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--terra)' }}>{new Date(m.send_at).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                        {m.text && <span style={{ display: 'block', fontSize: 12.5 }}>{m.text.length > 60 ? m.text.substring(0, 60) + '…' : m.text}</span>}
+                        {m.attachmentUrl && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)' }}>📎 {m.attachmentName || 'Anexo'}</span>}
+                      </span>
+                      <button title="Cancelar envio" onClick={() => cancelScheduledMessage(m.id)} style={{ border: 'none', background: 'none', color: 'var(--muted)', alignSelf: 'flex-start' }}><X size={14} /></button>
                     </div>
+                  )) : <p style={small}>Ainda não há mensagens agendadas.</p>}
+                </Card>
+
+                <Card title="Notas da revendedora" right={toggle(v.isNotesOpen)} onHeaderClick={() => { s.isNotesOpen = !s.isNotesOpen }}>
+                  {v.isNotesOpen && (
+                    <>
+                      {conv.contact?.notes?.length ? conv.contact.notes.map((n: Any) => (
+                        <div key={n.id} style={{ padding: '8px 10px', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, marginBottom: 6 }}>
+                          <span style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}><b>{n.author}</b>{new Date(n.created_at).toLocaleDateString('pt-BR')}</span>
+                          <span style={{ fontSize: 12.5, whiteSpace: 'pre-wrap' }}>{n.content}</span>
+                        </div>
+                      )) : <p style={{ ...small, marginBottom: 8 }}>Nenhuma nota adicionada.</p>}
+                      <textarea value={v.newNoteText} onChange={e => { s.newNoteText = e.target.value }} placeholder="Adicionar nova nota…" rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+                      <button onClick={saveNote} disabled={v.isSavingNote || !v.newNoteText.trim()} style={btn('primary', { width: '100%', marginTop: 6, opacity: v.newNoteText.trim() ? 1 : 0.5 })}>{v.isSavingNote ? 'Salvando…' : 'Salvar nota'}</button>
+                    </>
                   )}
-                </div>
+                </Card>
 
-                <div className="accordion-card">
-                  <div className="card-header"><h3>Mensagens agendadas</h3><Minus className="icon-sm" /></div>
-                  <div className="card-body">
-                    <button className="btn-text-blue" onClick={() => { s.isScheduleModalOpen = true }}><Plus className="icon-xs" /> Agendar mensagem</button>
-                    {v.scheduledMessages.length > 0 ? (
-                      <div className="scheduled-list-ui">
-                        {v.scheduledMessages.map((msg: Any) => (
-                          <div key={msg.id} className="scheduled-item-ui">
-                            <div className="sch-header">
-                              <span className="sch-time">{new Date(msg.send_at).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                              <button className="icon-btn-cancel" onClick={() => cancelScheduledMessage(msg.id)} title="Cancelar envio"><X className="icon-xxs" /></button>
-                            </div>
-                            <div className="sch-content">
-                              {msg.text && <p>{msg.text.length > 50 ? msg.text.substring(0, 50) + '...' : msg.text}</p>}
-                              {msg.attachmentUrl && <div className="sch-attachment">📎 {msg.attachmentName || 'Anexo'}</div>}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : <p className="empty-text">Ainda não há mensagens agendadas.</p>}
-                  </div>
-                </div>
-
-                <div className="accordion-card">
-                  <div className="card-header"><h3>Atendente</h3></div>
-                  <div className="card-body" style={{ paddingTop: '0.5rem', paddingBottom: '1rem' }}>
-                    <select className="assign-select" value={conv.assignee_id || ''} onChange={e => handleAssign(e.target.value)} disabled={v.isAssigning}>
-                      <option value="">Nenhum (Não atribuído)</option>
-                      {agentsByDepartment.map(group => (
-                        <optgroup key={group.dept} label={'— ' + group.label}>
-                          {group.agents.map((agent: Any) => <option key={agent.id} value={agent.id}>{agent.first_name} {agent.last_name}</option>)}
-                        </optgroup>
-                      ))}
-                    </select>
-                    <button className="btn-transfer" disabled={!conv.assignee_id || v.isAssigning} onClick={() => { s.showTransferModal = true }}>Transferir com nota</button>
-                  </div>
-                </div>
-
-                <div className="accordion-card">
-                  <div className="card-header"><h3>Etiquetas</h3></div>
-                  <div className="card-body" style={{ paddingTop: '0.5rem', paddingBottom: '1rem' }}>
-                    <div className="tag-chips">
-                      {(conv.tags || []).map((tag: Any) => (
-                        <span key={tag.id} className="tag-chip" style={{ background: tag.color }}>
-                          {tag.name}
-                          <button className="tag-remove" onClick={() => removeTag(tag.id)} title="Remover etiqueta (reativa a IA se for 'agente_off')">×</button>
-                        </span>
-                      ))}
-                      {!conv.tags?.length && <span className="empty-text">Nenhuma etiqueta</span>}
-                    </div>
-                    <div className="tag-add-row" style={{ position: 'relative' }}>
-                      <input value={v.newTagName} onChange={e => { s.newTagName = e.target.value }}
-                        onKeyUp={e => { if (e.key === 'Enter') addTag() }}
-                        onFocus={() => { s.showTagSuggestions = true }}
-                        onClick={e => { stop(e); s.showTagSuggestions = true }}
-                        placeholder="Nova etiqueta ou escolha uma já existente..." className="tag-input" autoComplete="off" />
-                      <button className="btn-add-tag" onClick={addTag} disabled={!v.newTagName.trim()}><Plus className="icon-xs" /> Adicionar</button>
-                      {v.showTagSuggestions && tagSuggestions.length > 0 && (
-                        <div className="tag-suggestions" onClick={stop}>
-                          {tagSuggestions.map((tag: Any) => (
-                            <button key={tag.id} type="button" className="tag-suggestion-item" onClick={() => pickTagSuggestion(tag)}>
-                              <span className="tag-suggestion-dot" style={{ background: tag.color }}></span>
-                              {tag.name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="tag-color-picker">
-                      {TAG_COLORS.map(c => (
-                        <button key={c} className={`tag-color-dot${v.newTagColor === c ? ' active' : ''}`} style={{ background: c }} onClick={() => { s.newTagColor = c }} title={c}></button>
+                <Card title="Anexos da conversa" right={toggle(v.isAttachmentsOpen)} onHeaderClick={() => { s.isAttachmentsOpen = !s.isAttachmentsOpen }}>
+                  {v.isAttachmentsOpen && (conversationAttachments.length ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                      {conversationAttachments.map((a: Any) => (
+                        <a key={a.id} href={a.attachmentUrl} target="_blank" rel="noreferrer" style={{ aspectRatio: '1', borderRadius: 8, border: '1px solid var(--line)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', fontSize: 11, color: 'var(--muted)' }}>
+                          {a.attachmentType?.startsWith('image/') ? <img src={a.attachmentUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📎 Arquivo'}
+                        </a>
                       ))}
                     </div>
-                  </div>
-                </div>
+                  ) : <p style={small}>Nenhum anexo nesta conversa.</p>)}
+                </Card>
               </>
             )}
 
             {v.activeDetailsTab === 'dados' && (
-              <>
-                <div className="lead-fields">
-                  <div className="lead-field">
-                    <span className="lf-label">E-mail</span>
-                    <span className={`lf-value${!conv.contact.email ? ' empty' : ''}`}>{conv.contact.email || '...'}</span>
-                  </div>
-                  {(conv.contact.reseller_phones || []).map((tel: Any) => (
-                    <div className="lead-field" key={'tel-' + tel.id}>
-                      <span className="lf-label">{tel.label || 'Telefone adicional'}</span>
-                      <span className="lf-value">{tel.phone}</span>
-                    </div>
-                  ))}
-                  <div className="lead-field">
-                    <span className="lf-label">Data de cadastro</span>
-                    <span className={`lf-value${!conv.contact.created_at ? ' empty' : ''}`}>{formatDate(conv.contact.created_at) || '...'}</span>
-                  </div>
-                  <button className="lead-fields-edit" onClick={() => { s.isEditModalOpen = true }}><Edit2 className="icon-xs" /> Editar campos</button>
-                </div>
-                {conv.contact?.bio && (
-                  <div className="accordion-card">
-                    <div className="card-header"><h3>Descrição</h3></div>
-                    <div className="card-body" style={{ paddingTop: '0.5rem' }}>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-main)', lineHeight: 1.5 }}>{conv.contact.bio}</p>
-                    </div>
-                  </div>
-                )}
-              </>
+              <Card title="Dados">
+                <Field label="E-mail" value={conv.contact.email || '—'} empty={!conv.contact.email} />
+                {(conv.contact.reseller_phones || []).map((t: Any) => <Field key={'t-' + t.id} label={t.label || 'Telefone adicional'} value={t.phone} />)}
+                <Field label="Data de cadastro" value={formatDate(conv.contact.created_at) || '—'} empty={!conv.contact.created_at} />
+                {conv.contact.bio && <p style={{ fontSize: 12.5, lineHeight: 1.6, margin: '10px 0 0' }}>{conv.contact.bio}</p>}
+                <button onClick={() => { s.isEditModalOpen = true }} style={btn('soft', { width: '100%', marginTop: 10, fontSize: 12.5 })}><Edit2 size={13} /> Editar campos</button>
+              </Card>
             )}
 
             {v.activeDetailsTab === 'financeiro' && (
               <>
-                <div className="fin-summary">
-                  <div className="fin-card"><span className="fin-label">Total vendido</span><span className="fin-value positive">{brl(totalVendido)}</span></div>
-                  <div className="fin-card"><span className="fin-label">Em aberto</span><span className={`fin-value${totalEmAberto > 0 ? ' warn' : ''}`}>{brl(totalEmAberto)}</span></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[['Total vendido', brl(totalVendido), 'var(--olive)'], ['Em aberto', brl(totalEmAberto), totalEmAberto > 0 ? '#B54708' : 'var(--ink)']].map(([k, val, color]) => (
+                    <div key={k} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: 14 }}>
+                      <span style={{ display: 'block', ...labelStyle }}>{k}</span>
+                      <span style={{ ...serif, fontSize: 22, color }}>{val}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="accordion-card">
-                  <div className="card-header"><h3>Pedidos / Acertos</h3></div>
-                  <div className="card-body" style={{ paddingTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <p className="empty-text" style={{ margin: 0 }}>Sincronizado automaticamente do Jueri — baixa/cancelamento de pedido é feito lá, não aqui.</p>
-                    {pedidos.length > 0 ? (
-                      <div className="pedido-list">
-                        {pedidos.map((p: Any) => (
-                          <div className="pedido-item" key={p.id}>
-                            <span className={`pedido-status status-${PEDIDO_STATUS_CLASSES[p.status_id] || 'desconhecido'}`}>{PEDIDO_STATUS_LABELS[p.status_id] || 'Desconhecido'}</span>
-                            <span className="pedido-date">{formatDate(p.data_criacao)}</span>
-                            <span className="pedido-valor">{brl(p.valor_total)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : <p className="empty-text">Nenhum pedido sincronizado ainda.</p>}
-                  </div>
-                </div>
+                <Card title="Pedidos / acertos">
+                  <p style={{ ...small, marginBottom: 8 }}>Sincronizado do Jueri — baixa e cancelamento são feitos lá.</p>
+                  {pedidos.length ? pedidos.map((p: Any) => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px dashed var(--line)', fontSize: 12.5 }}>
+                      <span style={{ ...PILL, background: p.status_id === 1 ? 'var(--terraSoft)' : p.status_id === 2 ? 'var(--oliveSoft)' : 'var(--line)', color: p.status_id === 1 ? 'var(--terra)' : p.status_id === 2 ? 'var(--olive)' : 'var(--muted)' }}>{PEDIDO_STATUS_LABELS[p.status_id] || 'Desconhecido'}</span>
+                      <span style={{ flex: 1, color: 'var(--muted)' }}>{formatDate(p.data_criacao)}</span>
+                      <b>{brl(p.valor_total)}</b>
+                    </div>
+                  )) : <p style={small}>Nenhum pedido sincronizado ainda.</p>}
+                </Card>
               </>
             )}
 
             {v.activeDetailsTab === 'estatisticas' && (
               <>
-                <div className="stat-grid">
-                  <div className="stat-card"><span className="stat-value">{daysAsClient !== null ? daysAsClient : '...'}</span><span className="stat-label">Dias como revendedora</span></div>
-                  <div className="stat-card"><span className="stat-value">{daysInStage(conv.contact) ?? '...'}</span><span className="stat-label">Dias na etapa atual</span></div>
-                  <div className="stat-card"><span className="stat-value">{totalMessagesCount}</span><span className="stat-label">Mensagens trocadas</span></div>
-                  <div className="stat-card"><span className="stat-value">{pedidosFechadosCount}</span><span className="stat-label">Pedidos baixados</span></div>
-                  <div className="stat-card"><span className="stat-value">{activeTagsCount}</span><span className="stat-label">Etiquetas ativas</span></div>
-                  <div className="stat-card"><span className="stat-value stat-value-sm">{formatDateTime(lastMessageAt) || '...'}</span><span className="stat-label">Última interação</span></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[
+                    ['Dias como revendedora', daysAsClient ?? '—'], ['Dias na etapa', daysInStage(conv.contact) ?? '—'],
+                    ['Mensagens', totalMessagesCount], ['Pedidos baixados', pedidosFechadosCount],
+                    ['Etiquetas', activeTagsCount], ['Última interação', formatDateTime(lastMessageAt) || '—'],
+                  ].map(([k, val]) => (
+                    <div key={k as string} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
+                      <span style={{ display: 'block', ...serif, fontSize: typeof val === 'string' && val.length > 8 ? 14 : 24 }}>{val}</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>{k}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="accordion-card">
-                  <div className="card-header"><h3>Linha do tempo do ciclo de vida</h3></div>
-                  <div className="card-body" style={{ paddingTop: '0.5rem' }}>
-                    {lifecycleEvents.length > 0 ? (
-                      <div className="lifecycle-timeline">
-                        {lifecycleEvents.map((ev: Any) => (
-                          <div className={`lifecycle-item event-${ev.event_type}`} key={ev.id}>
-                            <span className="lifecycle-dot"></span>
-                            <div className="lifecycle-body">
-                              <span className="lifecycle-label">{LIFECYCLE_EVENT_LABELS[ev.event_type] || ev.event_type}</span>
-                              <span className="lifecycle-date">{formatDateTime(ev.occurred_at)}</span>
-                              {ev.metadata?.pecas_abertas != null && <span className="lifecycle-meta">{ev.metadata.pecas_abertas} peças abertas</span>}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : <p className="empty-text">Nenhum marco registrado ainda pra essa revendedora.</p>}
-                  </div>
-                </div>
+                <Card title="Ciclo de vida">
+                  {lifecycleEvents.length ? lifecycleEvents.map((ev: Any) => (
+                    <div key={ev.id} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px dashed var(--line)' }}>
+                      <span style={{ width: 8, height: 8, marginTop: 5, flex: 'none', transform: 'rotate(45deg)', background: ev.event_type === 'churn' ? '#B42318' : 'var(--terra)' }} />
+                      <span style={{ fontSize: 12.5 }}>
+                        <b>{LIFECYCLE_EVENT_LABELS[ev.event_type] || ev.event_type}</b>
+                        <span style={{ display: 'block', color: 'var(--muted)', fontSize: 11.5 }}>{formatDateTime(ev.occurred_at)}{ev.metadata?.pecas_abertas != null ? ` · ${ev.metadata.pecas_abertas} peças abertas` : ''}</span>
+                      </span>
+                    </div>
+                  )) : <p style={small}>Nenhum marco registrado ainda pra essa revendedora.</p>}
+                </Card>
               </>
             )}
 
             {v.activeDetailsTab === 'configuracoes' && (
               <>
-                <div className="accordion-card">
-                  <div className="card-header"><h3>Funil</h3></div>
-                  <div className="card-body" style={{ paddingTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div className="lead-field"><span className="lf-label">Pipeline</span><span className="lf-value">Consignado</span></div>
-                    <div className="lead-field">
-                      <span className="lf-label">Etapa atual</span>
-                      <select className="status-select" value={conv.contact.status || 'revendedor_ativo'} disabled={v.isChangingStatus} onChange={e => changeContactStatus(e.target.value)}>
-                        {statusOptions.map(grp => (
-                          <optgroup key={grp.group} label={grp.group}>
-                            {Object.entries(grp.options).map(([key, label]) => <option key={key} value={key}>{label as string}</option>)}
-                          </optgroup>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="lead-field"><span className="lf-label">Atendente</span><span className={`lf-value${!conv.assignee ? ' empty' : ''}`}>{conv.assignee || 'Não atribuído'}</span></div>
-                    <div className="lead-field">
-                      <span className="lf-label">Carteira</span>
-                      <span className={`lf-value${!conv.contact.custom_attributes?.gerente_jueri_nome ? ' empty' : ''}`}>{conv.contact.custom_attributes?.gerente_jueri_nome || 'Sem time'}</span>
-                    </div>
+                <Card title="Funil consignado">
+                  <span style={{ display: 'block', ...labelStyle, marginTop: 4 }}>Etapa atual</span>
+                  <select value={conv.contact.status || 'revendedor_ativo'} disabled={v.isChangingStatus} onChange={e => changeContactStatus(e.target.value)} style={inputStyle}>
+                    {statusOptions.map(grp => (
+                      <optgroup key={grp.group} label={grp.group}>
+                        {Object.entries(grp.options).map(([key, label]) => <option key={key} value={key}>{label as string}</option>)}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <div style={{ marginTop: 8 }}>
+                    <Field label="Criado em" value={formatDateTime(conv.contact.created_at) || '—'} empty={!conv.contact.created_at} />
+                    <Field label="Última mudança de etapa" value={formatDateTime(conv.contact.status_changed_at) || '—'} empty={!conv.contact.status_changed_at} />
                   </div>
-                </div>
-                <div className="accordion-card">
-                  <div className="card-header"><h3>Datas</h3></div>
-                  <div className="card-body" style={{ paddingTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div className="lead-field"><span className="lf-label">Criado em</span><span className={`lf-value${!conv.contact.created_at ? ' empty' : ''}`}>{formatDateTime(conv.contact.created_at) || '...'}</span></div>
-                    <div className="lead-field"><span className="lf-label">Última mudança de etapa</span><span className={`lf-value${!conv.contact.status_changed_at ? ' empty' : ''}`}>{formatDateTime(conv.contact.status_changed_at) || '...'}</span></div>
-                  </div>
-                </div>
-                <div className="accordion-card">
-                  <div className="card-header"><h3>Ações</h3></div>
-                  <div className="card-body" style={{ paddingTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <button className="btn-text-blue" onClick={() => { s.isMergeModalOpen = true }}><GitMerge className="icon-xs" /> Mesclar com outro contato</button>
-                    <button className="btn-text-blue danger-text" onClick={() => { s.isDeleteModalOpen = true }}><Trash2 className="icon-xs" /> Apagar este contato</button>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {v.activeDetailsTab === 'principal' && (
-              <>
-                <div className="accordion-card">
-                  <div className="card-header" onClick={() => { s.isNotesOpen = !s.isNotesOpen }} style={{ cursor: 'pointer' }}>
-                    <h3>Notas do contato</h3>
-                    {accordionToggle(v.isNotesOpen)}
-                  </div>
-                  {v.isNotesOpen && (
-                    <div className="card-body" style={{ paddingTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {conv.contact?.notes?.length > 0 ? (
-                        <div className="notes-list">
-                          {conv.contact.notes.map((note: Any) => (
-                            <div className="note-item" key={note.id}>
-                              <div className="note-header">
-                                <span className="note-author">{note.author}</span>
-                                <span className="note-time">{new Date(note.created_at).toLocaleDateString('pt-BR')}</span>
-                              </div>
-                              <div className="note-content">{note.content}</div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : <p className="empty-text">Nenhuma nota adicionada.</p>}
-                      <div className="add-note-box" style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <textarea value={v.newNoteText} onChange={e => { s.newNoteText = e.target.value }} placeholder="Adicionar nova nota..." rows={2} className="note-textarea"></textarea>
-                        <button className="btn-primary" style={{ padding: '0.4rem', fontSize: '0.85rem' }} onClick={saveNote} disabled={v.isSavingNote || !v.newNoteText.trim()}>
-                          {v.isSavingNote ? 'Salvando...' : 'Salvar Nota'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="accordion-card">
-                  <div className="card-header" onClick={() => { s.isAttachmentsOpen = !s.isAttachmentsOpen }} style={{ cursor: 'pointer' }}>
-                    <h3>Anexos</h3>
-                    {accordionToggle(v.isAttachmentsOpen)}
-                  </div>
-                  {v.isAttachmentsOpen && (
-                    <div className="card-body" style={{ paddingTop: '0.5rem' }}>
-                      {conversationAttachments.length > 0 ? (
-                        <div className="attachments-gallery">
-                          {conversationAttachments.map((att: Any) => (
-                            <a key={att.id} href={att.attachmentUrl} target="_blank" className="attachment-thumb">
-                              {att.attachmentType?.startsWith('image/') ? <img src={att.attachmentUrl} alt="Anexo" /> : <div className="attachment-doc"><span>📎</span><small>Documento</small></div>}
-                            </a>
-                          ))}
-                        </div>
-                      ) : <p className="empty-text">Nenhum anexo nesta conversa.</p>}
-                    </div>
-                  )}
-                </div>
+                </Card>
+                <Card title="Ações">
+                  <button onClick={() => { s.isMergeModalOpen = true }} style={btn('ghost', { width: '100%', marginBottom: 6 })}><GitMerge size={14} /> Mesclar com outro contato</button>
+                  <button onClick={() => { s.isDeleteModalOpen = true }} style={btn('ghost', { width: '100%', color: '#B42318' })}><Trash2 size={14} /> Apagar este contato</button>
+                </Card>
               </>
             )}
           </div>
         )}
 
-        {/* Modais */}
+        {/* modais */}
         <EditContactModal isOpen={v.isEditModalOpen} contact={conv?.contact} onClose={() => { s.isEditModalOpen = false }} />
         <MergeContactModal isOpen={v.isMergeModalOpen} contact={conv?.contact} onClose={() => { s.isMergeModalOpen = false }} />
         <DeleteContactModal isOpen={v.isDeleteModalOpen} contact={conv?.contact} onClose={() => { s.isDeleteModalOpen = false }} />
@@ -1449,9 +1284,7 @@ export default function Conversas() {
         <NewConversationModal isOpen={v.isNewConversationModalOpen} onClose={() => { s.isNewConversationModalOpen = false }}
           onCreated={(c: Any) => { conversationsStore.setActiveConversation(c.id); s.mobileView = 'chat' }} />
         <ForwardMessageModal isOpen={!!v.forwardingMessage} message={v.forwardingMessage} onClose={() => { s.forwardingMessage = null }} />
-        {v.showTransferModal && (
-          <TransferModal agents={store.agents} currentAssigneeId={conv?.assignee_id} onClose={() => { s.showTransferModal = false }} onConfirm={handleTransfer} />
-        )}
+        {v.showTransferModal && <TransferModal agents={store.agents} currentAssigneeId={conv?.assignee_id} onClose={() => { s.showTransferModal = false }} onConfirm={handleTransfer} />}
         <ScheduleMessageModal isOpen={v.isScheduleModalOpen} conversationId={conv?.id} onClose={() => { s.isScheduleModalOpen = false }} onScheduled={onMessageScheduled} />
       </div>
     </div>

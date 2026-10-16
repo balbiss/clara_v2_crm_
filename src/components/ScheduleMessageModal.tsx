@@ -1,103 +1,66 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
-import { X, Paperclip } from 'lucide-react'
+import { Paperclip, X } from 'lucide-react'
 import api from '../api'
-import '../styles/vue/ScheduleMessageModal.scss'
+import { Modal, btn, inputStyle, labelStyle } from './ui'
 
-// Porte de components/ScheduleMessageModal.vue
+// Agendar mensagem (o envio sai pela varredura de agendadas no servidor)
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export default function ScheduleMessageModal({ isOpen, conversationId, onClose, onScheduled }: {
-  isOpen: boolean; conversationId?: number; onClose: () => void; onScheduled: (m: any) => void
-}) {
+export default function ScheduleMessageModal({ isOpen, conversationId, onClose, onScheduled }: { isOpen: boolean; conversationId?: number; onClose: () => void; onScheduled: (m: any) => void }) {
   const [sendAt, setSendAt] = useState('')
   const [text, setText] = useState('')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [selectedFilePreview, setSelectedFilePreview] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!isOpen) return
-    setText('')
-    setSelectedFile(null)
-    setSelectedFilePreview(null)
-    // padrão: daqui a 5 minutos (no fuso local)
-    const now = new Date()
-    now.setMinutes(now.getMinutes() + 5)
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
+    setText(''); setFile(null); setPreview(null)
+    const now = new Date() // padrão: daqui a 5 minutos, no fuso local
+    now.setMinutes(now.getMinutes() + 5 - now.getTimezoneOffset())
     setSendAt(now.toISOString().slice(0, 16))
   }, [isOpen])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setSelectedFile(file)
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader()
-      reader.onload = ev => setSelectedFilePreview(ev.target?.result as string)
-      reader.readAsDataURL(file)
-    } else {
-      setSelectedFilePreview(null)
-    }
-  }
-
-  const submitForm = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!conversationId) return
-    setIsSubmitting(true)
-    try {
-      const formData = new FormData()
-      if (text) formData.append('text', text)
-      formData.append('send_at', new Date(sendAt).toISOString())
-      if (selectedFile) formData.append('attachment', selectedFile)
-      const response = await api.post(`/conversations/${conversationId}/scheduled_messages`, formData, { headers: { 'Content-Type': undefined } })
-      onScheduled(response.data)
-      onClose()
-    } catch (error) {
-      console.error('Error scheduling message:', error)
-      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Erro ao agendar a mensagem. Tente novamente.', showConfirmButton: false, timer: 3500 })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   if (!isOpen) return null
+  const pick = (f?: File) => {
+    if (!f) return
+    setFile(f)
+    if (f.type.startsWith('image/')) { const r = new FileReader(); r.onload = ev => setPreview(ev.target?.result as string); r.readAsDataURL(f) }
+    else setPreview(null)
+  }
+  const submit = async () => {
+    if (!conversationId || !sendAt || (!text.trim() && !file)) return
+    setBusy(true)
+    try {
+      const fd = new FormData()
+      if (text) fd.append('text', text)
+      fd.append('send_at', new Date(sendAt).toISOString())
+      if (file) fd.append('attachment', file)
+      onScheduled((await api.post(`/conversations/${conversationId}/scheduled_messages`, fd, { headers: { 'Content-Type': undefined } })).data)
+      onClose()
+    } catch {
+      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Erro ao agendar a mensagem. Tente novamente.', showConfirmButton: false, timer: 3500 })
+    } finally { setBusy(false) }
+  }
   return (
-    <div className="vs-ScheduleMessageModal" style={{ display: 'contents' }}>
-      <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-        <div className="modal-content">
-          <div className="modal-header">
-            <h2>Agendar Mensagem</h2>
-            <button className="icon-btn" onClick={onClose}><X className="icon-sm" /></button>
-          </div>
-          <div className="modal-body">
-            <form onSubmit={submitForm}>
-              <div className="form-group">
-                <label>Data e Hora do Envio</label>
-                <input type="datetime-local" value={sendAt} onChange={e => setSendAt(e.target.value)} required />
-              </div>
-              <div className="form-group">
-                <label>Mensagem</label>
-                <textarea value={text} onChange={e => setText(e.target.value)} rows={3} placeholder="Digite a mensagem..." required={!selectedFile}></textarea>
-              </div>
-              <div className="form-group attachment-section">
-                <label>Anexo (Opcional)</label>
-                <div className="file-input-wrapper">
-                  <input type="file" ref={fileInput} onChange={handleFileChange} className="hidden-file-input" />
-                  <button type="button" className="btn-secondary" onClick={() => fileInput.current?.click()}><Paperclip className="icon-sm" /> Escolher Arquivo</button>
-                  {selectedFile && <span className="file-name">{selectedFile.name}</span>}
-                  {selectedFile && <button type="button" className="icon-btn clear-file" onClick={() => { setSelectedFile(null); setSelectedFilePreview(null) }}><X className="icon-xs" /></button>}
-                </div>
-                {selectedFilePreview && <img src={selectedFilePreview} className="preview-img-small" />}
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button>
-                <button type="submit" className="btn-primary" disabled={isSubmitting}>{isSubmitting ? 'Agendando...' : 'Agendar'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+    <Modal title="Agendar mensagem" onClose={onClose}
+      footer={<>
+        <button onClick={onClose} style={btn('ghost')}>Cancelar</button>
+        <button onClick={submit} disabled={busy || (!text.trim() && !file)} style={btn('primary', { opacity: text.trim() || file ? 1 : 0.5 })}>{busy ? 'Agendando…' : 'Agendar'}</button>
+      </>}>
+      <span style={labelStyle}>Data e hora do envio</span>
+      <input type="datetime-local" value={sendAt} onChange={e => setSendAt(e.target.value)} style={{ ...inputStyle, marginBottom: 14 }} />
+      <span style={labelStyle}>Mensagem</span>
+      <textarea value={text} onChange={e => setText(e.target.value)} rows={3} placeholder="Digite a mensagem…" style={{ ...inputStyle, resize: 'vertical', marginBottom: 14 }} />
+      <span style={labelStyle}>Anexo (opcional)</span>
+      <input type="file" ref={fileInput} hidden onChange={e => pick(e.target.files?.[0])} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button onClick={() => fileInput.current?.click()} style={btn('ghost', { fontSize: 12.5 })}><Paperclip size={14} /> Escolher arquivo</button>
+        {file && <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>}
+        {file && <button onClick={() => { setFile(null); setPreview(null) }} style={{ border: 'none', background: 'none', color: 'var(--muted)' }}><X size={14} /></button>}
       </div>
-    </div>
+      {preview && <img src={preview} style={{ marginTop: 10, maxWidth: 160, borderRadius: 8 }} />}
+    </Modal>
   )
 }

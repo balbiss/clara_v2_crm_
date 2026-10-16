@@ -1,41 +1,25 @@
 import { useSnapshot } from 'valtio'
 import { conversationsStore } from '../store/conversations'
-import '../styles/vue/ConversationSortPopover.scss'
+import { Dropdown, inputStyle, labelStyle } from './ui'
 
-// Porte de components/ConversationSortPopover.vue — aplica na hora ao trocar qualquer select.
+// Ordenação/status/tipo da lista (aplica na hora, como na v1)
 export default function ConversationSortPopover({ isOpen }: { isOpen: boolean; onClose?: () => void }) {
   const store = useSnapshot(conversationsStore)
-  if (!isOpen) return null
   const apply = (patch: Partial<{ status: string; sortBy: string; type: string }>) =>
     conversationsStore.setSortFilters({ status: store.sortStatus, sortBy: store.sortBy, type: store.sortType, ...patch })
-  return (
-    <div className="vs-ConversationSortPopover" style={{ display: 'contents' }}>
-      <div className="sort-popover" onClick={e => e.stopPropagation()}>
-        <div className="sort-row">
-          <label>Status</label>
-          <select value={store.sortStatus} onChange={e => apply({ status: e.target.value })} className="sort-select">
-            <option value="open">Abertas</option>
-            <option value="resolved">Resolvidas</option>
-            <option value="snoozed">Adiadas</option>
-            <option value="all">Todas</option>
-          </select>
-        </div>
-        <div className="sort-row">
-          <label>Ordenar por</label>
-          <select value={store.sortBy} onChange={e => apply({ sortBy: e.target.value })} className="sort-select">
-            <option value="latest">Última atividade</option>
-            <option value="oldest">Mais antigas</option>
-          </select>
-        </div>
-        <div className="sort-row">
-          <label>Tipo</label>
-          <select value={store.sortType} onChange={e => apply({ type: e.target.value })} className="sort-select">
-            <option value="all">Todos</option>
-            <option value="mentions">Menções</option>
-            <option value="unread">Não lidas</option>
-          </select>
-        </div>
-      </div>
+  const row = (label: string, value: string, onChange: (v: string) => void, opts: [string, string][]) => (
+    <div style={{ marginBottom: 10 }}>
+      <span style={labelStyle}>{label}</span>
+      <select value={value} onChange={e => onChange(e.target.value)} style={{ ...inputStyle, padding: '7px 10px', fontSize: 13 }}>
+        {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
     </div>
+  )
+  return (
+    <Dropdown open={isOpen} style={{ width: 240, padding: 14 }}>
+      {row('Status', store.sortStatus, v => apply({ status: v }), [['open', 'Abertas'], ['resolved', 'Resolvidas'], ['snoozed', 'Adiadas'], ['all', 'Todas']])}
+      {row('Ordenar por', store.sortBy, v => apply({ sortBy: v }), [['latest', 'Última atividade'], ['oldest', 'Mais antigas']])}
+      {row('Tipo', store.sortType, v => apply({ type: v }), [['all', 'Todos'], ['mentions', 'Menções'], ['unread', 'Não lidas']])}
+    </Dropdown>
   )
 }

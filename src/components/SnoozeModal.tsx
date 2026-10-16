@@ -1,17 +1,10 @@
 import { useState } from 'react'
-import { X, AlarmClock } from 'lucide-react'
-import '../styles/vue/SnoozeModal.scss'
+import { Modal, btn, inputStyle, labelStyle } from './ui'
 
-// Porte de components/SnoozeModal.vue
-const addMinutes = (minutes: number) => { const d = new Date(); d.setMinutes(d.getMinutes() + minutes); return d.toISOString() }
-const nextDayAt = (hour: number) => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(hour, 0, 0, 0); return d.toISOString() }
-const nextMondayAt = (hour: number) => {
-  const d = new Date()
-  const daysUntilMonday = (8 - d.getDay()) % 7 || 7
-  d.setDate(d.getDate() + daysUntilMonday)
-  d.setHours(hour, 0, 0, 0)
-  return d.toISOString()
-}
+// Adiar conversa (mesmas opções rápidas da Clara v1)
+const addMinutes = (m: number) => { const d = new Date(); d.setMinutes(d.getMinutes() + m); return d.toISOString() }
+const nextDayAt = (h: number) => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(h, 0, 0, 0); return d.toISOString() }
+const nextMondayAt = (h: number) => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); d.setHours(h, 0, 0, 0); return d.toISOString() }
 const quickOptions = [
   { label: 'Em 30 minutos', icon: '⏱️', fn: () => addMinutes(30) },
   { label: 'Em 2 horas', icon: '⏰', fn: () => addMinutes(120) },
@@ -21,37 +14,22 @@ const quickOptions = [
 ]
 
 export default function SnoozeModal({ onConfirm, onClose }: { conversationId: number; onConfirm: (iso: string) => void; onClose: () => void }) {
-  const [customTime, setCustomTime] = useState('')
-  const confirmCustom = () => { if (customTime) onConfirm(new Date(customTime).toISOString()) }
+  const [custom, setCustom] = useState('')
   return (
-    <div className="vs-SnoozeModal" style={{ display: 'contents' }}>
-      <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-        <div className="snooze-modal">
-          <div className="modal-header">
-            <div className="modal-title-row">
-              <AlarmClock className="modal-icon" />
-              <h3>Adiar conversa</h3>
-            </div>
-            <button className="btn-close" onClick={onClose}><X size={16} /></button>
-          </div>
-          <p className="modal-subtitle">A IA continuará respondendo. Você será notificado quando o tempo acabar.</p>
-          <div className="snooze-options">
-            {quickOptions.map(opt => (
-              <button key={opt.label} className="snooze-option" onClick={() => onConfirm(opt.fn())}>
-                <span className="option-icon">{opt.icon}</span>
-                <span className="option-label">{opt.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="custom-section">
-            <label className="custom-label">Personalizado</label>
-            <div className="custom-row">
-              <input type="datetime-local" className="custom-input" value={customTime} onChange={e => setCustomTime(e.target.value)} min={new Date().toISOString().slice(0, 16)} />
-              <button className="btn-confirm" onClick={confirmCustom} disabled={!customTime}>Confirmar</button>
-            </div>
-          </div>
-        </div>
+    <Modal title="Adiar conversa" subtitle="Você será avisado quando o tempo acabar e a conversa reabre sozinha." onClose={onClose} width={420}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+        {quickOptions.map(o => (
+          <button key={o.label} onClick={() => onConfirm(o.fn())} className="hoverable"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 12px', border: '1px solid var(--line)', borderRadius: 10, background: 'var(--card)', fontSize: 13, fontWeight: 600, textAlign: 'left' }}>
+            <span>{o.icon}</span>{o.label}
+          </button>
+        ))}
       </div>
-    </div>
+      <span style={labelStyle}>Personalizado</span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input type="datetime-local" value={custom} onChange={e => setCustom(e.target.value)} min={new Date().toISOString().slice(0, 16)} style={inputStyle} />
+        <button disabled={!custom} onClick={() => custom && onConfirm(new Date(custom).toISOString())} style={btn('primary', { opacity: custom ? 1 : 0.5 })}>Confirmar</button>
+      </div>
+    </Modal>
   )
 }

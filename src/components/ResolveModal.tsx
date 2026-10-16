@@ -1,69 +1,39 @@
 import { useState } from 'react'
-import { X, CheckCircle } from 'lucide-react'
-import '../styles/vue/ResolveModal.scss'
+import { CheckCircle } from 'lucide-react'
+import { Modal, btn, inputStyle, labelStyle } from './ui'
 
-// Porte de components/ResolveModal.vue (opções do funil herdadas da v1 como estão).
+// Encerrar atendimento (opções do funil herdadas da v1 como estão)
 const kanbanOptions = [
   { value: '', label: 'Não mover no funil', icon: '—' },
-  { value: 'proposal', label: 'Proposta Feita', icon: '📋' },
-  { value: 'won', label: 'Negócio Fechado 🎉', icon: '🏆' },
+  { value: 'proposal', label: 'Proposta feita', icon: '📋' },
+  { value: 'won', label: 'Negócio fechado', icon: '🏆' },
 ]
 
 export default function ResolveModal({ onConfirm, onClose }: {
-  conversationId: number
-  onConfirm: (o: { kanbanStage: string; sendClosingMessage: boolean; closingMessageText: string }) => void
-  onClose: () => void
+  conversationId: number; onConfirm: (o: { kanbanStage: string; sendClosingMessage: boolean; closingMessageText: string }) => void; onClose: () => void
 }) {
-  const [kanbanStage, setKanbanStage] = useState('')
-  const [sendClosing, setSendClosing] = useState(false)
-  const [closingText, setClosingText] = useState('Obrigado pelo seu contato! Encerramos seu atendimento por agora. Se precisar de algo mais, é só nos chamar. 😊')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const confirm = () => {
-    setIsSubmitting(true)
-    try { onConfirm({ kanbanStage, sendClosingMessage: sendClosing, closingMessageText: sendClosing ? closingText : '' }) }
-    finally { setIsSubmitting(false) }
-  }
-
+  const [stage, setStage] = useState('')
+  const [send, setSend] = useState(false)
+  const [text, setText] = useState('Obrigado pelo seu contato! Encerramos seu atendimento por agora. Se precisar de algo mais, é só nos chamar. 😊')
   return (
-    <div className="vs-ResolveModal" style={{ display: 'contents' }}>
-      <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-        <div className="resolve-modal">
-          <div className="modal-header">
-            <div className="modal-title-row">
-              <CheckCircle className="modal-icon" />
-              <h3>Encerrar atendimento</h3>
-            </div>
-            <button className="btn-close" onClick={onClose}><X size={16} /></button>
-          </div>
-          <p className="modal-subtitle">A IA será pausada. Se o cliente mandar mensagem, a conversa reabrirá automaticamente.</p>
-          <div className="field-group">
-            <label className="field-label">Mover lead no funil para</label>
-            <div className="kanban-options">
-              {kanbanOptions.map(opt => (
-                <button key={opt.value} className={`kanban-option${kanbanStage === opt.value ? ' active' : ''}`} onClick={() => setKanbanStage(opt.value)}>
-                  <span>{opt.icon}</span>
-                  <span>{opt.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="field-group">
-            <label className="checkbox-label">
-              <input type="checkbox" checked={sendClosing} onChange={e => setSendClosing(e.target.checked)} />
-              <span>Enviar mensagem de encerramento no WhatsApp</span>
-            </label>
-            {sendClosing && <textarea className="closing-textarea" value={closingText} onChange={e => setClosingText(e.target.value)} rows={3} placeholder="Mensagem de encerramento..." />}
-          </div>
-          <div className="modal-actions">
-            <button className="btn-cancel" onClick={onClose}>Cancelar</button>
-            <button className="btn-resolve" onClick={confirm} disabled={isSubmitting}>
-              <CheckCircle size={15} />
-              {isSubmitting ? 'Encerrando...' : 'Encerrar'}
-            </button>
-          </div>
-        </div>
+    <Modal title="Encerrar atendimento" subtitle="A IA é pausada. Se a revendedora mandar mensagem, a conversa reabre sozinha." onClose={onClose}
+      footer={<>
+        <button onClick={onClose} style={btn('ghost')}>Cancelar</button>
+        <button onClick={() => onConfirm({ kanbanStage: stage, sendClosingMessage: send, closingMessageText: send ? text : '' })} style={btn('primary')}><CheckCircle size={14} /> Encerrar</button>
+      </>}>
+      <span style={labelStyle}>Mover no funil para</span>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+        {kanbanOptions.map(o => (
+          <button key={o.value} onClick={() => setStage(o.value)}
+            style={{ padding: '7px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, border: '1px solid ' + (stage === o.value ? 'var(--terra)' : 'var(--line)'), background: stage === o.value ? 'var(--terraSoft)' : 'var(--card)', color: stage === o.value ? 'var(--terra)' : 'var(--ink)' }}>
+            {o.icon} {o.label}
+          </button>
+        ))}
       </div>
-    </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 8, cursor: 'pointer' }}>
+        <input type="checkbox" checked={send} onChange={e => setSend(e.target.checked)} /> Enviar mensagem de encerramento no WhatsApp
+      </label>
+      {send && <textarea value={text} onChange={e => setText(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />}
+    </Modal>
   )
 }

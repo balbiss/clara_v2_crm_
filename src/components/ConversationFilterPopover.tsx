@@ -4,16 +4,17 @@ import { Plus, Trash2 } from 'lucide-react'
 import api from '../api'
 import { agentsStore } from '../store/agents'
 import { useLocal } from '../lib/hooks'
-import '../styles/vue/ConversationFilterPopover.scss'
+import { btn, inputStyle, Dropdown, serif } from './ui'
 
-// Porte de components/ConversationFilterPopover.vue
+// Filtro avançado da lista de conversas (lógica da Clara v1, visual do v2)
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const attributes = [
   { value: 'status', label: 'Status' }, { value: 'assignee', label: 'Responsável' }, { value: 'carteira', label: 'Carteira' },
   { value: 'sem_resposta', label: 'Sem resposta' }, { value: 'criada_em', label: 'Criada em' },
 ]
-const operators = [{ value: 'equal_to', label: '= Igual a' }, { value: 'not_equal_to', label: '!= Diferente de' }]
+const operators = [{ value: 'equal_to', label: 'é igual a' }, { value: 'not_equal_to', label: 'é diferente de' }]
 const newFilter = () => ({ id: Date.now() + Math.random(), attribute: 'status', operator: 'equal_to', value: 'open' })
+const sel = { ...inputStyle, padding: '7px 8px', fontSize: 12.5 }
 
 export default function ConversationFilterPopover({ isOpen, initialFilters = [], onClose, onApply }: {
   isOpen: boolean; initialFilters?: readonly any[]; onClose: () => void; onApply: (f: any[]) => void
@@ -29,7 +30,7 @@ export default function ConversationFilterPopover({ isOpen, initialFilters = [],
     api.get('/sales_teams').then(({ data }) => { s.teams = data }).catch(e => console.error('Erro ao buscar times de vendas (filtro Carteira):', e))
   }, [s])
 
-  const getValuesForAttribute = (attr: string) => {
+  const valuesFor = (attr: string) => {
     if (attr === 'status') return [{ value: 'open', label: 'Abertas' }, { value: 'resolved', label: 'Resolvidas' }, { value: 'snoozed', label: 'Adiadas' }, { value: 'all', label: 'Todas' }]
     if (attr === 'assignee') return [{ value: 'unassigned', label: 'Não atribuído' }, ...agents.agents.map((a: any) => ({ value: String(a.id), label: `${a.first_name || ''} ${a.last_name || ''}`.trim() }))]
     if (attr === 'carteira') return v.teams.map((t: any) => ({ value: t.nome, label: t.nome }))
@@ -41,40 +42,32 @@ export default function ConversationFilterPopover({ isOpen, initialFilters = [],
     return []
   }
   const addFilter = () => { s.localFilters.push(newFilter()) }
-  const removeFilter = (id: number) => { s.localFilters = s.localFilters.filter((f: any) => f.id !== id) }
-  const clearFilters = () => { s.localFilters = []; onApply([]); onClose() }
-  const applyFilters = () => { onApply(JSON.parse(JSON.stringify(s.localFilters))); onClose() }
 
-  if (!isOpen) return null
   return (
-    <div className="vs-ConversationFilterPopover" style={{ display: 'contents' }}>
-      <div className="filter-popover" onClick={e => e.stopPropagation()}>
-        <h3 className="popover-title">Filtrar conversas</h3>
-        <div className="filters-list">
-          {v.localFilters.map((filter: any, index: number) => (
-            <div key={filter.id} className="filter-row">
-              <select value={filter.attribute} onChange={e => { s.localFilters[index].attribute = e.target.value }} className="filter-select attr-select">
-                {attributes.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
-              </select>
-              <select value={filter.operator} onChange={e => { s.localFilters[index].operator = e.target.value }} className="filter-select op-select">
-                {operators.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-              <select value={filter.value} onChange={e => { s.localFilters[index].value = e.target.value }} className="filter-select val-select">
-                {getValuesForAttribute(filter.attribute).map((val: any) => <option key={val.value} value={val.value}>{val.label}</option>)}
-              </select>
-              <button className="action-icon add-icon" onClick={addFilter} title="Adicionar condição AND"><Plus className="icon-sm" /></button>
-              <button className="action-icon trash-icon" onClick={() => removeFilter(filter.id)} title="Remover regra"><Trash2 className="icon-sm" /></button>
-            </div>
-          ))}
-        </div>
-        <div className="popover-actions-bottom">
-          <button className="add-filter-text-btn" onClick={addFilter}>Adicionar filtro</button>
-          <div className="right-actions">
-            <button className="btn-secondary" onClick={clearFilters}>Limpar filtros</button>
-            <button className="btn-primary" onClick={applyFilters}>Aplicar filtros</button>
+    <Dropdown open={isOpen} style={{ left: 0, right: 'auto', width: 440, padding: 16 }}>
+      <h3 style={{ ...serif, fontSize: 19, margin: '0 0 12px' }}>Filtrar conversas</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {v.localFilters.map((f: any, i: number) => (
+          <div key={f.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <select value={f.attribute} onChange={e => { s.localFilters[i].attribute = e.target.value }} style={sel}>
+              {attributes.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+            </select>
+            <select value={f.operator} onChange={e => { s.localFilters[i].operator = e.target.value }} style={sel}>
+              {operators.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <select value={f.value} onChange={e => { s.localFilters[i].value = e.target.value }} style={sel}>
+              {valuesFor(f.attribute).map((x: any) => <option key={x.value} value={x.value}>{x.label}</option>)}
+            </select>
+            <button title="Remover regra" onClick={() => { s.localFilters = s.localFilters.filter((x: any) => x.id !== f.id) }} style={{ border: 'none', background: 'none', color: 'var(--muted)', flex: 'none' }}><Trash2 size={15} /></button>
           </div>
-        </div>
+        ))}
       </div>
-    </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>
+        <button onClick={addFilter} style={{ border: 'none', background: 'none', color: 'var(--terra)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={13} /> Adicionar condição</button>
+        <span style={{ flex: 1 }} />
+        <button onClick={() => { s.localFilters = []; onApply([]); onClose() }} style={btn('ghost', { padding: '7px 12px', fontSize: 12.5 })}>Limpar</button>
+        <button onClick={() => { onApply(JSON.parse(JSON.stringify(s.localFilters))); onClose() }} style={btn('primary', { padding: '7px 12px', fontSize: 12.5 })}>Aplicar</button>
+      </div>
+    </Dropdown>
   )
 }

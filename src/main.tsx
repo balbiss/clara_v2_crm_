@@ -1,13 +1,13 @@
 import { StrictMode, Suspense, lazy, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import './styles/global.scss'
+import './index.css'
 import { FULL_PORTFOLIO_ROLES, CRITICAL_CONFIG_ROLES } from './config/roles'
 import { readUser } from './lib/hooks'
 import ComingSoon from './pages/ComingSoon'
 
 const Login = lazy(() => import('./pages/Login'))
-const DashboardLayout = lazy(() => import('./pages/DashboardLayout'))
+import { AppShell } from './components/AppShell'
 const Conversas = lazy(() => import('./pages/Conversas'))
 
 // Mesmas regras do router/index.js da v1 (beforeEach).
@@ -34,7 +34,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={emMigracao('Esqueci a senha')} />
           <Route path="/users/password/edit" element={emMigracao('Redefinir senha')} />
-          <Route path="/" element={g(<DashboardLayout />)}>
+          <Route path="/" element={g(<AppShell />)}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={g(emMigracao('Início'))} />
             <Route path="carteira" element={g(emMigracao('Minhas Revendedoras'))} />

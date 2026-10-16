@@ -5,9 +5,9 @@ import { conversationsStore } from '../store/conversations'
 import { useClickOutside } from '../lib/hooks'
 import SnoozeModal from './SnoozeModal'
 import ResolveModal from './ResolveModal'
-import '../styles/vue/ConversationStatusDropdown.scss'
+import { Dropdown, MenuItem } from './ui'
 
-// Porte de components/ConversationStatusDropdown.vue
+// Resolver / adiar / reabrir (lógica da Clara v1)
 type ResolveOptions = { kanbanStage: string; sendClosingMessage: boolean; closingMessageText: string }
 
 export default function ConversationStatusDropdown({ conversationId, currentStatus = 'open' }: { conversationId: number; currentStatus?: string }) {
@@ -15,39 +15,31 @@ export default function ConversationStatusDropdown({ conversationId, currentStat
   const [showSnooze, setShowSnooze] = useState(false)
   const [showResolve, setShowResolve] = useState(false)
   const ref = useClickOutside<HTMLDivElement>(() => setIsOpen(false), isOpen)
-
-  const openSnooze = () => { setIsOpen(false); setShowSnooze(true) }
-  const openResolve = () => { setIsOpen(false); setShowResolve(true) }
   const reopen = async () => { setIsOpen(false); await conversationsStore.updateConversationStatus(conversationId, 'open') }
 
+  const main = currentStatus === 'snoozed'
+    ? { label: '⏰ Adiada', bg: '#FFF6DB', color: '#5B4300', on: reopen }
+    : currentStatus === 'resolved'
+      ? { label: '✓ Resolvida', bg: 'var(--oliveSoft)', color: 'var(--olive)', on: reopen }
+      : { label: 'Resolver', bg: 'var(--terra)', color: '#fff', on: () => setShowResolve(true) }
+
   return (
-    <div className="vs-ConversationStatusDropdown" style={{ display: 'contents' }}>
-      <div className="status-dropdown-wrapper" ref={ref}>
-        <div className="split-btn-group">
-          {currentStatus !== 'resolved' && currentStatus !== 'snoozed'
-            ? <button className="btn-main-action" onClick={openResolve}>Resolver</button>
-            : currentStatus === 'snoozed'
-              ? <button className="btn-main-action snoozed" onClick={reopen}>⏰ Adiado</button>
-              : <button className="btn-main-action resolved" onClick={reopen}>✓ Resolvido</button>}
-          <button className="btn-chevron" onClick={e => { e.stopPropagation(); setIsOpen(o => !o) }}><ChevronDown className="icon-sm" /></button>
-        </div>
-        {isOpen && (
-          <div className="dropdown-menu">
-            {currentStatus !== 'resolved' && <button className="dropdown-item" onClick={openResolve}><CheckCircle className="icon-sm" /><span>Resolver</span></button>}
-            {currentStatus !== 'snoozed' && <button className="dropdown-item" onClick={openSnooze}><Clock className="icon-sm" /><span>Adiar</span></button>}
-            {currentStatus !== 'open' && <button className="dropdown-item" onClick={reopen}><CircleDashed className="icon-sm" /><span>Deixar pendente</span></button>}
-          </div>
-        )}
-      </div>
-      {/* modais fora do wrapper (Teleport to body na v1) */}
+    <div ref={ref} style={{ position: 'relative', display: 'flex', flex: 'none' }}>
+      <button onClick={main.on} title={currentStatus === 'open' ? 'Encerrar atendimento' : 'Reabrir conversa'}
+        style={{ padding: '7px 12px', border: 'none', borderRadius: '7px 0 0 7px', background: main.bg, color: main.color, fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{main.label}</button>
+      <button onClick={e => { e.stopPropagation(); setIsOpen(o => !o) }}
+        style={{ padding: '7px 7px', border: 'none', borderLeft: '1px solid rgba(255,255,255,.25)', borderRadius: '0 7px 7px 0', background: main.bg, color: main.color, display: 'flex', alignItems: 'center' }}><ChevronDown size={14} /></button>
+      <Dropdown open={isOpen}>
+        {currentStatus !== 'resolved' && <MenuItem onClick={() => { setIsOpen(false); setShowResolve(true) }}><CheckCircle size={14} /> Resolver</MenuItem>}
+        {currentStatus !== 'snoozed' && <MenuItem onClick={() => { setIsOpen(false); setShowSnooze(true) }}><Clock size={14} /> Adiar</MenuItem>}
+        {currentStatus !== 'open' && <MenuItem onClick={reopen}><CircleDashed size={14} /> Deixar pendente</MenuItem>}
+      </Dropdown>
       {showSnooze && createPortal(
         <SnoozeModal conversationId={conversationId} onClose={() => setShowSnooze(false)}
-          onConfirm={async (until: string) => { setShowSnooze(false); await conversationsStore.snoozeConversation(conversationId, until) }} />,
-        document.body)}
+          onConfirm={async (until: string) => { setShowSnooze(false); await conversationsStore.snoozeConversation(conversationId, until) }} />, document.body)}
       {showResolve && createPortal(
         <ResolveModal conversationId={conversationId} onClose={() => setShowResolve(false)}
-          onConfirm={async (opts: ResolveOptions) => { setShowResolve(false); await conversationsStore.resolveConversation(conversationId, opts) }} />,
-        document.body)}
+          onConfirm={async (opts: ResolveOptions) => { setShowResolve(false); await conversationsStore.resolveConversation(conversationId, opts) }} />, document.body)}
     </div>
   )
 }

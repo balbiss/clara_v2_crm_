@@ -5,7 +5,7 @@ import { conversationsStore } from '../store/conversations'
 import { isFullPortfolio as isFullPortfolioRole, isCriticalConfig } from '../config/roles'
 import { useContactFields } from '../composables/useContactFields'
 import { useLocal, readUser } from '../lib/hooks'
-import '../styles/vue/EditContactModal.scss'
+import { Modal, btn, inputStyle, labelStyle, serif } from './ui'
 
 // Porte de components/EditContactModal.vue
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -16,9 +16,6 @@ const JUERI_CADASTRO_KEYS = [
   'observacao_jueri', 'observacao_interna_jueri', 'data_inativacao_jueri', 'local_trabalho', 'website_jueri', 'referencia_nome',
   'referencia_telefone', 'status_cadastral_jueri', 'data_criacao_jueri', 'data_ultima_alteracao_jueri',
 ]
-const removeBtnStyle = { padding: 10, height: 38, borderColor: '#ef4444', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' } as const
-const addBtnStyle = { background: 'none', border: 'none', color: '#ff007f', cursor: 'pointer', fontWeight: 500, fontSize: '0.9rem', padding: 0, marginTop: 5 } as const
-const hintStyle = { fontSize: '0.85rem', color: '#6b7280', marginBottom: 12, marginTop: -10 } as const
 
 export default function EditContactModal({ isOpen, contact, onClose }: { isOpen: boolean; contact?: any; onClose: () => void }) {
   const store = useSnapshot(conversationsStore)
@@ -96,134 +93,81 @@ export default function EditContactModal({ isOpen, contact, onClose }: { isOpen:
 
   if (!isOpen || !v.formData.revenda) return null
   const fd = v.formData
-  const pairs: any[][] = []
-  for (let i = 0; i < REVENDA_FIELDS.length; i += 2) pairs.push([REVENDA_FIELDS[i], REVENDA_FIELDS[i + 1]])
+  const section = (title: string, hint?: string) => (
+    <div style={{ margin: '18px 0 10px', paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+      <h3 style={{ ...serif, fontSize: 18, margin: 0 }}>{title}</h3>
+      {hint && <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 0', lineHeight: 1.5 }}>{hint}</p>}
+    </div>
+  )
+  const linkBtn = { border: 'none', background: 'none', color: 'var(--terra)', fontSize: 12.5, fontWeight: 700, padding: 0, marginTop: 4 } as const
+  const removeBtn = { border: '1px solid var(--line)', background: 'none', color: '#B42318', borderRadius: 8, padding: '0 10px', fontSize: 12, flex: 'none' } as const
 
   return (
-    <div className="vs-EditContactModal" style={{ display: 'contents' }}>
-      <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-        <div className="modal-sidebar">
-          <div className="modal-header">
-            <div className="title-section">
-              <h2>Editar contato - {contact?.name}</h2>
-              <p className="subtitle">Alterar detalhes do contato</p>
+    <Modal title={`Editar ${contact?.name || 'contato'}`} subtitle="Dados do Jueri (CPF, endereço, nascimento) não são editados aqui — vêm da sincronização." onClose={onClose} width={600}
+      footer={<>
+        <button onClick={onClose} style={btn('ghost')}>Cancelar</button>
+        <button onClick={() => save()} disabled={v.loading} style={btn('primary')}>{v.loading ? 'Salvando…' : 'Salvar alterações'}</button>
+      </>}>
+      <form onSubmit={save}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} data-modal-grid>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <span style={labelStyle}>Nome completo</span>
+            <input value={fd.name} onChange={e => { s.formData.name = e.target.value }} required autoComplete="off" style={inputStyle} />
+          </div>
+          {isFullPortfolio && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <span style={labelStyle}>Responsável (carteira)</span>
+              <select value={fd.user_id ?? ''} onChange={e => { s.formData.user_id = e.target.value ? Number(e.target.value) : null }} style={inputStyle}>
+                <option value="">Sem responsável</option>
+                {store.agents.map((a: any) => <option key={a.id} value={a.id}>{a.first_name} {a.last_name}</option>)}
+              </select>
             </div>
-            <button className="close-btn" onClick={onClose}>&times;</button>
+          )}
+          <div>
+            <span style={labelStyle}>E-mail</span>
+            <input type="email" value={fd.email} onChange={e => { s.formData.email = e.target.value }} autoComplete="off" style={inputStyle} />
           </div>
-
-          <div className="modal-body">
-            <form onSubmit={save}>
-              <div className="form-section">
-                <h3>Dados Pessoais</h3>
-                <div className="form-group avatar-group">
-                  <label>Avatar do Contato</label>
-                  <div className="avatar-preview">
-                    {contact?.avatar_url ? <img src={contact.avatar_url} alt="Avatar" /> : <div className="avatar-placeholder">{contact?.name?.substring(0, 2).toUpperCase() || 'NA'}</div>}
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Nome Completo</label>
-                  <input type="text" value={fd.name} onChange={e => { s.formData.name = e.target.value }} placeholder="Nome do contato" required autoComplete="off" />
-                </div>
-                {isFullPortfolio && (
-                  <div className="form-group">
-                    <label>Responsável (consultor)</label>
-                    <select value={fd.user_id ?? ''} onChange={e => { s.formData.user_id = e.target.value ? Number(e.target.value) : null }}>
-                      <option value="">Sem responsável</option>
-                      {store.agents.map((agent: any) => <option key={agent.id} value={agent.id}>{agent.first_name} {agent.last_name}</option>)}
-                    </select>
-                  </div>
-                )}
-                <div className="form-group">
-                  <label>Endereço de e-mail</label>
-                  <input type="email" value={fd.email} onChange={e => { s.formData.email = e.target.value }} placeholder="Insira o endereço de e-mail do contato" autoComplete="off" />
-                </div>
-                <div className="form-group">
-                  <label>Número de Telefone</label>
-                  <div className="phone-input-wrapper">
-                    <select className="country-select"><option value="BR">BR ▾</option></select>
-                    <input type="text" value={fd.phone} onChange={e => { s.formData.phone = e.target.value }} placeholder="+5511999999999" autoComplete="off" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-section">
-                <h3>Telefones Adicionais</h3>
-                <p style={hintStyle}>Mesma revendedora pode falar por vários números (pessoal, mãe, sócia etc.) — todos ficam vinculados a este cadastro único (briefing seção 7).</p>
-                {fd.telefonesAdicionais.map((tel: any, index: number) => (
-                  <div key={index} className="form-row" style={{ marginBottom: 10, alignItems: 'flex-end' }}>
-                    <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                      {index === 0 && <label>Identificação</label>}
-                      <input type="text" value={tel.label} onChange={e => { s.formData.telefonesAdicionais[index].label = e.target.value }} placeholder="Ex: Telefone da mãe" autoComplete="off" />
-                    </div>
-                    <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                      {index === 0 && <label>Número</label>}
-                      <input type="text" value={tel.numero} onChange={e => { s.formData.telefonesAdicionais[index].numero = e.target.value }} placeholder="+5511999999999" autoComplete="off" />
-                    </div>
-                    <button type="button" onClick={() => s.formData.telefonesAdicionais.splice(index, 1)} className="btn-cancel" style={removeBtnStyle} title="Remover">Remover</button>
-                  </div>
-                ))}
-                <button type="button" onClick={() => s.formData.telefonesAdicionais.push({ label: '', numero: '' })} style={addBtnStyle}>+ Adicionar telefone</button>
-              </div>
-
-              <div className="form-section">
-                <h3>Dados da Revenda</h3>
-                <p style={hintStyle}>Campos usados na aba Principal e no funil Consignado.</p>
-                {pairs.map(pair => (
-                  <div className="form-row" key={pair[0].key}>
-                    <div className="form-group half">
-                      <label>{pair[0].label}</label>
-                      <input type="text" value={fd.revenda[pair[0].key] ?? ''} onChange={e => { s.formData.revenda[pair[0].key] = e.target.value }} autoComplete="off" />
-                    </div>
-                    {pair[1] && (
-                      <div className="form-group half">
-                        <label>{pair[1].label}</label>
-                        <input type="text" value={fd.revenda[pair[1].key] ?? ''} onChange={e => { s.formData.revenda[pair[1].key] = e.target.value }} autoComplete="off" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="form-section">
-                <h3>Outras Informações</h3>
-                <div className="form-group">
-                  <label>Descrição</label>
-                  <textarea value={fd.bio} onChange={e => { s.formData.bio = e.target.value }} placeholder="Insira a descrição do contato" rows={3}></textarea>
-                </div>
-              </div>
-
-              <div className="form-section">
-                <h3>Atributos Personalizados</h3>
-                <p style={hintStyle}>Crie campos adicionais livremente (ex: Cor do carro, Hobby, Renda do cônjuge).</p>
-                {fd.customAttributesArray.map((attr: any, index: number) => (
-                  <div key={index} className="form-row" style={{ marginBottom: 10, alignItems: 'flex-end' }}>
-                    <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                      {index === 0 && <label>Nome do Campo</label>}
-                      <input type="text" value={attr.key} onChange={e => { s.formData.customAttributesArray[index].key = e.target.value }} placeholder="Ex: Possui Pets?" autoComplete="off" />
-                    </div>
-                    <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                      {index === 0 && <label>Valor</label>}
-                      <input type="text" value={attr.value ?? ''} onChange={e => { s.formData.customAttributesArray[index].value = e.target.value }} placeholder="Ex: Sim, 2 cachorros" autoComplete="off" />
-                    </div>
-                    {canRemoveCustomField && (
-                      <button type="button" onClick={() => s.formData.customAttributesArray.splice(index, 1)} className="btn-cancel" style={removeBtnStyle} title="Remover (só diretoria)">Remover</button>
-                    )}
-                  </div>
-                ))}
-                {canAddCustomField
-                  ? <button type="button" onClick={() => s.formData.customAttributesArray.push({ key: '', value: '' })} style={addBtnStyle}>+ Adicionar novo atributo</button>
-                  : <p style={{ fontSize: '0.8rem', color: '#9ca3af', margin: '4px 0 0' }}>Só gerente ou superior pode criar campos novos — você pode editar os valores acima.</p>}
-              </div>
-            </form>
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn-cancel" onClick={onClose}>Cancelar</button>
-            <button type="button" className="btn-primary" onClick={() => save()} disabled={v.loading}>{v.loading ? 'Salvando...' : 'Salvar Alterações'}</button>
+          <div>
+            <span style={labelStyle}>Telefone</span>
+            <input value={fd.phone} onChange={e => { s.formData.phone = e.target.value }} placeholder="+5511999999999" autoComplete="off" style={inputStyle} />
           </div>
         </div>
-      </div>
-    </div>
+
+        {section('Telefones adicionais', 'A mesma revendedora pode falar por vários números (mãe, sócia…) — todos ficam ligados a este cadastro.')}
+        {fd.telefonesAdicionais.map((tel: any, i: number) => (
+          <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input value={tel.label} onChange={e => { s.formData.telefonesAdicionais[i].label = e.target.value }} placeholder="Ex: telefone da mãe" autoComplete="off" style={inputStyle} />
+            <input value={tel.numero} onChange={e => { s.formData.telefonesAdicionais[i].numero = e.target.value }} placeholder="+5511999999999" autoComplete="off" style={inputStyle} />
+            <button type="button" onClick={() => s.formData.telefonesAdicionais.splice(i, 1)} style={removeBtn}>Remover</button>
+          </div>
+        ))}
+        <button type="button" onClick={() => s.formData.telefonesAdicionais.push({ label: '', numero: '' })} style={linkBtn}>+ Adicionar telefone</button>
+
+        {section('Dados da revenda', 'Campos da aba Principal e do funil Consignado.')}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} data-modal-grid="2">
+          {REVENDA_FIELDS.map((f: any) => (
+            <div key={f.key}>
+              <span style={labelStyle}>{f.label}</span>
+              <input value={fd.revenda[f.key] ?? ''} onChange={e => { s.formData.revenda[f.key] = e.target.value }} autoComplete="off" style={inputStyle} />
+            </div>
+          ))}
+        </div>
+
+        {section('Descrição')}
+        <textarea value={fd.bio} onChange={e => { s.formData.bio = e.target.value }} rows={3} placeholder="Observações sobre a revendedora" style={{ ...inputStyle, resize: 'vertical' }} />
+
+        {section('Atributos personalizados', 'Campos livres (ex.: cor preferida, hobby).')}
+        {fd.customAttributesArray.map((attr: any, i: number) => (
+          <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input value={attr.key} onChange={e => { s.formData.customAttributesArray[i].key = e.target.value }} placeholder="Nome do campo" autoComplete="off" style={inputStyle} />
+            <input value={attr.value ?? ''} onChange={e => { s.formData.customAttributesArray[i].value = e.target.value }} placeholder="Valor" autoComplete="off" style={inputStyle} />
+            {canRemoveCustomField && <button type="button" onClick={() => s.formData.customAttributesArray.splice(i, 1)} title="Remover (só diretoria)" style={removeBtn}>Remover</button>}
+          </div>
+        ))}
+        {canAddCustomField
+          ? <button type="button" onClick={() => s.formData.customAttributesArray.push({ key: '', value: '' })} style={linkBtn}>+ Adicionar atributo</button>
+          : <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 0' }}>Só gerente ou superior cria campos novos — você pode editar os valores acima.</p>}
+      </form>
+    </Modal>
   )
 }

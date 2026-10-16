@@ -59,7 +59,10 @@ a:hover { color: var(--ink); }
 @keyframes slideUpSheet { from { transform: translateY(100%); } to { transform: none; } }
 
 ::-webkit-scrollbar { height: 10px; width: 10px; }
-::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: var(--scroll, #A9B6C8); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover, #7F8EA3); background-clip: padding-box; border: 2px solid transparent; }
+[data-theme='dark'] { --scroll: #3A4658; --scroll-hover: #55647A; }
+* { scrollbar-color: var(--scroll, #A9B6C8) transparent; }
 
 .hoverable:hover { border-color: var(--terra) !important; }
 

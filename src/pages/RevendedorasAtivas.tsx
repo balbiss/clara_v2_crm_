@@ -10,8 +10,9 @@ import { isFullPortfolio as isFullPortfolioRole } from '../config/roles'
 import { nivelInfo, nivelLimpo, NIVEL_META } from '../constants/nivel'
 import { readUser } from '../lib/hooks'
 import { btn } from '../components/ui'
+import { WhatsAppIcon } from '../components/WhatsAppIcon'
 import { PageHead, DataTable, Badge, toast } from '../components/ui2'
-import { SearchBox, Chips, Toolbar, selectStyle, NameCell, EmptyBlock, useStartConversation, agentNames, brl, fmtDate, fmtDateTime, statusTone } from '../components/lists'
+import { SearchBox, Chips, Toolbar, selectStyle, NameCell, EmptyBlock, useStartConversation, agentNames, brl, fmtDate, statusTone } from '../components/lists'
 
 // Minhas Revendedoras (ativas): carteira em ciclo consignado, filtros, atribuição em lote,
 // próxima tarefa de cada uma e "Time Travel" (quem estava ativa numa data passada).
@@ -27,6 +28,14 @@ const daysInCycle = (c: any) => {
 }
 const isAtrasada = (c: any) => c.status === 'atrasada' || (daysInCycle(c) ?? 0) > 35
 const hojeISO = () => new Date().toISOString().slice(0, 10)
+
+// dd/mm hh:mm em duas linhas curtas (cabe na tabela sem rolagem lateral)
+const shortDT = (iso?: string | null) => {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return <span style={{ whiteSpace: 'nowrap', lineHeight: 1.35 }}>{d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}<br /><span style={{ color: 'var(--muted)', fontSize: 11.5 }}>{d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span></span>
+}
 
 export default function RevendedorasAtivas() {
   const navigate = useNavigate()
@@ -140,11 +149,11 @@ export default function RevendedorasAtivas() {
           onRowClick={i => navigate(`/contatos/${filteredSnap[i].id}`)}
           rows={filteredSnap.map(c => [<NameCell key="n" c={c} />, c.phone || '—', c.pecas_abertas, c.pedidos_abertos_count, names[c.user_id] || 'Não atribuído'])} />
       ) : (
-        <DataTable loading={loading} empty={<EmptyBlock icon={<Users size={26} />} title="Nenhuma revendedora ativa encontrada" text="Ajuste os filtros ou aguarde novas revendedoras entrarem em ciclo." />}
+        <DataTable compact loading={loading} empty={<EmptyBlock icon={<Users size={26} />} title="Nenhuma revendedora ativa encontrada" text="Ajuste os filtros ou aguarde novas revendedoras entrarem em ciclo." />}
           columns={[
             ...(isFull ? [{ label: <input type="checkbox" checked={allSel} onChange={() => setSelected(allSel ? [] : filtered.map((c: any) => c.id))} onClick={e => e.stopPropagation()} />, width: 36 }] : []),
             { label: 'Revendedora' }, { label: 'Nível' }, { label: 'Etapa' }, { label: 'Tarefa' }, { label: 'Dias maleta' }, { label: 'Peças' }, { label: 'Valor aberto' },
-            { label: 'Previsão acerto' }, { label: 'Agendamento' }, { label: 'Interação' }, { label: 'Alerta' }, { label: 'Carteira' }, { label: '', width: 50 },
+            { label: 'Previsão acerto' }, { label: 'Agendamento' }, { label: 'Interação' }, { label: 'Alerta' }, { label: 'Carteira' }, { label: '', width: 38 },
           ]}
           onRowClick={i => navigate(`/contatos/${filtered[i].id}`)}
           rows={filtered.map((c: any) => [
@@ -154,11 +163,11 @@ export default function RevendedorasAtivas() {
             <Badge key="e" tone={statusTone(c.status)}>{statusLabel(c.status)}</Badge>,
             <span key="t" style={{ color: 'var(--muted)' }}>{tarefas[c.id]?.titulo || '—'}</span>,
             daysInCycle(c) !== null ? `${daysInCycle(c)} dias` : '—',
-            c.pecas_abertas_atual ?? '—', brl(c.valor_aberto) || '—', fmtDate(c.data_prevista_acerto) || '—', fmtDateTime(c.proximo_agendamento_em) || '—', fmtDateTime(c.ultima_interacao_em) || '—',
-            isAtrasada(c) ? <Badge key="a" tone="red"><AlertTriangle size={10} style={{ verticalAlign: -1 }} /> Atrasada</Badge> : <span key="a" style={{ color: 'var(--plantao)', fontWeight: 600, fontSize: 12.5 }}>Em dia</span>,
-            c.custom_attributes?.gerente_jueri_nome || 'Sem time',
+            c.pecas_abertas_atual ?? '—', brl(c.valor_aberto) || '—', fmtDate(c.data_prevista_acerto) || '—', shortDT(c.proximo_agendamento_em), shortDT(c.ultima_interacao_em),
+            isAtrasada(c) ? <Badge key="a" tone="red"><AlertTriangle size={10} style={{ verticalAlign: -1 }} /> Atrasada</Badge> : <span key="a" style={{ color: 'var(--plantao)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap' }}>Em dia</span>,
+            <span key="c" style={{ whiteSpace: 'nowrap' }}>{c.custom_attributes?.gerente_jueri_nome || 'Sem time'}</span>,
             <button key="m" title="Iniciar conversa no WhatsApp" disabled={busyId === c.id} onClick={e => { e.stopPropagation(); start(c) }}
-              style={{ width: 32, height: 32, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--card)', color: 'var(--terra)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MessageCircle size={15} /></button>,
+              style={{ width: 32, height: 32, border: 'none', borderRadius: 8, background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><WhatsAppIcon size={24} /></button>,
           ])} />
       )}
     </div>

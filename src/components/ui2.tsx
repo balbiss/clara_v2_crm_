@@ -22,17 +22,20 @@ export const td: CSSProperties = { padding: '12px 14px', fontSize: 13.5, borderB
 type Col = { label: ReactNode; width?: number | string; align?: 'left' | 'right' | 'center' }
 
 /** Tabela no padrão do v2: cartão branco, cabeçalho em caixa-alta. */
-export function DataTable({ columns, rows, empty = 'Nada por aqui ainda.', loading, onRowClick }: { columns: Col[]; rows: ReactNode[][]; empty?: ReactNode; loading?: boolean; onRowClick?: (i: number) => void }) {
-  const msg = (m: ReactNode) => <tr><td colSpan={columns.length} style={{ ...td, textAlign: 'center', color: 'var(--muted)', padding: 28 }}>{m}</td></tr>
+/** compact: tabela larga (muitas colunas) cabe na largura da página, sem rolagem lateral. */
+export function DataTable({ columns, rows, empty = 'Nada por aqui ainda.', loading, onRowClick, compact }: { columns: Col[]; rows: ReactNode[][]; empty?: ReactNode; loading?: boolean; onRowClick?: (i: number) => void; compact?: boolean }) {
+  const thS: CSSProperties = compact ? { ...th, padding: '10px 6px', fontSize: 9.5, letterSpacing: '.05em', whiteSpace: 'normal', lineHeight: 1.3 } : th
+  const tdS: CSSProperties = compact ? { ...td, padding: '9px 6px', fontSize: 12.5 } : td
+  const msg = (m: ReactNode) => <tr><td colSpan={columns.length} style={{ ...tdS, textAlign: 'center', color: 'var(--muted)', padding: 28 }}>{m}</td></tr>
   return (
     <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' }}>
-      <div style={{ overflowX: 'auto' }}>
+      <div style={{ overflowX: compact ? 'hidden' : 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr>{columns.map((c, i) => <th key={i} style={{ ...th, width: c.width, textAlign: c.align || 'left' }}>{c.label}</th>)}</tr></thead>
+          <thead><tr>{columns.map((c, i) => <th key={i} style={{ ...thS, width: c.width, textAlign: c.align || 'left' }}>{c.label}</th>)}</tr></thead>
           <tbody>
             {loading ? msg('Carregando…') : rows.length === 0 ? msg(empty) : rows.map((r, ri) => (
               <tr key={ri} onClick={onRowClick ? () => onRowClick(ri) : undefined} style={{ cursor: onRowClick ? 'pointer' : undefined }}>
-                {r.map((cell, ci) => <td key={ci} style={{ ...td, textAlign: columns[ci].align || 'left' }}>{cell}</td>)}
+                {r.map((cell, ci) => <td key={ci} style={{ ...tdS, textAlign: columns[ci].align || 'left' }}>{cell}</td>)}
               </tr>
             ))}
           </tbody>

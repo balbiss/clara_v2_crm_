@@ -24,7 +24,7 @@ export async function pickWhatsappInbox() {
     showCancelButton: true,
     confirmButtonText: 'Iniciar conversa',
     cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#ff007f'
+    confirmButtonColor: '#123C87'
   })
 
   return { inboxId: isConfirmed ? chosenId : null, cancelled: !isConfirmed }

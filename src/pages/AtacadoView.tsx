@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
 import { MessageCircle, Package } from 'lucide-react'
 import { contactsStore } from '../store/contacts'
+import { WhatsAppIcon } from '../components/WhatsAppIcon'
 import { PageHead, DataTable } from '../components/ui2'
 import { SearchBox, Toolbar, NameCell, EmptyBlock, useStartConversation } from '../components/lists'
 
@@ -31,7 +32,7 @@ export default function AtacadoView() {
         rows={list.map((c: any) => [
           <NameCell key="n" c={c} icon={<Package size={14} />} />, c.phone || '—', c.city || '—',
           <button key="m" title="Iniciar conversa no WhatsApp" disabled={busyId === c.id} onClick={e => { e.stopPropagation(); start(c) }}
-            style={{ width: 32, height: 32, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--card)', color: 'var(--terra)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MessageCircle size={15} /></button>,
+            style={{ width: 32, height: 32, border: 'none', borderRadius: 8, background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><WhatsAppIcon size={24} /></button>,
         ])} />
     </div>
   )

@@ -201,3 +201,17 @@ a:hover { color: var(--ink); }
   .conv-col[data-hide='1'] { display: none !important; }
   .conv-back { display: flex !important; }
 }
+
+/* SweetAlert2 no visual do CRM (modais de confirmação, escolha de caixa, avisos) */
+div:where(.swal2-container) div:where(.swal2-popup) { font-family: Manrope, system-ui, sans-serif; background: var(--card) !important; color: var(--ink); border-radius: 16px !important; border: 1px solid var(--line); padding: 26px 24px 22px; box-shadow: 0 24px 60px rgba(8,17,31,.22); }
+div:where(.swal2-container).swal2-backdrop-show { background: rgba(8,15,30,.45); backdrop-filter: blur(2px); }
+div:where(.swal2-container) h2:where(.swal2-title) { font-family: Newsreader, serif; font-weight: 400; font-size: 26px; color: var(--ink) !important; padding: 4px 8px 0; }
+div:where(.swal2-container) div:where(.swal2-html-container) { font-size: 14px; color: var(--muted); line-height: 1.55; }
+div:where(.swal2-container) :is(select.swal2-select, input.swal2-input, textarea.swal2-textarea) { font-family: inherit; font-size: 14px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; box-shadow: none; height: 44px; padding: 0 12px; margin: 18px 24px 4px; max-width: calc(100% - 48px); }
+div:where(.swal2-container) :is(select.swal2-select, input.swal2-input, textarea.swal2-textarea):focus { border-color: var(--terra); box-shadow: 0 0 0 3px var(--terraSoft); outline: none; }
+div:where(.swal2-container) div:where(.swal2-actions) { gap: 10px; margin-top: 20px; }
+div:where(.swal2-container) button:where(.swal2-styled) { font-family: inherit; font-weight: 600; font-size: 13.5px; border-radius: 10px; padding: 10px 20px; margin: 0; box-shadow: none !important; }
+div:where(.swal2-container) button:where(.swal2-styled).swal2-cancel { background: var(--card) !important; color: var(--ink) !important; border: 1px solid var(--line); }
+div:where(.swal2-container) button:where(.swal2-styled).swal2-cancel:hover { background: var(--bg) !important; }
+div:where(.swal2-container) div:where(.swal2-popup).swal2-toast { padding: 12px 16px; border-radius: 12px; }
+div:where(.swal2-container) div:where(.swal2-popup).swal2-toast h2:where(.swal2-title) { font-family: Manrope, system-ui, sans-serif; font-size: 14px; font-weight: 600; padding: 0; }

@@ -5,17 +5,12 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { users, accounts } from '../db/schema.js';
 import { signToken } from '../lib/jwt.js';
-import { blobFor, blobUrl } from '../lib/storage.js';
+import { avatarUrl } from '../lib/users.js';
 import { requireAuth, roleName, type User } from '../middleware/auth.js';
 
 // Users::SessionsController da v1 (Devise + devise-jwt): POST /users/sign_in devolve o token
 // no header Authorization e o usuário no corpo; DELETE /users/sign_out revoga trocando o jti.
 export const sessionsRouter = Router();
-
-export async function avatarUrl(userId: number): Promise<string | null> {
-  const blob = await blobFor('User', userId, 'avatar');
-  return blob ? blobUrl(blob) : null;
-}
 
 export async function serializeSessionUser(u: User) {
   const [acc] = u.accountId ? await db.select({ name: accounts.name }).from(accounts).where(eq(accounts.id, u.accountId)) : [];

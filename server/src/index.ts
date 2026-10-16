@@ -11,6 +11,13 @@ import { ensureBucket } from './lib/storage.js';
 import { setIo } from './lib/realtime.js';
 import { sessionsRouter } from './routes/sessions.js';
 import { filesRouter } from './routes/files.js';
+import { conversationsRouter } from './routes/conversations.js';
+import { inboxesRouter } from './routes/inboxes.js';
+import { webhooksRouter } from './routes/webhooks.js';
+import { basicsRouter } from './routes/basics.js';
+import { contactsRouter } from './routes/contacts.js';
+import { salesTeamsRouter } from './routes/salesTeams.js';
+import { startJobs } from './jobs/index.js';
 
 const app = express();
 // exposedHeaders: o front lê o token do header Authorization da resposta do login (igual à v1).
@@ -20,6 +27,12 @@ app.use(express.json({ limit: '25mb' }));
 app.get('/up', (_req, res) => res.json({ ok: true }));
 app.use(sessionsRouter);
 app.use(filesRouter);
+app.use(webhooksRouter);
+app.use(conversationsRouter);
+app.use(inboxesRouter);
+app.use(contactsRouter);
+app.use(salesTeamsRouter);
+app.use(basicsRouter);
 
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, { cors: { origin: process.env.CORS_ORIGIN || 'http://localhost:5183' } });
@@ -46,4 +59,7 @@ io.on('connection', socket => {
 const port = Number(process.env.PORT) || 3011;
 ensureBucket()
   .catch(err => console.error('MinIO: não foi possível preparar o bucket —', err.message))
-  .finally(() => httpServer.listen(port, () => console.log('Clara v2 backend rodando em http://localhost:' + port)));
+  .finally(() => httpServer.listen(port, () => {
+    console.log('Clara v2 backend rodando em http://localhost:' + port);
+    startJobs();
+  }));

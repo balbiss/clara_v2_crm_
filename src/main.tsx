@@ -9,6 +9,12 @@ import ComingSoon from './pages/ComingSoon'
 const Login = lazy(() => import('./pages/Login'))
 import { AppShell } from './components/AppShell'
 const Conversas = lazy(() => import('./pages/Conversas'))
+const ContactDetails = lazy(() => import('./pages/ContactDetails'))
+const Contacts = lazy(() => import('./pages/Contacts'))
+const PedidosPendentes = lazy(() => import('./pages/PedidosPendentes'))
+const AtacadoView = lazy(() => import('./pages/AtacadoView'))
+const RevendedorasInativas = lazy(() => import('./pages/RevendedorasInativas'))
+const RevendedorasAtivas = lazy(() => import('./pages/RevendedorasAtivas'))
 const MessageTemplates = lazy(() => import('./pages/settings/MessageTemplates'))
 const ContactFieldGroups = lazy(() => import('./pages/settings/ContactFieldGroups'))
 const SalesTeams = lazy(() => import('./pages/settings/SalesTeams'))
@@ -47,10 +53,10 @@ function App() {
           <Route path="/" element={g(<AppShell />)}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={g(emMigracao('Início'))} />
-            <Route path="carteira" element={g(emMigracao('Minhas Revendedoras'))} />
-            <Route path="inativas" element={g(emMigracao('Inativas'))} />
-            <Route path="atacado" element={g(emMigracao('Atacado'))} />
-            <Route path="pedidos-pendentes" element={g(emMigracao('Pedidos Pendentes'))} />
+            <Route path="carteira" element={g(<RevendedorasAtivas />)} />
+            <Route path="inativas" element={g(<RevendedorasInativas />)} />
+            <Route path="atacado" element={g(<AtacadoView />)} />
+            <Route path="pedidos-pendentes" element={g(<PedidosPendentes />)} />
             <Route path="tarefas" element={g(emMigracao('Tarefas'))} />
             <Route path="gerencial" element={g(emMigracao('Gerencial'), { fullPortfolio: true })} />
             <Route path="atividades" element={g(emMigracao('Atividades'), { criticalConfig: true })} />
@@ -58,8 +64,8 @@ function App() {
             <Route path="conversas/inbox/:inboxId" element={g(<Conversas />)} />
             <Route path="conversas/:filter" element={g(<Conversas />)} />
             <Route path="chat-equipe" element={g(emMigracao('Chat da Equipe'))} />
-            <Route path="contatos" element={g(emMigracao('Contatos'))} />
-            <Route path="contatos/:id" element={g(emMigracao('Detalhe do contato'))} />
+            <Route path="contatos" element={g(<Contacts />)} />
+            <Route path="contatos/:id" element={g(<ContactDetails />)} />
             <Route path="pipelines/todos-leads" element={g(emMigracao('Todos os leads'), { fullPortfolio: true })} />
             <Route path="pipelines/:slug" element={g(emMigracao('Pipeline'), { fullPortfolio: true })} />
             <Route path="pipelines/:slug/automatize" element={g(emMigracao('Automação do pipeline'), { criticalConfig: true })} />

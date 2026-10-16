@@ -66,7 +66,7 @@ contactsRouter.get('/contacts', async (req, res) => {
   })));
 });
 
-contactsRouter.get('/contacts/:id', async (req, res, next) => {
+contactsRouter.get('/contacts/:id(\\d+)', async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) return next();
   const c = await loadContact(req, res);
   if (!c) return;
@@ -121,10 +121,10 @@ async function updateContactRoute(req: Request, res: Response) {
   const updated = await updateContact(c, contactParams(req), req.user!.id);
   res.json({ ...railsJson(updated), reseller_phones: (await phonesOf([c.id])).get(c.id) ?? [] });
 }
-contactsRouter.put('/contacts/:id', updateContactRoute);
-contactsRouter.patch('/contacts/:id', updateContactRoute);
+contactsRouter.put('/contacts/:id(\\d+)', updateContactRoute);
+contactsRouter.patch('/contacts/:id(\\d+)', updateContactRoute);
 
-contactsRouter.delete('/contacts/:id', requireFullPortfolio, async (req, res) => {
+contactsRouter.delete('/contacts/:id(\\d+)', requireFullPortfolio, async (req, res) => {
   const c = await loadContact(req, res);
   if (!c) return;
   await deleteContactCascade(c.id);
@@ -132,7 +132,7 @@ contactsRouter.delete('/contacts/:id', requireFullPortfolio, async (req, res) =>
 });
 
 // mesclar: conversas vão pro contato alvo e o duplicado é apagado
-contactsRouter.post('/contacts/:id/merge', requireFullPortfolio, async (req, res) => {
+contactsRouter.post('/contacts/:id(\\d+)/merge', requireFullPortfolio, async (req, res) => {
   const c = await loadContact(req, res);
   if (!c) return;
   const [target] = await db.select().from(contacts).where(and(eq(contacts.accountId, acc(req)), eq(contacts.id, Number(req.body.target_contact_id))));
@@ -142,7 +142,7 @@ contactsRouter.post('/contacts/:id/merge', requireFullPortfolio, async (req, res
   res.json({ message: 'Contacts merged successfully', contact: railsJson(target) });
 });
 
-contactsRouter.post('/contacts/:id/add_note', async (req, res) => {
+contactsRouter.post('/contacts/:id(\\d+)/add_note', async (req, res) => {
   const c = await loadContact(req, res);
   if (!c) return;
   const [n] = await db.insert(notes).values({ contactId: c.id, accountId: c.accountId, userId: req.user!.id, content: req.body.content ?? null }).returning();
@@ -153,7 +153,7 @@ contactsRouter.post('/contacts/:id/add_note', async (req, res) => {
 async function inboxIdsOf(contactId: number) {
   return (await db.selectDistinct({ id: conversations.inboxId }).from(conversations).where(and(eq(conversations.contactId, contactId), isNotNull(conversations.inboxId)))).map(r => r.id!);
 }
-contactsRouter.patch('/contacts/:id/block', async (req, res) => {
+contactsRouter.patch('/contacts/:id(\\d+)/block', async (req, res) => {
   const c = await loadContact(req, res);
   if (!c) return;
   const updated = await updateContact(c, { status: 'blocked' }, req.user!.id);
@@ -161,7 +161,7 @@ contactsRouter.patch('/contacts/:id/block', async (req, res) => {
   if (jid) for (const i of await inboxIdsOf(c.id)) cache.write(`ai_paused_${i}_${jid}`, Math.floor(Date.now() / 1000));
   res.json({ message: 'Contato bloqueado com sucesso', status: 'blocked' });
 });
-contactsRouter.patch('/contacts/:id/unblock', async (req, res) => {
+contactsRouter.patch('/contacts/:id(\\d+)/unblock', async (req, res) => {
   const c = await loadContact(req, res);
   if (!c) return;
   const updated = await updateContact(c, { status: 'active' }, req.user!.id);

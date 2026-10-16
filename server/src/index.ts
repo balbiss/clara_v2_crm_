@@ -19,6 +19,8 @@ import { contactsRouter } from './routes/contacts.js';
 import { salesTeamsRouter } from './routes/salesTeams.js';
 import { internalMessagesRouter } from './routes/internalMessages.js';
 import { accountRouter } from './routes/account.js';
+import { pedidosRouter } from './routes/pedidos.js';
+import { tarefasRouter } from './routes/tarefas.js';
 import { startJobs } from './jobs/index.js';
 
 const app = express();
@@ -32,6 +34,8 @@ app.use(filesRouter);
 app.use(webhooksRouter);
 app.use(conversationsRouter);
 app.use(inboxesRouter);
+app.use(pedidosRouter);
+app.use(tarefasRouter);
 app.use(contactsRouter);
 app.use(salesTeamsRouter);
 app.use(internalMessagesRouter);

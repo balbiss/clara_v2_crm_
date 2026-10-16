@@ -10,11 +10,11 @@ Regra: **visual = Visita IA v2; lógica = Clara v1**. Nada na v1 de produção �
 | Esqueci a senha / Redefinir | /forgot-password, /users/password/edit | ⬜ (precisa SMTP) | G |
 | Conversas | /conversas | ✅ | 1 |
 | Início (Dashboard) | /dashboard | ⬜ | C |
-| Minhas Revendedoras (Ativas) | /carteira | ⬜ | B |
-| Inativas | /inativas | ⬜ | B |
-| Atacado | /atacado | ⬜ | B |
-| Pedidos Pendentes | /pedidos-pendentes | ⬜ | B |
-| Contatos / Detalhe | /contatos, /contatos/:id | ⬜ | B |
+| Minhas Revendedoras (Ativas) | /carteira | ✅ | B |
+| Inativas | /inativas | ✅ | B |
+| Atacado | /atacado | ✅ | B |
+| Pedidos Pendentes | /pedidos-pendentes | ✅ | B |
+| Contatos / Detalhe | /contatos, /contatos/:id | ✅ | B |
 | Todos os leads | /pipelines/todos-leads | ⬜ | E |
 | Tarefas | /tarefas | ⬜ | C |
 | Calendário | /calendario | ⬜ | C |

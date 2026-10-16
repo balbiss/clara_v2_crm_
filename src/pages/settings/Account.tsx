@@ -70,10 +70,10 @@ export default function Account() {
   const mismatch = !!pw.password_confirmation && pw.password !== pw.password_confirmation
 
   return (
-    <div style={{ maxWidth: 860 }}>
+    <div>
       <PageHead title="Conta" subtitle="Preferências gerais do workspace e da sua senha de acesso." />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <Panel icon={<Building2 size={19} />} title="Configurações gerais" description="Informações básicas da conta e do administrador."
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Panel icon={<Building2 size={16} />} title="Configurações gerais" description="Informações básicas da conta e do administrador."
           footer={<button onClick={saveName} disabled={!name.trim() || name === savedName} style={{ ...btn('primary'), opacity: !name.trim() || name === savedName ? 0.5 : 1 }}>Salvar alterações</button>}>
           <div style={grid('repeat(auto-fit, minmax(240px, 1fr))')}>
             {field('Nome da conta', <input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Clara Ferreira Acessórios" style={inputStyle} />, 'Aparece no topo do sistema e nas mensagens.')}
@@ -81,7 +81,7 @@ export default function Account() {
           </div>
         </Panel>
 
-        <Panel icon={<ShieldCheck size={19} />} title="Segurança" description="Altere sua senha de acesso ao CRM. Use pelo menos 6 caracteres."
+        <Panel icon={<ShieldCheck size={16} />} title="Segurança" description="Altere sua senha de acesso ao CRM. Use pelo menos 6 caracteres."
           footer={<button onClick={savePassword} disabled={pwBusy || mismatch} style={{ ...btn('primary'), opacity: pwBusy || mismatch ? 0.5 : 1 }}>{pwBusy ? 'Alterando…' : 'Alterar senha'}</button>}>
           <div style={{ ...grid('repeat(auto-fit, minmax(200px, 1fr))') }}>
             {field('Senha atual', <PasswordInput value={pw.current_password} onChange={v => setPw({ ...pw, current_password: v })} autoComplete="current-password" />)}
@@ -91,7 +91,7 @@ export default function Account() {
           {mismatch && <p style={{ margin: '10px 0 0', fontSize: 12.5, color: '#B42318', fontWeight: 600 }}>A confirmação não bate com a nova senha.</p>}
         </Panel>
 
-        <Panel icon={<Link2 size={19} />} title="Integração com o Jueri" description="Os eventos de pedido, venda e financeiro chegam em tempo real e o CRM atualiza a carteira sozinho.">
+        <Panel icon={<Link2 size={16} />} title="Integração com o Jueri" description="Os eventos de pedido, venda e financeiro chegam em tempo real e o CRM atualiza a carteira sozinho.">
           <span style={labelStyle}>URL do webhook</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <input value={webhook} readOnly onFocus={e => e.target.select()} style={{ ...inputStyle, fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12.5 }} />

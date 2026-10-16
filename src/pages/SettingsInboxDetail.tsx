@@ -18,7 +18,7 @@ const TABS = [
   { id: 'settings', name: 'Configurações', icon: Settings2 }, { id: 'agents', name: 'Agentes', icon: Users }, { id: 'bot', name: 'Secretária virtual', icon: Bot },
   { id: 'knowledge_base', name: 'Base de conhecimento', icon: BookOpen }, { id: 'followup', name: 'Resgate (follow-up)', icon: RotateCcw },
 ]
-const hint: React.CSSProperties = { fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.55, margin: '4px 0 0' }
+const hint: React.CSSProperties = { fontSize: 12, color: 'var(--muted)', lineHeight: 1.55, margin: '4px 0 0' }
 
 /** +55 (11) 90962-4290 */
 export const fmtPhone = (p?: string | null) => {
@@ -29,8 +29,8 @@ export const fmtPhone = (p?: string | null) => {
 
 function Toggle({ on, onChange, title, children }: { on: boolean; onChange: (v: boolean) => void; title: string; children?: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '14px 16px', borderBottom: '1px solid var(--line)' }}>
-      <div style={{ flex: 1 }}><b style={{ display: 'block', fontSize: 14 }}>{title}</b>{children && <p style={hint}>{children}</p>}</div>
+    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '11px 14px', borderBottom: '1px solid var(--line)' }}>
+      <div style={{ flex: 1 }}><b style={{ display: 'block', fontSize: 13.5 }}>{title}</b>{children && <p style={hint}>{children}</p>}</div>
       <Switch on={on} onChange={onChange} />
     </div>
   )
@@ -104,40 +104,40 @@ export default function SettingsInboxDetail() {
   const memberCount = members.filter(m => m.is_member).length
 
   return (
-    <div style={{ maxWidth: 900 }}>
+    <div>
       <button onClick={() => navigate('/settings/inboxes')} style={{ border: 'none', background: 'none', color: 'var(--muted)', fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, marginBottom: 14 }}><ChevronLeft size={15} /> Caixas de entrada</button>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 14, padding: '18px 22px', marginBottom: 18 }}>
-        <span style={{ width: 54, height: 54, borderRadius: 14, background: '#E8F8EE', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><WhatsAppIcon size={32} /></span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px 16px', marginBottom: 14 }}>
+        <span style={{ width: 42, height: 42, borderRadius: 10, background: '#E8F8EE', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><WhatsAppIcon size={24} /></span>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <h1 style={{ ...serif, fontSize: 28, margin: 0, lineHeight: 1.15 }}>{inbox.name}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 6, fontSize: 13, color: 'var(--muted)' }}>
+          <h1 style={{ ...serif, fontSize: 21, margin: 0, lineHeight: 1.2 }}>{inbox.name}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 3, fontSize: 12.5, color: 'var(--muted)' }}>
             <span>{fmtPhone(inbox.phone_number) || 'Sem número'}</span>
             <Badge tone={connected === true ? 'green' : connected === false ? 'red' : 'muted'}>{connected === true ? 'Conectado' : connected === false ? 'Desconectado' : 'Verificando…'}</Badge>
             {inbox.restrict_by_portfolio && <Badge tone="blue">Por carteira</Badge>}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 22, fontSize: 12, color: 'var(--muted)' }}>
-          <span><b style={{ display: 'block', fontSize: 20, color: 'var(--ink)' }}>{memberCount}</b>com acesso</span>
-          <span><b style={{ display: 'block', fontSize: 20, color: inbox.ai_enabled ? 'var(--plantao)' : 'var(--ink)' }}>{inbox.ai_enabled ? 'Ligada' : 'Desligada'}</b>secretária IA</span>
+        <div style={{ display: 'flex', gap: 20, fontSize: 11.5, color: 'var(--muted)' }}>
+          <span><b style={{ display: 'block', fontSize: 15, color: 'var(--ink)' }}>{memberCount}</b>com acesso</span>
+          <span><b style={{ display: 'block', fontSize: 15, color: inbox.ai_enabled ? 'var(--plantao)' : 'var(--ink)' }}>{inbox.ai_enabled ? 'Ligada' : 'Desligada'}</b>secretária IA</span>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {TABS.map(t => {
           const on = tab === t.id
           return (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 20, border: '1px solid ' + (on ? 'var(--terra)' : 'var(--line)'), background: on ? 'var(--terra)' : 'var(--card)', color: on ? '#fff' : 'var(--ink)', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
-              <t.icon size={14} /> {t.name}
+            <button key={t.id} onClick={() => setTab(t.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, border: '1px solid ' + (on ? 'var(--terra)' : 'var(--line)'), background: on ? 'var(--terra)' : 'var(--card)', color: on ? '#fff' : 'var(--ink)', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
+              <t.icon size={13} /> {t.name}
             </button>
           )
         })}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {tab === 'settings' && (
-          <>
-            <Panel icon={<Settings2 size={19} />} title="Identificação" description="Nome que a equipe vê na lista de conversas e o número conectado." footer={saveBtn('Salvar alterações')}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 14, alignItems: 'start' }}>
+            <Panel icon={<Settings2 size={16} />} title="Identificação" description="Nome que a equipe vê na lista de conversas e o número conectado." footer={saveBtn('Salvar alterações')}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
                 {field('Nome da caixa de entrada', <input value={inbox.name || ''} onChange={e => set({ name: e.target.value })} style={inputStyle} />)}
                 {field('Provedor', <input value="WhatsApp (não oficial)" disabled style={{ ...inputStyle, color: 'var(--muted)', cursor: 'not-allowed' }} />)}
@@ -149,7 +149,7 @@ export default function SettingsInboxDetail() {
                 </select>
               ), 'Leads que chegarem por este número vão só para as consultoras deste grupo.')}</div>}
             </Panel>
-            <Panel icon={<ShieldCheck size={19} />} title="Regras de atendimento" description="Quem enxerga o quê e como as mensagens saem para a revendedora." footer={saveBtn('Salvar alterações')}>
+            <Panel icon={<ShieldCheck size={16} />} title="Regras de atendimento" description="Quem enxerga o quê e como as mensagens saem para a revendedora." footer={saveBtn('Salvar alterações')}>
               {toggleList(<>
                 <Toggle on={!!inbox.restrict_by_portfolio} onChange={v => set({ restrict_by_portfolio: v })} title="Restringir por carteira">
                   Ligado: quem tem acesso a esta caixa só vê as conversas das revendedoras da própria carteira, ou que ainda não têm responsável. Desligado: vê todas as conversas da caixa (use assim em caixas como Marketing ou Gerência).
@@ -159,11 +159,11 @@ export default function SettingsInboxDetail() {
                 </Toggle>
               </>)}
             </Panel>
-          </>
+          </div>
         )}
 
         {tab === 'agents' && (
-          <Panel icon={<Users size={19} />} title="Gerenciar acesso" description={`Quais pessoas podem ver e responder mensagens por esta caixa — ${memberCount} de ${members.length} com acesso.`}>
+          <Panel icon={<Users size={16} />} title="Gerenciar acesso" description={`Quais pessoas podem ver e responder mensagens por esta caixa — ${memberCount} de ${members.length} com acesso.`}>
             <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
               {members.map(m => (
                 <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: '1px solid var(--line)', background: 'var(--card)' }}>
@@ -179,7 +179,7 @@ export default function SettingsInboxDetail() {
         )}
 
         {tab === 'bot' && (
-          <Panel icon={<Bot size={19} />} title="Secretária virtual" description="A inteligência artificial que atende as revendedoras por esta caixa." footer={saveBtn('Salvar configurações da IA')}>
+          <Panel icon={<Bot size={16} />} title="Secretária virtual" description="A inteligência artificial que atende as revendedoras por esta caixa." footer={saveBtn('Salvar configurações da IA')}>
             {aiNote}
             {toggleList(<Toggle on={!!inbox.ai_enabled} onChange={v => set({ ai_enabled: v })} title="Ativar secretária virtual autônoma">Se ativado, a inteligência artificial assume as conversas desta caixa.</Toggle>)}
             {inbox.ai_enabled && (
@@ -198,7 +198,7 @@ export default function SettingsInboxDetail() {
         )}
 
         {tab === 'knowledge_base' && (
-          <Panel icon={<BookOpen size={19} />} title="Base de conhecimento" description="Políticas, catálogo e perguntas frequentes que a secretária consulta. Cole o texto ou envie um PDF — o texto extraído entra abaixo para você revisar antes de salvar."
+          <Panel icon={<BookOpen size={16} />} title="Base de conhecimento" description="Políticas, catálogo e perguntas frequentes que a secretária consulta. Cole o texto ou envie um PDF — o texto extraído entra abaixo para você revisar antes de salvar."
             right={<><button disabled={uploading} onClick={() => pdfRef.current?.click()} style={btn('soft', { padding: '7px 12px', fontSize: 12.5 })}><Upload size={13} /> {uploading ? 'Extraindo…' : 'Enviar PDF'}</button><input ref={pdfRef} type="file" accept="application/pdf" hidden onChange={uploadPdf} /></>}
             footer={saveBtn('Salvar base de conhecimento')}>
             {aiNote}
@@ -207,7 +207,7 @@ export default function SettingsInboxDetail() {
         )}
 
         {tab === 'followup' && (
-          <Panel icon={<RotateCcw size={19} />} title="Resgate automático (follow-up)" description="A IA chama quem parou de responder, depois do tempo definido." footer={saveBtn('Salvar configurações de resgate')}>
+          <Panel icon={<RotateCcw size={16} />} title="Resgate automático (follow-up)" description="A IA chama quem parou de responder, depois do tempo definido." footer={saveBtn('Salvar configurações de resgate')}>
             {aiNote}
             {toggleList(<Toggle on={!!inbox.followup_enabled} onChange={v => set({ followup_enabled: v })} title="Ativar agente de resgate">A IA chama quem abandonou a conversa, depois do tempo definido.</Toggle>)}
             {inbox.followup_enabled && (

@@ -21,7 +21,7 @@ Regra: **visual = Visita IA v2; lógica = Clara v1**. Nada na v1 de produção �
 | Gerencial | /gerencial | ⬜ | C |
 | Relatórios | /relatorios | ⬜ | C |
 | Atividades | /atividades | ⬜ | C |
-| Consignado (Kanban) | /funil | ⬜ | E |
+| Consignado (Kanban) | /funil | ✅ (falta "Automatize" — régua automática, fase E) | E |
 | Automação da régua | /funil/automatize | ⬜ | E |
 | Pipelines (board) | /pipelines/:slug | ⬜ | E |
 | Automação do pipeline | /pipelines/:slug/automatize | ⬜ | E |

@@ -9,6 +9,7 @@ import ComingSoon from './pages/ComingSoon'
 const Login = lazy(() => import('./pages/Login'))
 import { AppShell } from './components/AppShell'
 const Conversas = lazy(() => import('./pages/Conversas'))
+const Kanban = lazy(() => import('./pages/Kanban'))
 const ContactDetails = lazy(() => import('./pages/ContactDetails'))
 const Contacts = lazy(() => import('./pages/Contacts'))
 const PedidosPendentes = lazy(() => import('./pages/PedidosPendentes'))
@@ -85,7 +86,7 @@ function App() {
             <Route path="settings/times-de-vendas" element={g(<SalesTeams />, { fullPortfolio: true })} />
             <Route path="settings/campos-contato" element={g(<ContactFieldGroups />, { criticalConfig: true })} />
             <Route path="settings/modelos-mensagem" element={g(<MessageTemplates />, { criticalConfig: true })} />
-            <Route path="funil" element={g(emMigracao('Consignado'))} />
+            <Route path="funil" element={g(<Kanban />)} />
             <Route path="funil/automatize" element={g(emMigracao('Automação da régua'), { criticalConfig: true })} />
             <Route path="relatorios" element={g(emMigracao('Relatórios'), { fullPortfolio: true })} />
             <Route path="manual" element={g(emMigracao('Manual'))} />

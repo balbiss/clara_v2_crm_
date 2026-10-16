@@ -9,6 +9,16 @@ import ComingSoon from './pages/ComingSoon'
 const Login = lazy(() => import('./pages/Login'))
 import { AppShell } from './components/AppShell'
 const Conversas = lazy(() => import('./pages/Conversas'))
+const MessageTemplates = lazy(() => import('./pages/settings/MessageTemplates'))
+const ContactFieldGroups = lazy(() => import('./pages/settings/ContactFieldGroups'))
+const SalesTeams = lazy(() => import('./pages/settings/SalesTeams'))
+const Tags = lazy(() => import('./pages/settings/Tags'))
+const Account = lazy(() => import('./pages/settings/Account'))
+const SettingsInboxDetail = lazy(() => import('./pages/SettingsInboxDetail'))
+const NewInbox = lazy(() => import('./pages/NewInbox'))
+const SettingsInboxes = lazy(() => import('./pages/SettingsInboxes'))
+const AgentForm = lazy(() => import('./pages/AgentForm'))
+const Agents = lazy(() => import('./pages/Agents'))
 
 // Mesmas regras do router/index.js da v1 (beforeEach).
 const FINANCE_BLOCKED = ['/carteira', '/tarefas']
@@ -58,17 +68,17 @@ function App() {
             <Route path="fluxos" element={g(emMigracao('Fluxos'), { criticalConfig: true })} />
             <Route path="fluxos/novo" element={g(emMigracao('Novo fluxo'), { criticalConfig: true })} />
             <Route path="fluxos/:id" element={g(emMigracao('Construtor de fluxo'), { criticalConfig: true })} />
-            <Route path="agentes" element={g(emMigracao('Agentes'), { criticalConfig: true })} />
-            <Route path="agentes/novo" element={g(emMigracao('Novo agente'), { criticalConfig: true })} />
-            <Route path="agentes/:id/editar" element={g(emMigracao('Editar agente'), { criticalConfig: true })} />
-            <Route path="settings/inboxes" element={g(emMigracao('Caixas de Entrada'), { criticalConfig: true })} />
-            <Route path="settings/inboxes/new" element={g(emMigracao('Nova caixa'), { criticalConfig: true })} />
-            <Route path="settings/inboxes/:id" element={g(emMigracao('Caixa de entrada'), { criticalConfig: true })} />
-            <Route path="settings/account" element={g(emMigracao('Conta'), { criticalConfig: true })} />
-            <Route path="settings/tags" element={g(emMigracao('Etiquetas'), { criticalConfig: true })} />
-            <Route path="settings/times-de-vendas" element={g(emMigracao('Times de Vendas'), { fullPortfolio: true })} />
-            <Route path="settings/campos-contato" element={g(emMigracao('Campos do Contato'), { criticalConfig: true })} />
-            <Route path="settings/modelos-mensagem" element={g(emMigracao('Modelos de Mensagem'), { criticalConfig: true })} />
+            <Route path="agentes" element={g(<Agents />, { criticalConfig: true })} />
+            <Route path="agentes/novo" element={g(<AgentForm />, { criticalConfig: true })} />
+            <Route path="agentes/:id/editar" element={g(<AgentForm />, { criticalConfig: true })} />
+            <Route path="settings/inboxes" element={g(<SettingsInboxes />, { criticalConfig: true })} />
+            <Route path="settings/inboxes/new" element={g(<NewInbox />, { criticalConfig: true })} />
+            <Route path="settings/inboxes/:id" element={g(<SettingsInboxDetail />, { criticalConfig: true })} />
+            <Route path="settings/account" element={g(<Account />, { criticalConfig: true })} />
+            <Route path="settings/tags" element={g(<Tags />, { criticalConfig: true })} />
+            <Route path="settings/times-de-vendas" element={g(<SalesTeams />, { fullPortfolio: true })} />
+            <Route path="settings/campos-contato" element={g(<ContactFieldGroups />, { criticalConfig: true })} />
+            <Route path="settings/modelos-mensagem" element={g(<MessageTemplates />, { criticalConfig: true })} />
             <Route path="funil" element={g(emMigracao('Consignado'))} />
             <Route path="funil/automatize" element={g(emMigracao('Automação da régua'), { criticalConfig: true })} />
             <Route path="relatorios" element={g(emMigracao('Relatórios'), { fullPortfolio: true })} />

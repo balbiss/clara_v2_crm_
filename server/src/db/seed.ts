@@ -16,7 +16,7 @@ const perfis = [
   ['financeiro@teste.local', 'Fernanda', 'Financeiro', 3],
 ] as const;
 for (const [email, firstName, lastName, role] of perfis) {
-  await db.insert(users).values({ accountId: account.id, email, firstName, lastName, role, encryptedPassword: hash, jti: crypto.randomUUID(), status: 'active', department: 'consultor' })
+  await db.insert(users).values({ accountId: account.id, email, firstName, lastName, role, encryptedPassword: hash, jti: crypto.randomUUID(), status: 'active', department: 'corretor' })
     .onConflictDoNothing();
 }
 console.log('Seed ok — conta', account.id, '· logins: diretoria/gerente/consultor/financeiro @teste.local, senha 123456');

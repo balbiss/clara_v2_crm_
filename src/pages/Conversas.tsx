@@ -38,7 +38,7 @@ const SIDEBAR_FILTER_LABELS: Record<string, string> = { participantes: 'Chats da
 const DEPT_LABELS: Record<string, string> = { corretor: 'Consultoras', suporte: 'Suporte', financeiro: 'Financeiro', manutencao: 'Manutenção' }
 const detailsTabs = [
   { id: 'principal', label: 'Principal' }, { id: 'dados', label: 'Dados' }, { id: 'financeiro', label: 'Financeiro' },
-  { id: 'estatisticas', label: 'Estatísticas' }, { id: 'configuracoes', label: 'Configurações' },
+  { id: 'estatisticas', label: 'Números' }, { id: 'configuracoes', label: 'Ajustes' },
 ]
 const statusOptions = [{ group: 'Ativas', options: ACTIVE_STATUS_LABELS }, { group: 'Inativas', options: INACTIVE_STATUS_LABELS }]
 const dadosFields = [
@@ -1076,8 +1076,17 @@ export default function Conversas() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {detailsTabs.map(tab => <button key={tab.id} style={chipBtn(v.activeDetailsTab === tab.id)} onClick={() => { s.activeDetailsTab = tab.id }}>{tab.label}</button>)}
+            {/* abas da ficha: linha única com traço azul na aba aberta (padrão do v2) */}
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--line)', margin: '0 2px' }}>
+              {detailsTabs.map(tab => {
+                const on = v.activeDetailsTab === tab.id
+                return (
+                  <button key={tab.id} onClick={() => { s.activeDetailsTab = tab.id }}
+                    style={{ flex: 1, padding: '9px 2px 10px', border: 'none', background: 'none', fontSize: 12.5, fontWeight: on ? 700 : 500, color: on ? 'var(--terra)' : 'var(--muted)', boxShadow: on ? 'inset 0 -2px 0 var(--terra)' : 'none', whiteSpace: 'nowrap' }}>
+                    {tab.label}
+                  </button>
+                )
+              })}
             </div>
 
             {v.activeDetailsTab === 'principal' && (

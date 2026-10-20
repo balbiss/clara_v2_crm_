@@ -237,7 +237,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #4C8BF7
 @media (max-width: 1400px) { .k-hide-narrow { display: none; } }
 @media (max-width: 900px) {
   /* telas de ponta a ponta (funil, Automatize, calendário): margem igual ao padding do celular */
-  .k-fullbleed { margin: -18px -15px -56px !important; }
+  .k-fullbleed { margin: -18px -15px -56px !important; max-width: none !important; width: calc(100% + 30px); box-sizing: border-box; }
   .k-topbar { padding: 8px 12px !important; gap: 8px !important; }
   .k-topbar > div[style*='flex: 1'] { flex: 1 1 100% !important; order: 5; border-left: none !important; padding-left: 0 !important; margin-left: 0 !important; min-height: 40px; }
 }
@@ -258,4 +258,21 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #4C8BF7
 /* submenus do menu do usuário (Tema, Menu esquerdo): no celular abrem logo abaixo do item */
 @media (max-width: 600px) {
   .k-submenu { position: static !important; box-shadow: none !important; border: none !important; width: auto !important; padding: 0 0 4px 26px !important; }
+}
+
+/* Insights (Painel/Relatórios) no celular e tablet */
+@media (max-width: 1100px) {
+  .k-dash-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 760px) {
+  .k-painel { padding: 16px !important; }
+  .k-painel h1 { font-size: 28px !important; }
+  .k-dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .k-dash-tile { grid-row: auto !important; }
+  .k-rel-2col { grid-template-columns: minmax(0, 1fr) !important; }
+  .k-period-bar { justify-content: center; }
+}
+@media (max-width: 480px) {
+  .k-dash-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .k-dash-tile { grid-column: auto !important; }
 }

@@ -24,6 +24,7 @@ import { tarefasRouter } from './routes/tarefas.js';
 import { pipelinesRouter } from './routes/pipelines.js';
 import { settingsRouter } from './routes/settings.js';
 import { salesbotRouter } from './routes/salesbot.js';
+import { insightsRouter } from './routes/insights.js';
 import { startJobs } from './jobs/index.js';
 
 // Express 4 não captura erro de rota async: sem isto uma query com problema derruba o servidor inteiro.
@@ -45,6 +46,7 @@ app.use(tarefasRouter);
 app.use(pipelinesRouter);
 app.use(settingsRouter);
 app.use(salesbotRouter);
+app.use(insightsRouter);
 app.use(contactsRouter);
 app.use(salesTeamsRouter);
 app.use(internalMessagesRouter);

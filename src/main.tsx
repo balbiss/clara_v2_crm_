@@ -12,6 +12,9 @@ const Conversas = lazy(() => import('./pages/Conversas'))
 const Kanban = lazy(() => import('./pages/Kanban'))
 const Funis = lazy(() => import('./pages/Funis'))
 const SalesbotList = lazy(() => import('./pages/SalesbotList'))
+const Gerencial = lazy(() => import('./pages/insights/Gerencial'))
+const Relatorios = lazy(() => import('./pages/insights/Relatorios'))
+const RegistroAtividades = lazy(() => import('./pages/insights/RegistroAtividades'))
 const SalesbotEditor = lazy(() => import('./pages/SalesbotEditor'))
 const Calendario = lazy(() => import('./pages/Calendario'))
 const SettingsLayout = lazy(() => import('./components/SettingsLayout'))
@@ -71,8 +74,8 @@ function App() {
             <Route path="atacado" element={g(<AtacadoView />)} />
             <Route path="pedidos-pendentes" element={g(<PedidosPendentes />)} />
             <Route path="tarefas" element={g(<Calendario initialView="list" />)} />
-            <Route path="gerencial" element={g(emMigracao('Gerencial'), { fullPortfolio: true })} />
-            <Route path="atividades" element={g(emMigracao('Atividades'), { criticalConfig: true })} />
+            <Route path="gerencial" element={g(<Gerencial />, { fullPortfolio: true })} />
+            <Route path="atividades" element={g(<RegistroAtividades />, { criticalConfig: true })} />
             <Route path="conversas" element={g(<Conversas />)} />
             <Route path="conversas/inbox/:inboxId" element={g(<Conversas />)} />
             <Route path="conversas/:filter" element={g(<Conversas />)} />
@@ -110,7 +113,7 @@ function App() {
             </Route>
             <Route path="funil" element={g(<Kanban />)} />
             <Route path="funil/automatize" element={g(emMigracao('Automação da régua'), { criticalConfig: true })} />
-            <Route path="relatorios" element={g(emMigracao('Relatórios'), { fullPortfolio: true })} />
+            <Route path="relatorios" element={g(<Relatorios />, { fullPortfolio: true })} />
             <Route path="manual" element={g(emMigracao('Manual'))} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

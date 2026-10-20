@@ -23,6 +23,10 @@ type Contact = typeof contacts.$inferSelect;
 
 export const MAX_CHAIN = 5;
 export const EVENTS = ['enter', 'client_reply', 'schedule', 'date_field'] as const;
+// ganchos do Agente de IA (lib/aiAgent registra; evita import circular)
+const aiHooks: { start: (contactId: number, agentId: number | null) => Promise<unknown>; stop: (contactId: number, agentId: number | null) => Promise<unknown> } = { start: async () => {}, stop: async () => {} };
+export function setAiAgentHooks(h: typeof aiHooks) { Object.assign(aiHooks, h); }
+
 export const ACTION_TYPES = ['move_stage', 'copy_lead', 'change_owner', 'create_note', 'create_task', 'complete_tasks', 'set_field', 'add_tags', 'remove_tags', 'ai_start', 'ai_stop', 'send_webhook', 'start_flow'] as const;
 
 export type Condition = { field: string; op: 'eq' | 'neq' | 'empty' | 'not_empty' | 'contains' | 'has_tag' | 'no_tag'; value?: string };
@@ -281,6 +285,9 @@ async function runAction(t: Trigger, card: Card, contact: Contact, chainDepth: n
       return;
     }
     case 'ai_start': case 'ai_stop': {
+      // com agente escolhido: "Iniciar/Parar agente de IA" do Kommo (sessão do agente na conversa do lead)
+      if (c.agent_id || t.actionType === 'ai_stop') await aiHooks[t.actionType === 'ai_start' ? 'start' : 'stop'](contact.id, c.agent_id ? Number(c.agent_id) : null);
+      if (c.agent_id && t.actionType === 'ai_start') return;
       if (!contact.jid) return;
       const inboxIds = await db.execute(sql`SELECT DISTINCT inbox_id FROM conversations WHERE contact_id = ${contact.id} AND inbox_id IS NOT NULL`);
       for (const r of inboxIds as unknown as { inbox_id: number }[]) {

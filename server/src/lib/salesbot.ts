@@ -452,3 +452,16 @@ setFlowHooks({
     return triggerOnIncoming(conv, contact.id, text, n <= 1);
   },
 });
+
+// --- usado pelo Agente de IA (lib/aiAgent.ts): mesmas ações e mesmo envio do robô -------------------
+/** Envia uma mensagem como robô/IA na conversa (grava no histórico e manda pelo WhatsApp). */
+export function sendAsBot(conversationId: number, contactId: number, text: string) {
+  return sendBotMessage({ id: 0, conversationId, contactId } as Run, text);
+}
+/** Executa uma ação do Salesbot (nota, tarefa, etapa, responsável, tags, campo…) em nome de `actor`. */
+export async function runBotAction(contactId: number, conversationId: number | null, action: string, config: Record<string, unknown>, actor: string, lastMessage = '') {
+  const run = { id: 0, contactId, conversationId, variables: { last_message: lastMessage } } as unknown as Run;
+  const flow = { id: 0, name: actor, settings: {} } as unknown as Flow;
+  await runAction(run, flow, { id: 'ia', type: 'action', action, config });
+}
+export { renderText };

@@ -26,6 +26,7 @@ export const KOMMO_NAV: KNavGroup[] = [
     { path: '/tarefas', label: 'Tarefas', rule: 'notFinance' },
     { path: '/pipelines/todos-leads', label: 'Todos os leads', rule: 'fullPortfolio' },
   ] },
+  { id: 'agente-ia', label: 'Agente de IA', icon: 'ai', path: '/agente-ia', rule: 'critical' },
   { id: 'automacoes', label: 'Automações', icon: 'automation', children: [
     { path: '/fluxos', label: 'Robôs (Salesbot)', rule: 'critical' },
   ] },

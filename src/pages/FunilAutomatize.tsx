@@ -242,6 +242,7 @@ function TriggerForm({ pipes, pipe, stage, trigger, tags, agents, flows, fields,
         {action === 'start_flow' && (flows.length
           ? sel(cfg.flow_id || '', v => set('flow_id', Number(v)), [['', 'Escolha o robô…'], ...flows.map((f: any) => [f.id, f.name])])
           : <p style={{ fontSize: 13, color: K.orange, margin: 0 }}>Nenhum robô criado ainda (Automações › Robôs).</p>)}
+        {(action === 'ai_start' || action === 'ai_stop') && <AiAgentPick action={action} cfg={cfg} set={set} sel={sel} />}
         {action === 'send_webhook' && <input value={cfg.url || ''} onChange={e => set('url', e.target.value)} placeholder="https://…" style={kInput} />}
       </div>
 
@@ -265,4 +266,13 @@ function TriggerForm({ pipes, pipe, stage, trigger, tags, agents, flows, fields,
       <button onClick={() => setConds(cs => [...cs, { field: fields[0]?.key || 'name', op: 'eq', value: '' }])} style={{ border: 'none', background: 'none', color: K.link, cursor: 'pointer', fontFamily: K.font, fontSize: 13, padding: 0 }}>+ Adicionar condição</button>
     </Modal>
   )
+}
+
+/** "Iniciar / Parar agente de IA" do Kommo: escolhe qual agente (parar sem escolher = todos). */
+function AiAgentPick({ action, cfg, set, sel }: any) {
+  const [list, setList] = useState<any[]>([])
+  useEffect(() => { api.get('/ai_agents').then(r => setList(r.data)).catch(() => {}) }, [])
+  if (!list.length) return <p style={{ fontSize: 13, color: K.orange, margin: 0 }}>Nenhum agente de IA criado ainda (menu Agente de IA).</p>
+  return sel(cfg.agent_id || '', (v: string) => { const a = list.find(x => String(x.id) === String(v)); set('agent_id', v ? Number(v) : null); set('agent_name', a?.name || null) },
+    [['', action === 'ai_stop' ? 'Todos os agentes' : 'Escolha o agente…'], ...list.map((a: any) => [a.id, `${a.name}${a.active ? '' : ' (desligado)'}`])])
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
 import Swal from 'sweetalert2'
-import { Bell, CalendarDays, ChevronDown, ChevronRight, Copy, LogOut, Palette, Columns3, FileText, HelpCircle, Home, Menu, MessageSquare, PanelLeft, PieChart, Settings, Workflow, X } from 'lucide-react'
+import { Sparkles, Bell, CalendarDays, ChevronDown, ChevronRight, Copy, LogOut, Palette, Columns3, FileText, HelpCircle, Home, Menu, MessageSquare, PanelLeft, PieChart, Settings, Workflow, X } from 'lucide-react'
 import api from '../api'
 import { brand } from '../config/brand'
 import { usePushNotifications } from '../composables/usePushNotifications'
@@ -459,7 +459,7 @@ export function AppShell() {
 /** Ícones de linha fina do menu do Kommo. */
 function NavIcon({ name, active, pal = SB_NAVY }: { name: string; active?: boolean; pal?: SBPalette }) {
   const p = { size: 20, strokeWidth: 1.6, color: active ? pal.iconActive : pal.icon }
-  const I = ({ home: Home, chat: MessageSquare, pipeline: Columns3, calendar: CalendarDays, list: FileText, automation: Workflow, insights: PieChart, settings: Settings, help: HelpCircle, bell: Bell } as Record<string, typeof Home>)[name] || Home
+  const I = ({ home: Home, chat: MessageSquare, pipeline: Columns3, calendar: CalendarDays, list: FileText, automation: Workflow, ai: Sparkles, insights: PieChart, settings: Settings, help: HelpCircle, bell: Bell } as Record<string, typeof Home>)[name] || Home
   return <I {...p} style={{ flex: 'none' }} />
 }
 

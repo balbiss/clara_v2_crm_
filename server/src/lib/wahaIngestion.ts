@@ -32,6 +32,9 @@ export function setFlowHooks(h: FlowHooks) { flowHooks = h; }
 type AiResponder = (inbox: Inbox, conv: typeof conversations.$inferSelect, chatId: string) => Promise<void>;
 let aiResponder: AiResponder | null = null;
 export function setAiResponder(fn: AiResponder) { aiResponder = fn; }
+// Agente de IA (lib/aiAgent): a caixa também atende com IA quando um agente ativo usa esse canal.
+let aiHandlesInbox: (inboxId: number) => Promise<boolean> = async () => false;
+export function setAiInboxCheck(fn: (inboxId: number) => Promise<boolean>) { aiHandlesInbox = fn; }
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -61,7 +64,7 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
     if (cache.read(`sending_from_crm_${inbox.id}_${chatId}`)) return null; // eco do envio manual em corrida
     // intervenção humana real pelo celular: salva e pausa a IA
     humanReplyViaPhone = true;
-    if (inbox.aiEnabled) {
+    if (inbox.aiEnabled || await aiHandlesInbox(inbox.id)) {
       cache.write(`ai_paused_${inbox.id}_${chatId}`, Math.floor(Date.now() / 1000));
       void (async () => {
         try {
@@ -205,7 +208,7 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
     (await flowHooks.continueWithReply(conversation, text)) ||
     (await flowHooks.triggerByKeyword(inbox, conversation, contact, text)));
 
-  if (inbox.aiEnabled && !humanReplyViaPhone && !flowHandled && !isGroup) {
+  if (!humanReplyViaPhone && !flowHandled && !isGroup && (inbox.aiEnabled || await aiHandlesInbox(inbox.id))) {
     await aiEngine(inbox, conversation, contact, chatId);
   }
   return record;
@@ -227,7 +230,7 @@ async function aiEngine(inbox: Inbox, conversation: typeof conversations.$inferS
     broadcastConversations(conversation.accountId, { event: 'snooze_expired', conversation_id: conversation.id, contact_name: contact.name || contact.phone, reason: 'client_message' });
     broadcastConversations(conversation.accountId, { event: 'conversation_updated', conversation: { id: conversation.id, status: 'open', snoozed_until: null } });
   }
-  if (!aiResponder) return; // Agente de IA ainda não portado (fase futura)
+  if (!aiResponder) return;
   const key = `debounce_ai_${inbox.id}_${chatId}`;
   const now = Date.now() + Math.random();
   cache.write(key, now);

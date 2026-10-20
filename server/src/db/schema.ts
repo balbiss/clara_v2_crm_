@@ -773,3 +773,61 @@ export const salesGoals = pgTable('sales_goals', {
 }, (t) => [
   uniqueIndex('idx_sales_goals_user_month').on(t.userId, t.month),
 ]);
+
+// --- 0005_agente_ia -----------------------------------------------------------------------------
+export const aiAgents = pgTable('ai_agents', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  accountId: bigint('account_id', { mode: 'number' }).notNull().references((): AnyPgColumn => accounts.id),
+  name: varchar('name').notNull(),
+  active: boolean('active').default(false).notNull(),
+  persona: jsonb('persona').default({}).notNull(),
+  actions: jsonb('actions').default([]).notNull(),
+  settings: jsonb('settings').default({}).notNull(),
+  channels: jsonb('channels').default([]).notNull(),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_ai_agents_account').on(t.accountId),
+]);
+
+export const aiAgentSources = pgTable('ai_agent_sources', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  agentId: bigint('agent_id', { mode: 'number' }).notNull().references((): AnyPgColumn => aiAgents.id, { onDelete: 'cascade' }),
+  kind: varchar('kind').default('text').notNull(),
+  title: varchar('title').notNull(),
+  content: text('content').default('').notNull(),
+  url: varchar('url'),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_ai_agent_sources_agent').on(t.agentId),
+]);
+
+export const aiAgentSessions = pgTable('ai_agent_sessions', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  agentId: bigint('agent_id', { mode: 'number' }).notNull().references((): AnyPgColumn => aiAgents.id, { onDelete: 'cascade' }),
+  conversationId: bigint('conversation_id', { mode: 'number' }).notNull().references((): AnyPgColumn => conversations.id, { onDelete: 'cascade' }),
+  contactId: bigint('contact_id', { mode: 'number' }).notNull().references((): AnyPgColumn => contacts.id, { onDelete: 'cascade' }),
+  status: varchar('status').default('active').notNull(),
+  replies: integer('replies').default(0).notNull(),
+  meta: jsonb('meta').default({}).notNull(),
+  startedAt: timestamp('started_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('idx_ai_agent_sessions_agent_conv').on(t.agentId, t.conversationId),
+  index('idx_ai_agent_sessions_conv_status').on(t.conversationId, t.status),
+]);
+
+export const aiAgentLogs = pgTable('ai_agent_logs', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  agentId: bigint('agent_id', { mode: 'number' }).notNull().references((): AnyPgColumn => aiAgents.id, { onDelete: 'cascade' }),
+  conversationId: bigint('conversation_id', { mode: 'number' }).references((): AnyPgColumn => conversations.id, { onDelete: 'set null' }),
+  contactId: bigint('contact_id', { mode: 'number' }).references((): AnyPgColumn => contacts.id, { onDelete: 'set null' }),
+  kind: varchar('kind').notNull(),
+  detail: jsonb('detail').default({}).notNull(),
+  tokens: integer('tokens').default(0).notNull(),
+  responseMs: integer('response_ms'),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_ai_agent_logs_agent_created').on(t.agentId, t.createdAt),
+]);

@@ -14,6 +14,7 @@ import ResolveModal from '../components/ResolveModal'
 import { K, kBtn, kInput, TIPOS_TAREFA } from '../lib/kommo'
 import KField from '../components/KField'
 import FieldSetup from '../components/FieldSetup'
+import AiSessionsBar from '../components/AiSessionsBar'
 import api from '../api'
 import { conversationsStore, isSemResposta } from '../store/conversations'
 import { prepareImage } from '../utils/prepareImage'
@@ -1272,6 +1273,7 @@ export default function Conversas() {
                 </div>
               )}
 
+              <AiSessionsBar contactId={conv.contact.id} refreshKey={conv.messages?.length} />
               {/* composer: "Bate-papo ▾ com Nome:" */}
               <div style={{ margin: '0 clamp(8px, 2vw, 22px) 14px', background: '#fff', border: `1px solid ${mode === 'nota' ? '#f1e0a0' : K.line}`, borderRadius: 3, padding: '10px 14px', position: 'relative', flex: 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, marginBottom: 6, position: 'relative', flexWrap: 'wrap' }}>

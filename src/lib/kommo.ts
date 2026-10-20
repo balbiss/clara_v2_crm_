@@ -56,8 +56,8 @@ export const ACTIONS: { id: string; label: string }[] = [
   { id: 'change_owner', label: 'Alterar usuário responsável' },
   { id: 'create_note', label: 'Adicionar nota' },
   { id: 'start_flow', label: 'Executar Robô (Salesbot)' },
-  { id: 'ai_start', label: 'Ligar agente de IA' },
-  { id: 'ai_stop', label: 'Pausar agente de IA' },
+  { id: 'ai_start', label: 'Iniciar agente de IA' },
+  { id: 'ai_stop', label: 'Parar agente de IA' },
   { id: 'send_webhook', label: 'Enviar webhook' },
 ]
 export const actionLabel = (id: string) => ACTIONS.find(a => a.id === id)?.label || id
@@ -108,8 +108,8 @@ export function whatText(t: any, ctx: Ctx): string {
     case 'change_owner': return `Alterar responsável: ${ctx.userName(Number(c.user_id))}`
     case 'create_note': return `Adicionar nota: ${c.content}`
     case 'start_flow': return `Executar Robô: ${c.flow_id ? ctx.flowName(Number(c.flow_id)) : c.flow_name || '—'}`
-    case 'ai_start': return 'Ligar agente de IA'
-    case 'ai_stop': return 'Pausar agente de IA'
+    case 'ai_start': return `Iniciar agente de IA${c.agent_name ? `: ${c.agent_name}` : ''}`
+    case 'ai_stop': return `Parar agente de IA${c.agent_name ? `: ${c.agent_name}` : ' (todos)'}`
     case 'send_webhook': return `Enviar webhook: ${c.url}`
     default: return t.action_type
   }

@@ -13,6 +13,8 @@ const Kanban = lazy(() => import('./pages/Kanban'))
 const Funis = lazy(() => import('./pages/Funis'))
 const SalesbotList = lazy(() => import('./pages/SalesbotList'))
 const Gerencial = lazy(() => import('./pages/insights/Gerencial'))
+const AgentesIA = lazy(() => import('./pages/AgentesIA'))
+const AgenteIAEditor = lazy(() => import('./pages/AgenteIAEditor'))
 const Relatorios = lazy(() => import('./pages/insights/Relatorios'))
 const RegistroAtividades = lazy(() => import('./pages/insights/RegistroAtividades'))
 const SalesbotEditor = lazy(() => import('./pages/SalesbotEditor'))
@@ -74,6 +76,8 @@ function App() {
             <Route path="atacado" element={g(<AtacadoView />)} />
             <Route path="pedidos-pendentes" element={g(<PedidosPendentes />)} />
             <Route path="tarefas" element={g(<Calendario initialView="list" />)} />
+            <Route path="agente-ia" element={g(<AgentesIA />, { criticalConfig: true })} />
+            <Route path="agente-ia/:id" element={g(<AgenteIAEditor />, { criticalConfig: true })} />
             <Route path="gerencial" element={g(<Gerencial />, { fullPortfolio: true })} />
             <Route path="atividades" element={g(<RegistroAtividades />, { criticalConfig: true })} />
             <Route path="conversas" element={g(<Conversas />)} />

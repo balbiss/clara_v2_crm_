@@ -276,3 +276,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #4C8BF7
   .k-dash-grid { grid-template-columns: minmax(0, 1fr) !important; }
   .k-dash-tile { grid-column: auto !important; }
 }
+
+/* Agente de IA: editor + Modo de teste */
+@keyframes k-spin { to { transform: rotate(360deg); } }
+.k-spin { animation: k-spin .8s linear infinite; }
+@media (max-width: 1000px) {
+  .k-ai-editor { height: auto !important; }
+  .k-ai-body { flex-direction: column; }
+  .k-ai-test { width: 100% !important; border-left: none !important; border-top: 1px solid #e3e5e8; min-height: 420px; }
+}

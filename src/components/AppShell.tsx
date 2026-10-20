@@ -21,14 +21,16 @@ import { firstSettingsPath } from './SettingsLayout'
 import { K } from '../lib/kommo'
 import { LogoMark } from './Logo'
 
-// Casca do app no visual do Kommo (menu lateral azul-escuro, mesmo azul do login — a equipe já conhece o Kommo),
+// Casca do app no visual do Kommo (menu lateral no rosa da marca da Clara, hsl(347 52% 88%), igual ao login — a equipe já conhece o Kommo),
 // com toda a lógica do DashboardLayout da Clara v1: notificações, banners de caixa caída e de
 // instalação, foto de perfil, revalidação de dados parados, avisos de lead atribuído/adiamento.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Notif = { id: number; title: string; message: string; link: string; created_at: string; read_at: string | null }
 const STALE_AFTER_MS = 5 * 60 * 1000
-// menu lateral azul-escuro (mesmo azul do painel do login), itens claros, selecionado em azul
-const SB_NAVY = { bg: '#172a39', text: '#d5dee6', muted: '#8fa3b5', line: 'rgba(255,255,255,.09)', activeBg: 'rgba(76,139,247,.24)', active: '#ffffff', icon: '#9fb3c4', iconActive: '#7fb2f8', logo: '#ffffff', strong: '#ffffff' }
+// menu lateral no rosa da Clara (pedido da cliente: "essa cor e branco"), texto e logo em vinho pra dar leitura, item selecionado em branco
+export const CLARA_ROSA = '#f0d0d7' // hsl(347, 52%, 88%) — cor da identidade da Clara
+export const CLARA_VINHO = '#5a2433'
+const SB_NAVY = { bg: CLARA_ROSA, text: '#4a2430', muted: '#85525f', line: 'rgba(90,36,51,.14)', activeBg: '#ffffff', active: '#8e2a46', icon: '#6d3f4b', iconActive: '#8e2a46', logo: CLARA_VINHO, strong: '#4a2430' }
 const SB_LIGHT = { bg: '#ffffff', text: '#313942', muted: '#92989b', line: '#e3e5e8', activeBg: '#e8f0fe', active: '#2d74f0', icon: '#313942', iconActive: '#2d74f0', logo: '#172a39', strong: '#313942' }
 type SBPalette = typeof SB_NAVY
 
@@ -343,7 +345,7 @@ export function AppShell() {
                 <button onClick={() => setSubMenu(s => (s === 'tema' ? null : 'tema'))} style={kMenuItem}><Palette size={16} color={K.muted} /><span style={{ flex: 1 }}>Tema</span><ChevronRight size={15} color={K.muted} /></button>
                 {subMenu === 'tema' && (
                   <div className="k-submenu" style={kSubMenu}>
-                    {([['navy', 'Menu azul-escuro'], ['light', 'Menu claro']] as const).map(([v, l]) => <button key={v} onClick={() => changeMenuTheme(v)} style={{ ...kMenuItem, fontWeight: menuTheme === v ? 700 : 400 }}>{menuTheme === v ? '✓ ' : ''}{l}</button>)}
+                    {([['navy', 'Menu rosa Clara'], ['light', 'Menu claro']] as const).map(([v, l]) => <button key={v} onClick={() => changeMenuTheme(v)} style={{ ...kMenuItem, fontWeight: menuTheme === v ? 700 : 400 }}>{menuTheme === v ? '✓ ' : ''}{l}</button>)}
                   </div>
                 )}
               </div>
@@ -405,10 +407,10 @@ export function AppShell() {
             </div>
           )}
           {disconnected && (
-            // aviso no azul-escuro do menu (combina com o resto); o alerta fica no ícone amarelo
+            // aviso no rosa do menu (combina com o resto); o alerta fica no ícone
             <div className="k-alert-bar" style={{ ...banner(SB.bg, SB.strong), borderBottom: menuTheme === 'light' ? `1px solid ${SB.line}` : 'none', flexWrap: 'wrap' }}>
-              <span style={{ flex: '1 1 260px', display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ color: '#f5b83d', fontSize: 15 }}>⚠</span>O WhatsApp "{disconnected.name}" está desconectado. As mensagens não estão sendo enviadas nem recebidas.</span>
-              {role === 'diretoria' && <button onClick={() => navigate('/settings/inboxes')} style={{ padding: '6px 14px', border: 'none', borderRadius: 3, background: '#1d8fdc', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Reconectar</button>}
+              <span style={{ flex: '1 1 260px', display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ color: menuTheme === 'light' ? '#f5b83d' : '#a14a00', fontSize: 15 }}>⚠</span>O WhatsApp "{disconnected.name}" está desconectado. As mensagens não estão sendo enviadas nem recebidas.</span>
+              {role === 'diretoria' && <button onClick={() => navigate('/settings/inboxes')} style={{ padding: '6px 14px', border: 'none', borderRadius: 3, background: '#8e2a46', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Reconectar</button>}
               <button title="Fechar aviso" onClick={() => setDismissed(prev => new Set(prev).add(disconnected.id))} style={{ border: 'none', background: 'none', color: SB.muted, cursor: 'pointer', display: 'flex' }}><X size={15} /></button>
             </div>
           )}

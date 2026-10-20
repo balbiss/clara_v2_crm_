@@ -3,12 +3,15 @@ import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { brand } from '../config/brand'
 
-// Login no layout da tela de entrada da conta do Kommo (painel azul-escuro, aqui à DIREITA a pedido do dono, com a marca,
+// Login no layout da tela de entrada da conta do Kommo (painel no rosa da Clara hsl(347 52% 88%) + branco, à DIREITA a pedido do dono, com a marca,
 // campos com ícone, "Esqueceu?" dentro da senha, botão Login, "Não lembrar de mim"). Onde o Kommo
-// deixa branco, entra a logo da Clara pintada no azul-escuro do painel (azul e branco, como o Kommo).
+// deixa branco, entra a logo da Clara em vinho sobre o branco (rosa e branco, pedido da cliente).
 // Sem "Registrar" e sem "chave de acesso": o CRM não tem cadastro aberto nem passkey.
 // Lógica do login da Clara v1 (Devise: token no header Authorization) igual à de antes.
-const PANEL = '#172a39'
+const PANEL = '#f0d0d7' // rosa da identidade da Clara
+const VINHO = '#5a2433'
+const VINHO_BTN = '#8e2a46'
+const VINHO_MUTED = '#85525f'
 const field: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, height: 36, padding: '0 10px', background: '#fff', borderRadius: 3, marginBottom: 16 }
 const inputCss: CSSProperties = { flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'none', fontSize: 15, color: '#2c3e50', fontFamily: "'PT Sans', Arial, sans-serif" }
 
@@ -53,8 +56,8 @@ export default function Login() {
 
   return (
     <div className="k-login" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'row-reverse', fontFamily: "'PT Sans', Arial, sans-serif" }}>
-      <aside className="k-login-panel" style={{ width: 374, flex: 'none', background: PANEL, color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 39px', position: 'relative' }}>
-        <img src="/logos/clara-ferreira-logo-white.png" alt={brand.name} style={{ width: 190, marginBottom: 40 }} />
+      <aside className="k-login-panel" style={{ width: 374, flex: 'none', background: PANEL, color: VINHO, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 39px', position: 'relative' }}>
+        <div role="img" aria-label={brand.name} style={{ width: 190, aspectRatio: '1212 / 444', marginBottom: 40, background: VINHO, WebkitMaskImage: 'url(/logos/clara-ferreira-logo-white.png)', maskImage: 'url(/logos/clara-ferreira-logo-white.png)', WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskPosition: 'center' }} />
         <form onSubmit={handleSubmit} style={{ width: '100%' }}>
           <label style={field}>
             <UserIcon />
@@ -65,23 +68,23 @@ export default function Login() {
             <input id="password" value={senha} onChange={e => setSenha(e.target.value)} type="password" required placeholder="Senha" autoComplete="current-password" style={inputCss} />
             <Link to="/forgot-password" tabIndex={-1} style={{ color: '#2c3e50', fontSize: 14.5, textDecoration: 'none', whiteSpace: 'nowrap' }}>Esqueceu?</Link>
           </label>
-          {erro && <p role="alert" style={{ color: '#ff8fa3', fontSize: 14, margin: '-4px 0 12px' }}>{erro}</p>}
+          {erro && <p role="alert" style={{ color: '#b3261e', fontWeight: 700, fontSize: 14, margin: '-4px 0 12px' }}>{erro}</p>}
           <button type="submit" disabled={loading}
-            style={{ width: '100%', height: 36, background: '#1d8fdc', color: '#fff', border: 'none', borderRadius: 3, fontSize: 15.5, fontFamily: 'inherit', cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
+            style={{ width: '100%', height: 36, background: VINHO_BTN, color: '#fff', border: 'none', borderRadius: 3, fontSize: 15.5, fontFamily: 'inherit', cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
             {loading ? 'Entrando…' : 'Login'}
           </button>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 24, fontSize: 15, color: '#8fa9c2', cursor: 'pointer' }}>
-            <input type="checkbox" checked={naoLembrar} onChange={e => setNaoLembrar(e.target.checked)} style={{ width: 20, height: 20, margin: 0, accentColor: '#1d8fdc' }} /> Não lembrar de mim
+          <label style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 24, fontSize: 15, color: VINHO_MUTED, cursor: 'pointer' }}>
+            <input type="checkbox" checked={naoLembrar} onChange={e => setNaoLembrar(e.target.checked)} style={{ width: 20, height: 20, margin: 0, accentColor: VINHO_BTN }} /> Não lembrar de mim
           </label>
         </form>
-        <span style={{ position: 'absolute', bottom: 28, fontSize: 13, letterSpacing: '.18em', textTransform: 'uppercase', color: '#8fa9c2' }}>Clara Ferreira CRM</span>
+        <span style={{ position: 'absolute', bottom: 28, fontSize: 13, letterSpacing: '.18em', textTransform: 'uppercase', color: VINHO_MUTED }}>Clara Ferreira CRM</span>
       </aside>
 
-      {/* área da marca (onde o Kommo deixa branco): logo da Clara no azul-escuro do painel, pra
-          combinar com o azul e branco do Kommo — a logo branca vira máscara pintada nessa cor */}
-      <main className="k-login-brand" style={{ flex: 1, minWidth: 0, background: '#f5f5f5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
-        <div role="img" aria-label={brand.name} style={{ width: 'min(520px, 80%)', aspectRatio: '1212 / 444', background: PANEL, WebkitMaskImage: 'url(/logos/clara-ferreira-logo-white.png)', maskImage: 'url(/logos/clara-ferreira-logo-white.png)', WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskPosition: 'center' }} />
-        <p style={{ margin: '28px 0 0', fontSize: 18, letterSpacing: '.04em', color: '#5d7387' }}>Sua carteira de revendedoras, do primeiro contato ao acerto.</p>
+      {/* área da marca (onde o Kommo deixa branco): logo da Clara em vinho sobre branco, com o rosa
+          da marca no painel ao lado — a logo branca vira máscara pintada nessa cor */}
+      <main className="k-login-brand" style={{ flex: 1, minWidth: 0, background: '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
+        <div role="img" aria-label={brand.name} style={{ width: 'min(520px, 80%)', aspectRatio: '1212 / 444', background: VINHO, WebkitMaskImage: 'url(/logos/clara-ferreira-logo-white.png)', maskImage: 'url(/logos/clara-ferreira-logo-white.png)', WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskPosition: 'center' }} />
+        <p style={{ margin: '28px 0 0', fontSize: 18, letterSpacing: '.04em', color: VINHO_MUTED }}>Sua carteira de revendedoras, do primeiro contato ao acerto.</p>
       </main>
     </div>
   )

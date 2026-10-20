@@ -815,6 +815,13 @@ export default function Conversas() {
   const [tagBox, setTagBox] = useState(false)
   const [showSnooze, setShowSnooze] = useState(false)
   const [showResolve, setShowResolve] = useState(false)
+  const [runBot, setRunBot] = useState(false)
+  const [botOpts, setBotOpts] = useState<Any[]>([])
+  useEffect(() => { if (runBot) api.get('/salesbots/options').then(r => setBotOpts(r.data)).catch(() => setBotOpts([])) }, [runBot])
+  const executarRobo = async (b: Any) => {
+    try { await api.post(`/salesbots/${b.id}/run`, { contact_id: conv.contact.id, conversation_id: conv.id }); setRunBot(false); Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `Robô "${b.name}" iniciado.`, showConfirmButton: false, timer: 2500 }) }
+    catch (e: Any) { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Não foi possível iniciar o robô.', showConfirmButton: false, timer: 3500 }) }
+  }
   const dark = '#2e3c4c'
   const convNo = (c: Any) => 'A' + String(c.id).padStart(5, '0')
   const tabsK = v.contactFieldGroups.length
@@ -993,6 +1000,7 @@ export default function Conversas() {
                       <button onClick={() => { setHeadMenu(false); navigate(`/contatos/${conv.contact.id}`) }} style={menuItemK}><ExternalLink size={14} /> Abrir ficha completa</button>
                       <button disabled={!conv.assignee_id} onClick={() => { setHeadMenu(false); s.showTransferModal = true }} style={{ ...menuItemK, opacity: conv.assignee_id ? 1 : 0.45 }}><Forward size={14} /> Transferir com nota</button>
                       <button onClick={() => { setHeadMenu(false); s.isScheduleModalOpen = true }} style={menuItemK}><Clock size={14} /> Agendar mensagem</button>
+                      <button onClick={() => { setHeadMenu(false); setRunBot(true) }} style={menuItemK}><Bot size={14} /> Executar robô</button>
                       <button onClick={() => { setHeadMenu(false); s.isMergeModalOpen = true }} style={menuItemK}><GitMerge size={14} /> Mesclar contato</button>
                       <div style={{ borderTop: `1px solid ${K.line}`, margin: '6px 0' }} />
                       <button onClick={() => { setHeadMenu(false); s.isDeleteConversationModalOpen = true }} style={{ ...menuItemK, color: '#e53935' }}><MessageCircle size={14} /> Apagar conversa</button>
@@ -1344,6 +1352,16 @@ export default function Conversas() {
         <ForwardMessageModal isOpen={!!v.forwardingMessage} message={v.forwardingMessage} onClose={() => { s.forwardingMessage = null }} />
         {v.showTransferModal && <TransferModal agents={store.agents} currentAssigneeId={conv?.assignee_id} onClose={() => { s.showTransferModal = false }} onConfirm={handleTransfer} />}
         <ScheduleMessageModal isOpen={v.isScheduleModalOpen} conversationId={conv?.id} onClose={() => { s.isScheduleModalOpen = false }} onScheduled={onMessageScheduled} />
+        {conv && runBot && createPortal(
+          <div className="modal-overlay" onClick={() => setRunBot(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div onClick={stop} style={{ width: 420, maxWidth: '100%', background: '#fff', borderRadius: 4, padding: 22, fontFamily: K.font }}>
+              <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 700 }}>Executar robô</h2>
+              <p style={{ margin: '0 0 14px', fontSize: 14, color: K.muted }}>O robô roda agora para {conv.contact.name}.</p>
+              {botOpts.map((b: Any) => <button key={b.id} onClick={() => executarRobo(b)} style={{ ...menuItemK, border: `1px solid ${K.line}`, borderRadius: 3, marginBottom: 6 }}><Bot size={14} /> {b.name}{!b.active && <span style={{ color: K.muted, fontSize: 12.5 }}> (desligado)</span>}</button>)}
+              {!botOpts.length && <p style={{ fontSize: 14, color: K.muted }}>Nenhum robô criado ainda (Automações › Robôs).</p>}
+              <div style={{ textAlign: 'right', marginTop: 8 }}><button onClick={() => setRunBot(false)} style={kBtn('ghost')}>Fechar</button></div>
+            </div>
+          </div>, document.body)}
         {conv && showSnooze && createPortal(<SnoozeModal conversationId={conv.id} onClose={() => setShowSnooze(false)} onConfirm={async (until: string) => { setShowSnooze(false); await conversationsStore.snoozeConversation(conv.id, until) }} />, document.body)}
         {conv && showResolve && createPortal(<ResolveModal conversationId={conv.id} onClose={() => setShowResolve(false)} onConfirm={async (opts: Any) => { setShowResolve(false); await conversationsStore.resolveConversation(conv.id, opts) }} />, document.body)}
       </div>

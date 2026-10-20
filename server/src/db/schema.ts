@@ -249,13 +249,18 @@ export const flowNodes = pgTable('flow_nodes', {
 export const flowRuns = pgTable('flow_runs', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
   contactId: bigint('contact_id', { mode: 'number' }).notNull().references((): AnyPgColumn => contacts.id),
-  conversationId: bigint('conversation_id', { mode: 'number' }).notNull().references((): AnyPgColumn => conversations.id),
+  conversationId: bigint('conversation_id', { mode: 'number' }).references((): AnyPgColumn => conversations.id),
   createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
   currentNodeKey: varchar('current_node_key'),
   flowId: bigint('flow_id', { mode: 'number' }).notNull().references((): AnyPgColumn => flows.id),
   status: varchar('status').default('running').notNull(),
   updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
   variables: jsonb('variables').default({}).notNull(),
+  // 0004_salesbot
+  waitKind: varchar('wait_kind'),
+  resumeAt: timestamp('resume_at', { precision: 6, mode: 'date' }),
+  trigger: varchar('trigger'),
+  stepsLog: jsonb('steps_log').default([]).notNull(),
 }, (t) => [
   index('index_flow_runs_on_contact_id').on(t.contactId),
   index('index_flow_runs_on_conversation_id_and_status').on(t.conversationId, t.status),
@@ -273,6 +278,11 @@ export const flows = pgTable('flows', {
   inboxId: bigint('inbox_id', { mode: 'number' }).references((): AnyPgColumn => inboxes.id),
   name: varchar('name').notNull(),
   updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  // 0004_salesbot
+  definition: jsonb('definition').default({}).notNull(),
+  triggerConfig: jsonb('trigger_config').default({}).notNull(),
+  settings: jsonb('settings').default({}).notNull(),
+  kind: varchar('kind').default('salesbot').notNull(),
 }, (t) => [
   index('index_flows_on_account_id_and_active').on(t.accountId, t.active),
   index('index_flows_on_account_id').on(t.accountId),

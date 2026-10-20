@@ -29,6 +29,13 @@
       "when": 1792483369868,
       "tag": "0003_configuracoes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792485750595,
+      "tag": "0004_salesbot",
+      "breakpoints": true
     }
   ]
 }

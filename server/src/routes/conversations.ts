@@ -8,6 +8,7 @@ import { requireAuth, isOwner, visibleContactsWhere, type User } from '../middle
 import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, type Conversation } from '../lib/conversations.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
 import { createMessage, messageStatusValue, messagePayload } from '../lib/messages.js';
+import { triggerOnConversationClosed } from '../lib/salesbot.js';
 import { messagingService } from '../lib/waha.js';
 import { cache } from '../lib/cache.js';
 import { attach, blobFor, blobUrl, downloadBlob } from '../lib/storage.js';
@@ -162,7 +163,7 @@ async function updateConversation(req: Request, res: Response) {
   let current = conv;
   if (Object.keys(set).length) [current] = await db.update(conversations).set({ ...set, updatedAt: new Date() }).where(eq(conversations.id, conv.id)).returning();
 
-  if (newStatusParam === 'resolved') await handleResolveSideEffects(req, current);
+  if (newStatusParam === 'resolved') { await handleResolveSideEffects(req, current); void triggerOnConversationClosed(current.id).catch(e => console.error('Gatilho conversa fechada falhou —', e.message)) }
   else if (newStatusParam === 'open' && current.snoozedUntil) [current] = await db.update(conversations).set({ snoozedUntil: null }).where(eq(conversations.id, conv.id)).returning();
 
   const newUserId = current.userId;

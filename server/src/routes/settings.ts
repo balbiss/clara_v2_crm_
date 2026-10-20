@@ -4,6 +4,7 @@ import { db } from '../db/client.js';
 import { accounts, conversations, users } from '../db/schema.js';
 import { requireAuth, requireOwner, roleName } from '../middleware/auth.js';
 import { broadcastConversations } from '../lib/realtime.js';
+import { triggerOnConversationClosed } from '../lib/salesbot.js';
 
 // Configurações no padrão do Kommo: "Configurações de perfil" (o próprio usuário),
 // "Configurações de trabalho" e "Configurações de chat" (só diretoria). As preferências ficam em
@@ -73,6 +74,6 @@ export async function autoCloseConversations() {
     const fechadas = await db.update(conversations).set({ status: 2, updatedAt: new Date() })
       .where(and(eq(conversations.accountId, a.id), eq(conversations.status, 0), sql`${conversations.unreadCount} > 0`, lt(conversations.lastActivityAt, limite)))
       .returning({ id: conversations.id });
-    for (const c of fechadas) broadcastConversations(a.id, { event: 'conversation_updated', conversation: { id: c.id, status: 'resolved' } });
+    for (const c of fechadas) { broadcastConversations(a.id, { event: 'conversation_updated', conversation: { id: c.id, status: 'resolved' } }); void triggerOnConversationClosed(c.id).catch(() => {}) }
   }
 }

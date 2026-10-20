@@ -326,5 +326,5 @@ pipelinesRouter.delete('/loss_reasons/:id', requireOwner, async (req, res) => {
 });
 
 pipelinesRouter.get('/flows_options', async (req, res) => {
-  res.json(await db.select({ id: flows.id, name: flows.name, active: flows.active }).from(flows).where(eq(flows.accountId, acc(req))).orderBy(asc(flows.name)));
+  res.json(await db.select({ id: flows.id, name: flows.name, active: flows.active }).from(flows).where(and(eq(flows.accountId, acc(req)), eq(flows.kind, 'salesbot'))).orderBy(asc(flows.name)));
 });

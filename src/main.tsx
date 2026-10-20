@@ -11,6 +11,8 @@ import { AppShell } from './components/AppShell'
 const Conversas = lazy(() => import('./pages/Conversas'))
 const Kanban = lazy(() => import('./pages/Kanban'))
 const Funis = lazy(() => import('./pages/Funis'))
+const SalesbotList = lazy(() => import('./pages/SalesbotList'))
+const SalesbotEditor = lazy(() => import('./pages/SalesbotEditor'))
 const Calendario = lazy(() => import('./pages/Calendario'))
 const SettingsLayout = lazy(() => import('./components/SettingsLayout'))
 const Perfil = lazy(() => import('./pages/settings/Perfil'))
@@ -83,9 +85,9 @@ function App() {
             <Route path="pipelines/:slug/automatize" element={g(<FunilAutomatize />, { criticalConfig: true })} />
             <Route path="calendario" element={g(<Calendario />)} />
             <Route path="automacoes" element={g(<ComingSoon title="Automações" description="Regras automáticas de tarefas e mensagens — ainda não disponível." />, { criticalConfig: true })} />
-            <Route path="fluxos" element={g(emMigracao('Fluxos'), { criticalConfig: true })} />
-            <Route path="fluxos/novo" element={g(emMigracao('Novo fluxo'), { criticalConfig: true })} />
-            <Route path="fluxos/:id" element={g(emMigracao('Construtor de fluxo'), { criticalConfig: true })} />
+            <Route path="fluxos" element={g(<SalesbotList />, { criticalConfig: true })} />
+            <Route path="fluxos/novo" element={<Navigate to="/fluxos" replace />} />
+            <Route path="fluxos/:id" element={g(<SalesbotEditor />, { criticalConfig: true })} />
             {/* Configurações no layout do Kommo: menu próprio + página (components/SettingsLayout) */}
             <Route element={<SettingsLayout />}>
               <Route path="settings" element={<Navigate to="/settings/perfil" replace />} />

@@ -80,7 +80,7 @@ function Linha({ serie }: { serie: any[] }) {
   const x = (i: number) => P + (serie.length === 1 ? (W - 2 * P) / 2 : (i * (W - 2 * P)) / (serie.length - 1))
   const y = (v: number) => H - P - (v / max) * (H - 2 * P)
   const path = (k: string) => serie.map((s, i) => `${i ? 'L' : 'M'}${x(i)},${y(s[k])}`).join(' ')
-  const cores: [string, string, string][] = [['novos', '#4c8bf7', 'Novos'], ['ganhos', '#7dbb2d', 'Ganhos'], ['perdidos', '#f37575', 'Perdidos']]
+  const cores: [string, string, string][] = [['novos', '#c8506a', 'Novos'], ['ganhos', '#7dbb2d', 'Ganhos'], ['perdidos', '#f37575', 'Perdidos']]
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }} role="img" aria-label="Leads no período">

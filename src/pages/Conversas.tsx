@@ -79,6 +79,14 @@ const PEDIDO_STATUS_LABELS: Record<number, string> = { 1: 'Aberto', 2: 'Baixado'
 const PEDIDO_STATUS_CLASSES: Record<number, string> = { 1: 'aberto', 2: 'baixado', 3: 'cancelado', 4: 'perdido' }
 const LIFECYCLE_EVENT_LABELS: Record<string, string> = { iniciada: 'Iniciada', churn: 'Churn', reativacao: 'Reativação' }
 const TAG_COLORS = ['#6b7280', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
+// "📎 Anexo recebido" é só o texto guardado quando chega mídia — na tela some (o balão mostra o
+// áudio/foto) e na lista vira "Áudio", "Foto", "Vídeo" ou "Arquivo".
+const isMediaPlaceholder = (t?: string | null) => !!t && t.startsWith('📎')
+const mediaLabel = (text?: string | null, type?: string | null) => {
+  if (!isMediaPlaceholder(text)) return text || ''
+  const ct = type || ''
+  return ct.startsWith('audio/') ? 'Áudio' : ct.startsWith('image/') ? 'Foto' : ct.startsWith('video/') ? 'Vídeo' : ct ? 'Arquivo' : String(text).replace(/^📎\s*/, '').replace('Anexo recebido', 'Arquivo')
+}
 
 const normalizar = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 const formatSearchDate = (iso: string) => {
@@ -895,15 +903,15 @@ export default function Conversas() {
                 <div style={{ ...menuK, top: '100%', right: 10 }} onClick={stop}>
                   <div style={{ padding: '4px 16px', fontSize: 11.5, fontWeight: 700, color: K.muted, textTransform: 'uppercase' }}>Mostrar</div>
                   {tabs.map(t => (
-                    <button key={t.id} onClick={() => { conversationsStore.setFilter(t.id); setListMenu(false) }} style={{ ...menuItemK, background: (store.currentFilter === t.id || (t.id === 'all' && !tabs.some(x => x.id === store.currentFilter))) ? '#eef4fe' : 'none' }}>
+                    <button key={t.id} onClick={() => { conversationsStore.setFilter(t.id); setListMenu(false) }} style={{ ...menuItemK, background: (store.currentFilter === t.id || (t.id === 'all' && !tabs.some(x => x.id === store.currentFilter))) ? '#fcf0f3' : 'none' }}>
                       <span style={{ flex: 1 }}>{t.id === 'all' ? 'Conversas abertas' : t.label}</span><span style={{ color: K.muted }}>{t.n}</span>
                     </button>
                   ))}
                   {inboxes.inboxes.length > 1 && (<>
                     <div style={{ borderTop: `1px solid ${K.line}`, margin: '6px 0' }} />
                     <div style={{ padding: '4px 16px', fontSize: 11.5, fontWeight: 700, color: K.muted, textTransform: 'uppercase' }}>Canal</div>
-                    <button onClick={() => { navigate('/conversas'); setListMenu(false) }} style={{ ...menuItemK, background: !params.inboxId ? '#eef4fe' : 'none' }}>Todos os canais</button>
-                    {inboxes.inboxes.map((i: Any) => <button key={i.id} onClick={() => { navigate(`/conversas/inbox/${i.id}`); setListMenu(false) }} style={{ ...menuItemK, background: String(params.inboxId) === String(i.id) ? '#eef4fe' : 'none' }}>{i.name}{i.connected === false ? ' (desconectada)' : ''}</button>)}
+                    <button onClick={() => { navigate('/conversas'); setListMenu(false) }} style={{ ...menuItemK, background: !params.inboxId ? '#fcf0f3' : 'none' }}>Todos os canais</button>
+                    {inboxes.inboxes.map((i: Any) => <button key={i.id} onClick={() => { navigate(`/conversas/inbox/${i.id}`); setListMenu(false) }} style={{ ...menuItemK, background: String(params.inboxId) === String(i.id) ? '#fcf0f3' : 'none' }}>{i.name}{i.connected === false ? ' (desconectada)' : ''}</button>)}
                   </>)}
                   <div style={{ borderTop: `1px solid ${K.line}`, margin: '6px 0' }} />
                   <button onClick={() => { setListMenu(false); s.isFilterPopoverOpen = true }} style={menuItemK}><Filter size={14} /> Filtro avançado</button>
@@ -950,7 +958,7 @@ export default function Conversas() {
                   const fg = on ? '#fff' : K.text
                   return (
                     <button key={c.id} onClick={() => openConversationMobile(c.id)}
-                      style={{ width: '100%', display: 'flex', gap: 12, alignItems: 'center', padding: '10px 14px 10px 16px', border: 'none', borderBottom: `1px solid ${on ? K.blue : K.line}`, background: on ? K.blue : c.unread > 0 ? '#eef4fe' : '#fff', fontFamily: K.font, cursor: 'pointer' }}>
+                      style={{ width: '100%', display: 'flex', gap: 12, alignItems: 'center', padding: '10px 14px 10px 16px', border: 'none', borderBottom: `1px solid ${on ? K.blue : K.line}`, background: on ? K.blue : c.unread > 0 ? '#fcf0f3' : '#fff', fontFamily: K.font, cursor: 'pointer' }}>
                       <span style={{ position: 'relative', flex: 'none' }}>
                         <ChatAvatar nome={c.contact.name || ''} foto={c.contact.avatar_url} size={42} />
                         <span style={{ position: 'absolute', right: -2, bottom: -2, width: 16, height: 16, borderRadius: '50%', background: '#fff', padding: 1, display: 'flex' }}><WhatsappIcon source={c.source || 'whatsapp'} /></span>
@@ -964,7 +972,7 @@ export default function Conversas() {
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
                           <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: on ? '#fff' : c.unread > 0 ? K.text : '#5c6670', fontWeight: c.unread > 0 ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {(last?.senderType === 'agent' ? (last.agentName || 'Você') : c.contact.name) + ': ' + (c.preview || '')}
+                            {(last?.senderType === 'agent' ? (last.agentName || 'Você') : c.contact.name) + ': ' + mediaLabel(c.preview, last?.attachmentType)}
                           </span>
                           {c.unread > 0 && <span style={{ flex: 'none', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: '#e53935', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.unread > 99 ? '99+' : c.unread}</span>}
                         </span>
@@ -1061,7 +1069,7 @@ export default function Conversas() {
                 <button title="Mais abas" onClick={e => { stop(e); setTabMenu(m => !m) }} style={{ border: 'none', background: 'none', color: moreTabs.some(t => t.id === v.activeDetailsTab) ? ink : inkSoft, padding: '0 0 9px', cursor: 'pointer', display: 'flex' }}><MoreHorizontal size={18} /></button>
                 {tabMenu && (
                   <div style={{ ...menuK, top: '100%', right: 0, color: K.text }} onClick={stop}>
-                    {moreTabs.map(t => <button key={t.id} onClick={() => { s.activeDetailsTab = t.id; setTabMenu(false) }} style={{ ...menuItemK, background: v.activeDetailsTab === t.id ? '#eef4fe' : 'none' }}>{t.label}</button>)}
+                    {moreTabs.map(t => <button key={t.id} onClick={() => { s.activeDetailsTab = t.id; setTabMenu(false) }} style={{ ...menuItemK, background: v.activeDetailsTab === t.id ? '#fcf0f3' : 'none' }}>{t.label}</button>)}
                   </div>
                 )}
               </div>
@@ -1110,7 +1118,7 @@ export default function Conversas() {
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                         {conversationAttachments.map((a: Any) => (
                           <a key={a.id} href={a.attachmentUrl} target="_blank" rel="noreferrer" style={{ aspectRatio: '1', border: `1px solid ${K.line}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: K.muted }}>
-                            {a.attachmentType?.startsWith('image/') ? <img src={a.attachmentUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📎 Arquivo'}
+                            {a.attachmentType?.startsWith('image/') ? <img src={a.attachmentUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : mediaLabel('📎', a.attachmentType)}
                           </a>
                         ))}
                       </div>
@@ -1205,8 +1213,8 @@ export default function Conversas() {
                         {sep && <div style={{ textAlign: 'center', fontSize: 12.5, color: K.muted, margin: '10px 0' }}>{day}</div>}
                         <div style={{ display: 'flex', justifyContent: out ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8, margin: '4px 0' }}>
                           {!out && <ChatAvatar nome={conv.contact.name || ''} foto={conv.contact.avatar_url} size={34} />}
-                          <div style={{ maxWidth: '74%', padding: '8px 12px', borderRadius: 6, fontSize: 14.5, lineHeight: 1.45, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', outline: hit ? '2px solid #f0a33a' : undefined, ...(out ? { background: '#3a87d3', color: '#fff' } : { background: '#f1f2f4', color: K.text }) }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, opacity: out ? 0.85 : 1, color: out ? '#fff' : K.muted, marginBottom: 3 }}>
+                          <div style={{ maxWidth: '74%', padding: '8px 12px', borderRadius: 6, fontSize: 14.5, lineHeight: 1.45, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', outline: hit ? '2px solid #f0a33a' : undefined, ...(out ? { background: '#f0d0d7', color: '#4a2430' } : { background: '#f1f2f4', color: K.text }) }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, opacity: 1, color: out ? '#85525f' : K.muted, marginBottom: 3 }}>
                               {head}{out && <><CheckCheck size={13} /> Entregue</>}
                             </span>
                             {msg.attachmentUrl && (
@@ -1224,7 +1232,7 @@ export default function Conversas() {
                               )
                             )}
                             {msg.transcription && <span style={{ display: 'block', fontSize: 13, fontStyle: 'italic', opacity: 0.85, marginBottom: 4 }}>Transcrição: “{msg.transcription}”</span>}
-                            {msg.text && <span style={{ display: 'block' }}>{msg.text}</span>}
+                            {msg.text && !(msg.attachmentUrl && isMediaPlaceholder(msg.text)) && <span style={{ display: 'block' }}>{isMediaPlaceholder(msg.text) ? mediaLabel(msg.text, msg.attachmentType) : msg.text}</span>}
                             {(msg.attachmentUrl || msg.text) && <button onClick={() => { s.forwardingMessage = { ...msg } }} title="Encaminhar" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 'none', background: 'none', color: 'inherit', opacity: 0.7, fontSize: 12, padding: 0, marginTop: 4, cursor: 'pointer' }}><Forward size={11} /> Encaminhar</button>}
                           </div>
                           {out && <ChatAvatar nome={msg.agentName || me.first_name || ''} foto={null} size={34} />}

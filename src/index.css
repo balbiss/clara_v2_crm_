@@ -3,12 +3,12 @@
 :root {
   /* Paleta do Kommo (a equipe da Clara já conhece o Kommo — pedido do dono em 20/10/2026). */
   --bg: #F5F5F5; --card: #FFFFFF; --card-2: #F0F2F4; --ink: #313942; --muted: #92989B; --line: #E3E5E8;
-  --terra: #4C8BF7; --terraSoft: #E8F0FE;
+  --terra: #c8506a; --terraSoft: #fbe9ee;
   --olive: #7DBB2D; --oliveSoft: #EAF5DC;
   --plantao: #7DBB2D; --plantaoSoft: #EAF5DC;
   --side: #FFFFFF; --sideInk: #313942; --sideMuted: #92989B; --skel: #EEF0F2;
-  --side-accent: #2D74F0;
-  --brand-grad: linear-gradient(135deg, #4C8BF7 0%, #2D74F0 100%);
+  --side-accent: #a93d58;
+  --brand-grad: linear-gradient(135deg, #c8506a 0%, #a93d58 100%);
 
   /* React Flow (construtor de fluxos do Follow-up) lê essas variáveis próprias com fallback —
      setar aqui evita a guerra de especificidade/ordem de import contra o CSS padrão da lib
@@ -230,7 +230,7 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .app-main [style*='border-radius: 7px'] { border-radius: 3px !important; }
 .modal-card { border-radius: 4px !important; background: #fff !important; }
 .hoverable:hover { background: #F0F4FA !important; }
-input:focus, select:focus, textarea:focus { outline: none; border-color: #4C8BF7 !important; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #c8506a !important; }
 
 /* topos das telas no padrão Kommo: em tela pequena quebram linha em vez de passar da borda */
 .k-tabs::-webkit-scrollbar { display: none; }

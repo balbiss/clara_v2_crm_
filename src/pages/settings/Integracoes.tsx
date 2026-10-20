@@ -14,7 +14,7 @@ export default function Integracoes() {
   useEffect(() => { api.get('/account').then(({ data }) => setWebhook(data.jueri_webhook_url || '')).catch(() => {}) }, [])
   const card = (icon: React.ReactNode, title: string, desc: string, body: React.ReactNode) => (
     <div style={{ display: 'flex', gap: 14, padding: '16px 0', borderTop: `1px solid ${K.line}` }}>
-      <span style={{ width: 44, height: 44, flex: 'none', borderRadius: 6, background: '#e8f0fe', color: K.blue, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
+      <span style={{ width: 44, height: 44, flex: 'none', borderRadius: 6, background: '#fbe9ee', color: K.blue, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
       <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 15.5 }}>{title}</b><p style={{ margin: '3px 0 10px', fontSize: 14, color: K.muted }}>{desc}</p>{body}</div>
     </div>
   )

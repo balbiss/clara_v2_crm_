@@ -56,7 +56,7 @@ export const toast = (icon: 'success' | 'error' | 'info' | 'warning', title: str
   Swal.fire({ toast: true, position: 'top-end', icon, title, text, showConfirmButton: false, timer: icon === 'error' ? 4500 : 3000, timerProgressBar: true })
 
 export async function confirmBox(title: string, text: string, confirmText = 'Confirmar', danger = true): Promise<boolean> {
-  const r = await Swal.fire({ title, text, icon: 'warning', showCancelButton: true, confirmButtonText: confirmText, cancelButtonText: 'Cancelar', confirmButtonColor: danger ? '#F86161' : '#4C8BF7' })
+  const r = await Swal.fire({ title, text, icon: 'warning', showCancelButton: true, confirmButtonText: confirmText, cancelButtonText: 'Cancelar', confirmButtonColor: danger ? '#F86161' : '#c8506a' })
   return r.isConfirmed
 }
 

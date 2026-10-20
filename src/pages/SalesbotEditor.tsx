@@ -110,7 +110,7 @@ function StepBody({ s }: { s: any }) {
   switch (s.type) {
     case 'message':
       return (
-        <div style={{ background: '#4c8bf7', borderRadius: 12, padding: 10 }}>
+        <div style={{ background: '#c8506a', borderRadius: 12, padding: 10 }}>
           <textarea className="nodrag nowheel" value={s.text || ''} onChange={e => set({ text: e.target.value })} placeholder="Inserir mensagem do robô…" rows={3}
             style={{ width: '100%', border: 'none', outline: 'none', resize: 'vertical', background: 'transparent', color: '#fff', fontFamily: K.font, fontSize: 14, boxSizing: 'border-box' }} />
           <div style={{ fontSize: 11.5, color: '#dbe7ff', margin: '2px 0 6px' }}>Variáveis: {'{{contact.first_name}}'} · {'{{contact.name}}'} · {'{{lead.campo}}'} · {'{{user.name}}'}</div>
@@ -240,7 +240,7 @@ function ActionBody({ s, set }: { s: any; set: (p: any) => void }) {
       {s.action === 'manage_tags' && (<>
         {sel(c.mode || 'add', v => cfg({ mode: v }), [['add', 'Adicionar tags'], ['remove', 'Excluir tags']])}
         <div className="nowheel" style={{ display: 'flex', flexWrap: 'wrap', gap: 4, maxHeight: 110, overflowY: 'auto' }}>
-          {opts.tags.map((t: any) => { const on = (c.tag_ids || []).includes(t.id); return <button key={t.id} className="nodrag" onClick={() => cfg({ tag_ids: on ? c.tag_ids.filter((x: any) => x !== t.id) : [...(c.tag_ids || []), t.id] })} style={{ fontSize: 11.5, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 2, border: `1px solid ${on ? K.blue : K.lineDark}`, background: on ? '#e8f0fe' : '#fff', color: on ? K.blue : K.muted, cursor: 'pointer' }}>{t.name}</button> })}
+          {opts.tags.map((t: any) => { const on = (c.tag_ids || []).includes(t.id); return <button key={t.id} className="nodrag" onClick={() => cfg({ tag_ids: on ? c.tag_ids.filter((x: any) => x !== t.id) : [...(c.tag_ids || []), t.id] })} style={{ fontSize: 11.5, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 2, border: `1px solid ${on ? K.blue : K.lineDark}`, background: on ? '#fbe9ee' : '#fff', color: on ? K.blue : K.muted, cursor: 'pointer' }}>{t.name}</button> })}
         </div>
       </>)}
       {s.action === 'set_field' && (<>

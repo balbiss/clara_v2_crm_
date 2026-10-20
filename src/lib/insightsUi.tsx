@@ -39,7 +39,7 @@ export function PeriodBar({ value, onChange, agents, dark, allowRobot }: { value
     : { display: 'flex', border: `1px solid ${K.lineDark}`, borderRadius: 3, overflow: 'hidden', flexWrap: 'wrap', background: '#fff' }
   const item = (on: boolean): CSSProperties => ({
     border: 'none', padding: '0 18px', height: 34, fontFamily: K.font, fontSize: 15, cursor: 'pointer',
-    background: on ? (dark ? 'rgba(255,255,255,.22)' : '#eef4fe') : 'transparent',
+    background: on ? (dark ? 'rgba(255,255,255,.22)' : '#fcf0f3') : 'transparent',
     color: dark ? '#fff' : on ? K.blueDark : K.text, fontWeight: on ? 700 : 400,
   })
   const dateInp: CSSProperties = { height: 30, border: dark ? '1px solid rgba(255,255,255,.6)' : `1px solid ${K.lineDark}`, borderRadius: 3, background: dark ? 'rgba(255,255,255,.12)' : '#fff', color: dark ? '#fff' : K.text, fontFamily: K.font, padding: '0 6px', colorScheme: dark ? 'dark' : 'light' }

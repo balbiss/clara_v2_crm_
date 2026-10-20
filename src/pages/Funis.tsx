@@ -142,7 +142,7 @@ export default function Funis() {
           const isOver = over === String(s.id)
           return (
             <div key={s.id} onDragOver={e => { e.preventDefault(); setOver(String(s.id)) }} onDrop={() => drop(String(s.id))}
-              style={{ flex: '0 0 304px', display: 'flex', flexDirection: 'column', padding: '0 6px', minHeight: 0, background: isOver ? 'rgba(76,139,247,.06)' : 'none' }}>
+              style={{ flex: '0 0 304px', display: 'flex', flexDirection: 'column', padding: '0 6px', minHeight: 0, background: isOver ? 'rgba(200,80,106,.06)' : 'none' }}>
               <div style={{ textAlign: 'center', padding: '16px 0 0', flex: 'none' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
                 <div style={{ fontSize: 13, color: K.muted, margin: '3px 0 9px' }}>{list.length} leads: {brlK(total)}</div>

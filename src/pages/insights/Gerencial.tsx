@@ -16,12 +16,12 @@ const WIDGETS: [string, string][] = [
   ['tempo_resposta', 'Tempo de resposta'], ['esperando', 'Mais tempo esperando'], ['fontes', 'Fontes de lead'],
   ['ganhos', 'Leads ganhos'], ['ativos', 'Leads ativos'], ['perdidos', 'Leads perdidos'], ['sem_tarefa', 'Leads sem tarefas'], ['tarefas', 'Tarefas'],
 ]
-const RING = ['#4c8bf7', '#7dbb2d', '#f0a33a', '#f37575', '#9b6bff', '#27c3c3', '#ffd34d', '#c3c7cc']
+const RING = ['#c8506a', '#7dbb2d', '#f0a33a', '#f37575', '#9b6bff', '#27c3c3', '#ffd34d', '#c3c7cc']
 
 function Tile({ title, children, span = 1, rows = 1, onClick }: { title: string; children: ReactNode; span?: number; rows?: number; onClick?: () => void }) {
   return (
     <section aria-label={title} onClick={onClick} className="k-dash-tile"
-      style={{ gridColumn: `span ${span}`, gridRow: `span ${rows}`, background: 'rgba(12,32,54,.82)', borderRadius: 8, padding: '16px 14px', color: '#fff', minHeight: 150, display: 'flex', flexDirection: 'column', cursor: onClick ? 'pointer' : 'default', boxShadow: '0 4px 14px rgba(0,0,0,.18)', minWidth: 0 }}>
+      style={{ gridColumn: `span ${span}`, gridRow: `span ${rows}`, background: 'rgba(70,20,36,.78)', borderRadius: 8, padding: '16px 14px', color: '#fff', minHeight: 150, display: 'flex', flexDirection: 'column', cursor: onClick ? 'pointer' : 'default', boxShadow: '0 4px 14px rgba(0,0,0,.18)', minWidth: 0 }}>
       <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={title}>{title}</h3>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: 8, minHeight: 0 }}>{children}</div>
     </section>
@@ -55,7 +55,7 @@ function Bars({ data }: { data: { d: string; n: number }[] }) {
   const max = Math.max(1, ...data.map(d => d.n))
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 90, marginTop: 'auto' }} aria-label="Mensagens por dia">
-      {data.map(d => <div key={d.d} title={`${d.d.split('-').reverse().join('/')}: ${d.n}`} style={{ flex: 1, maxWidth: 28, height: `${(d.n / max) * 100}%`, minHeight: 3, background: '#4c8bf7', borderRadius: '3px 3px 0 0' }} />)}
+      {data.map(d => <div key={d.d} title={`${d.d.split('-').reverse().join('/')}: ${d.n}`} style={{ flex: 1, maxWidth: 28, height: `${(d.n / max) * 100}%`, minHeight: 3, background: '#c8506a', borderRadius: '3px 3px 0 0' }} />)}
       {!data.length && <div style={{ width: 100, borderTop: '1px solid rgba(255,255,255,.6)' }} />}
     </div>
   )
@@ -79,9 +79,9 @@ export default function Gerencial() {
   const leadsTo = (_q: string) => () => navigate('/pipelines')
 
   return (
-    <div className="k-fullbleed k-painel" style={{ margin: -24, minHeight: 'calc(100vh - var(--top-h, 0px))', fontFamily: K.font, color: '#fff', background: 'linear-gradient(135deg, #1b78b8 0%, #2a93c9 45%, #1468b0 100%)', padding: '20px 30px 40px', boxSizing: 'border-box' }}>
+    <div className="k-fullbleed k-painel" style={{ margin: -24, minHeight: 'calc(100vh - var(--top-h, 0px))', fontFamily: K.font, color: '#fff', background: 'linear-gradient(135deg, #a93d58 0%, #c8506a 45%, #8e2a46 100%)', padding: '20px 30px 40px', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button onClick={() => navigate('/atividades')} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, height: 36, padding: '0 18px', border: 'none', borderRadius: 6, background: '#16283a', color: '#fff', fontFamily: K.font, fontWeight: 700, fontSize: 13, letterSpacing: '.04em', cursor: 'pointer', boxShadow: '0 3px 10px rgba(0,0,0,.25)' }}><List size={18} /> ATIVIDADES</button>
+        <button onClick={() => navigate('/atividades')} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, height: 36, padding: '0 18px', border: 'none', borderRadius: 6, background: '#4a1828', color: '#fff', fontFamily: K.font, fontWeight: 700, fontSize: 13, letterSpacing: '.04em', cursor: 'pointer', boxShadow: '0 3px 10px rgba(0,0,0,.25)' }}><List size={18} /> ATIVIDADES</button>
       </div>
       <h1 style={{ textAlign: 'center', fontSize: 36, margin: '16px 0 24px', fontWeight: 700, textShadow: '0 2px 6px rgba(0,0,0,.2)' }}>Clara Ferreira</h1>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'center', position: 'relative' }}>

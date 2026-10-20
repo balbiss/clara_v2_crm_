@@ -217,7 +217,7 @@ function FieldEditor({ field, groupId, onClose, onSaved }: { field?: any; groupI
             <button onClick={() => setTypeOpen(o => !o)} style={{ ...inp, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>{TYPE_LABELS[type]}<span style={{ color: K.muted }}>⌄</span></button>
             {typeOpen && (
               <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 10, width: 200, maxHeight: 300, overflowY: 'auto', background: '#fff', border: '1px solid #d5d8db', boxShadow: '0 4px 14px rgba(0,0,0,.15)' }}>
-                {Object.entries(TYPE_LABELS).map(([k, l]) => <button key={k} onClick={() => { setType(k); setTypeOpen(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', background: k === type ? '#eef4fe' : '#fff', padding: '7px 12px', fontFamily: K.font, fontSize: 14, cursor: 'pointer' }}>{l}</button>)}
+                {Object.entries(TYPE_LABELS).map(([k, l]) => <button key={k} onClick={() => { setType(k); setTypeOpen(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', background: k === type ? '#fcf0f3' : '#fff', padding: '7px 12px', fontFamily: K.font, fontSize: 14, cursor: 'pointer' }}>{l}</button>)}
               </div>
             )}
           </div>

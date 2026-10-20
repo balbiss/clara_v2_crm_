@@ -54,7 +54,7 @@ export default function RegistroAtividades() {
     <div className="k-fullbleed" style={{ margin: -24, minHeight: 'calc(100vh - var(--top-h, 0px))', background: K.bg, fontFamily: K.font, color: K.text }}>
       <div ref={ref} className="k-topbar" style={{ minHeight: 64, background: '#fff', borderBottom: `1px solid ${K.line}`, display: 'flex', alignItems: 'center', gap: 10, padding: '0 20px', position: 'relative', flexWrap: 'wrap' }}>
         <Search size={17} color={K.muted} />
-        {ativos.map(a => <span key={a} style={{ background: '#eef4fe', color: K.blueDark, borderRadius: 3, padding: '3px 8px', fontSize: 13.5 }}>{a}</span>)}
+        {ativos.map(a => <span key={a} style={{ background: '#fcf0f3', color: K.blueDark, borderRadius: 3, padding: '3px 8px', fontSize: 13.5 }}>{a}</span>)}
         <input aria-label="Filtro" placeholder="Filtro" value={draft.q} onFocus={() => setPainel(true)} onChange={e => setDraft({ ...draft, q: e.target.value })}
           onKeyDown={e => { if (e.key === 'Enter') aplicar({ ...f, q: draft.q }) }}
           style={{ flex: 1, minWidth: 140, border: 'none', outline: 'none', height: 40, fontFamily: K.font, fontSize: 15, color: K.text, background: 'transparent' }} />

@@ -23,7 +23,7 @@ const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const SOURCE_KINDS: Record<string, string> = { text: 'Texto', faq: 'Perguntas e respostas', url: 'Site', file: 'Arquivo' }
 const box: CSSProperties = { background: '#fff', border: `1px solid ${K.line}`, borderRadius: 4, padding: '16px 18px', marginBottom: 14 }
 const lbl: CSSProperties = { display: 'grid', gap: 6, fontSize: 14, color: K.muted, marginBottom: 14 }
-const chip = (on: boolean): CSSProperties => ({ fontFamily: K.font, fontSize: 13, padding: '4px 10px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${on ? K.blueDark : K.lineDark}`, background: on ? '#e8f0fe' : '#fff', color: on ? K.blueDark : K.text })
+const chip = (on: boolean): CSSProperties => ({ fontFamily: K.font, fontSize: 13, padding: '4px 10px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${on ? K.blueDark : K.lineDark}`, background: on ? '#fbe9ee' : '#fff', color: on ? K.blueDark : K.text })
 const newId = (list: any[]) => { let n = list.length + 1; while (list.some(a => a.id === `a${n}`)) n++; return `a${n}` }
 
 function Modal({ title, onClose, children, width = 560 }: { title: string; onClose: () => void; children: ReactNode; width?: number }) {
@@ -180,7 +180,7 @@ function Acoes({ actions, setActions, opts, sources }: any) {
             <button title="Excluir ação" onClick={() => setActions(actions.filter((_: any, j: number) => j !== i))} style={{ border: 'none', background: 'none', color: K.muted, cursor: 'pointer' }}><Trash2 size={16} /></button>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-            <b style={{ color: '#6c5ce7', fontSize: 13, letterSpacing: '.05em' }}>QUANDO</b>
+            <b style={{ color: '#c8506a', fontSize: 13, letterSpacing: '.05em' }}>QUANDO</b>
             <select aria-label="Lógica" value={a.logic || 'all'} onChange={e => upd(i, { logic: e.target.value })} style={{ ...kInput, width: 220, height: 30 }}><option value="all">todas as condições</option><option value="any">qualquer condição</option></select>
           </div>
           {a.when.map((w: any, j: number) => <WhenRow key={j} w={w} i={j} opts={opts} onChange={(nw: any) => upd(i, { when: a.when.map((x: any, k: number) => k === j ? nw : x) })} onRemove={() => upd(i, { when: a.when.filter((_: any, k: number) => k !== j) })} />)}
@@ -323,7 +323,7 @@ function Teste({ id, dirty }: { id: number; dirty: boolean }) {
   return (
     <aside className="k-ai-test" aria-label="Modo de teste" style={{ width: 380, flex: 'none', borderLeft: `1px solid ${K.line}`, background: '#fff', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px', borderBottom: `1px solid ${K.line}` }}>
-        <Sparkles size={16} color="#6c5ce7" /><b style={{ flex: 1 }}>Modo de teste</b>
+        <Sparkles size={16} color="#c8506a" /><b style={{ flex: 1 }}>Modo de teste</b>
         <button title="Mostrar ou esconder detalhes" onClick={() => setDetalhes(v => !v)} style={kBtn('flat', { textTransform: 'none', fontSize: 12.5, height: 28, padding: '0 6px', color: K.muted })}>{detalhes ? 'Esconder detalhes' : 'Mostrar detalhes'}</button>
         <button title="Reiniciar" onClick={() => { setMsgs([]); setFim(false) }} style={{ border: 'none', background: 'none', color: K.muted, cursor: 'pointer' }}><RotateCcw size={16} /></button>
       </div>
@@ -332,7 +332,7 @@ function Teste({ id, dirty }: { id: number; dirty: boolean }) {
         {!msgs.length && <div style={{ textAlign: 'center', color: K.muted, fontSize: 14, marginTop: 30 }}>Mande uma mensagem como se fosse uma cliente.<div style={{ display: 'grid', gap: 6, marginTop: 14 }}>{ice.map(q => <button key={q} onClick={() => enviar(q)} disabled={dirty} style={{ ...chip(false), borderRadius: 16, padding: '6px 12px' }}>{q}</button>)}</div></div>}
         {msgs.map((m, i) => (
           <div key={i} data-testid={m.role === 'assistant' ? 'teste-resposta' : 'teste-pergunta'} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
-            <div style={{ maxWidth: '86%', background: m.role === 'user' ? '#dcf2ff' : m.error ? '#fdecea' : '#fff', border: `1px solid ${K.line}`, borderRadius: 10, padding: '8px 11px', fontSize: 14.5, whiteSpace: 'pre-wrap' }}>
+            <div style={{ maxWidth: '86%', background: m.role === 'user' ? '#fbe3e9' : m.error ? '#fdecea' : '#fff', border: `1px solid ${K.line}`, borderRadius: 10, padding: '8px 11px', fontSize: 14.5, whiteSpace: 'pre-wrap' }}>
               {m.content}
               {m.role === 'assistant' && m.tokens != null && <div style={{ fontSize: 12, color: K.muted, marginTop: 4 }}>{m.tokens} tokens</div>}
               {m.role === 'assistant' && detalhes && m.details && (<div style={{ borderTop: `1px solid ${K.line}`, marginTop: 6, paddingTop: 4 }}>

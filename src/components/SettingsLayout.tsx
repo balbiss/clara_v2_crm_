@@ -41,7 +41,7 @@ export default function SettingsLayout() {
             <div key={sec.title} style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: K.muted, padding: '10px 20px 6px' }}>{sec.title}</div>
               {items.map(i => (
-                <NavLink key={i.to} to={i.to} style={({ isActive }) => ({ display: 'block', margin: '0 6px', padding: '7px 14px', borderRadius: 4, fontSize: 14.5, textDecoration: 'none', color: isActive ? '#2d74f0' : K.text, background: isActive ? '#e8f0fe' : 'transparent', fontWeight: isActive ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' })}>{i.label}</NavLink>
+                <NavLink key={i.to} to={i.to} style={({ isActive }) => ({ display: 'block', margin: '0 6px', padding: '7px 14px', borderRadius: 4, fontSize: 14.5, textDecoration: 'none', color: isActive ? '#a93d58' : K.text, background: isActive ? '#fbe9ee' : 'transparent', fontWeight: isActive ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' })}>{i.label}</NavLink>
               ))}
             </div>
           )

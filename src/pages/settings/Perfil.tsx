@@ -50,7 +50,7 @@ export default function Perfil() {
           <SettingsRow label="ID do usuário"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{p.id}<button title="Copiar" onClick={() => { navigator.clipboard?.writeText(String(p.id)); toast('success', 'ID copiado.') }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: K.muted, display: 'flex' }}><Copy size={14} /></button></span></SettingsRow>
           <SettingsRow label="Foto">
             <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              {avatar ? <img src={avatar} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} /> : <span style={{ width: 48, height: 48, borderRadius: '50%', background: '#e8f0fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: K.blue }}>{(p.first_name || '?')[0]}</span>}
+              {avatar ? <img src={avatar} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} /> : <span style={{ width: 48, height: 48, borderRadius: '50%', background: '#fbe9ee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: K.blue }}>{(p.first_name || '?')[0]}</span>}
               <input ref={fileRef} type="file" accept="image/*" hidden onChange={onAvatar} />
               <button onClick={() => fileRef.current?.click()} style={{ border: 'none', background: 'none', color: K.link, textDecoration: 'underline', cursor: 'pointer', fontFamily: K.font, fontSize: 14.5 }}>Alterar foto</button>
             </span>

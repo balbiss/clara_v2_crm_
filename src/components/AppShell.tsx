@@ -31,7 +31,7 @@ const STALE_AFTER_MS = 5 * 60 * 1000
 export const CLARA_ROSA = '#f0d0d7' // hsl(347, 52%, 88%) — cor da identidade da Clara
 export const CLARA_VINHO = '#5a2433'
 const SB_NAVY = { bg: CLARA_ROSA, text: '#4a2430', muted: '#85525f', line: 'rgba(90,36,51,.14)', activeBg: '#ffffff', active: '#8e2a46', icon: '#6d3f4b', iconActive: '#8e2a46', logo: CLARA_VINHO, strong: '#4a2430' }
-const SB_LIGHT = { bg: '#ffffff', text: '#313942', muted: '#92989b', line: '#e3e5e8', activeBg: '#e8f0fe', active: '#2d74f0', icon: '#313942', iconActive: '#2d74f0', logo: '#172a39', strong: '#313942' }
+const SB_LIGHT = { bg: '#ffffff', text: '#313942', muted: '#92989b', line: '#e3e5e8', activeBg: '#fbe9ee', active: '#a93d58', icon: '#313942', iconActive: '#a93d58', logo: '#172a39', strong: '#313942' }
 type SBPalette = typeof SB_NAVY
 
 /** Logo da Clara (PNG branco usado como máscara) pintada na cor do tema do menu. */
@@ -394,13 +394,13 @@ export function AppShell() {
             <LogoMark size={26} /><b style={{ fontSize: 16 }}>{brand.name}</b>
           </div>
           {iosBanner && (
-            <div style={banner('#e8f0fe', K.text)}>
+            <div style={banner('#fbe9ee', K.text)}>
               <span style={{ flex: 1 }}>Adicione o {brand.name} à Tela de Início pra receber notificações e usar em tela cheia.</span>
               <button onClick={() => { setIosBanner(false); localStorage.setItem('ios_install_banner_dismissed', 'true') }} style={{ border: 'none', background: 'none', color: K.muted }}><X size={15} /></button>
             </div>
           )}
           {canInstall && !isInstalled && !isStandalone && !androidDismissed && (
-            <div style={banner('#e8f0fe', K.text)}>
+            <div style={banner('#fbe9ee', K.text)}>
               <span style={{ flex: 1 }}>Instale o {brand.name} no seu celular pra acesso rápido e notificações.</span>
               <button onClick={promptInstall} style={{ padding: '6px 12px', border: 'none', borderRadius: 3, background: K.blue, color: '#fff', fontSize: 13, fontWeight: 700 }}>Instalar</button>
               <button onClick={() => { setAndroidDismissed(true); localStorage.setItem('android_install_banner_dismissed', 'true') }} style={{ border: 'none', background: 'none', color: K.muted }}><X size={15} /></button>

@@ -233,7 +233,7 @@ function TriggerForm({ pipes, pipe, stage, trigger, tags, agents, flows, fields,
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {tags.map((tg: any) => {
               const on = (cfg.tag_ids || []).includes(tg.id)
-              return <button key={tg.id} onClick={() => set('tag_ids', on ? cfg.tag_ids.filter((x: number) => x !== tg.id) : [...(cfg.tag_ids || []), tg.id])} style={{ fontFamily: K.font, fontSize: 12, textTransform: 'uppercase', padding: '3px 8px', borderRadius: 2, cursor: 'pointer', border: `1px solid ${on ? K.blueDark : K.lineDark}`, background: on ? '#e8f0fe' : '#fff', color: on ? K.blueDark : K.muted }}>{tg.name}</button>
+              return <button key={tg.id} onClick={() => set('tag_ids', on ? cfg.tag_ids.filter((x: number) => x !== tg.id) : [...(cfg.tag_ids || []), tg.id])} style={{ fontFamily: K.font, fontSize: 12, textTransform: 'uppercase', padding: '3px 8px', borderRadius: 2, cursor: 'pointer', border: `1px solid ${on ? K.blueDark : K.lineDark}`, background: on ? '#fbe9ee' : '#fff', color: on ? K.blueDark : K.muted }}>{tg.name}</button>
             })}
           </div>
         )}

@@ -104,7 +104,7 @@ export default function Calendario({ initialView = 'calendar' as View }) {
             <button onClick={() => setSpanMenu(m => !m)} style={{ border: 'none', background: 'none', fontFamily: K.font, fontSize: 16, color: K.text, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>{{ day: 'Dia', week: 'Semana', month: 'Mês' }[span]}<ChevronDown size={16} color={K.muted} /></button>
             {spanMenu && (
               <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 40, background: '#fff', border: `1px solid ${K.line}`, boxShadow: '0 4px 16px rgba(0,0,0,.14)', padding: '6px 0', minWidth: 140 }}>
-                {(['day', 'week', 'month'] as Span[]).map(s => <button key={s} onClick={() => { setSpan(s); setSpanMenu(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', background: span === s ? '#eef4fe' : 'none', padding: '8px 16px', fontFamily: K.font, fontSize: 14, cursor: 'pointer' }}>{{ day: 'Dia', week: 'Semana', month: 'Mês' }[s]}</button>)}
+                {(['day', 'week', 'month'] as Span[]).map(s => <button key={s} onClick={() => { setSpan(s); setSpanMenu(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', background: span === s ? '#fcf0f3' : 'none', padding: '8px 16px', fontFamily: K.font, fontSize: 14, cursor: 'pointer' }}>{{ day: 'Dia', week: 'Semana', month: 'Mês' }[s]}</button>)}
               </div>
             )}
           </div>
@@ -143,7 +143,7 @@ export default function Calendario({ initialView = 'calendar' as View }) {
           <div style={{ display: 'flex', borderBottom: `1px solid ${K.line}`, flex: 'none', minHeight: 72 }}>
             <div style={{ width: 90, flex: 'none', textAlign: 'right', padding: '10px', fontSize: 13, color: K.muted }}>Dia todo</div>
             {days.map(d => (
-              <div key={d.toISOString()} style={{ flex: 1, borderLeft: `1px solid ${K.line}`, background: sameDay(d, new Date()) ? '#f6f8fd' : undefined, padding: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div key={d.toISOString()} style={{ flex: 1, borderLeft: `1px solid ${K.line}`, background: sameDay(d, new Date()) ? '#fdf3f5' : undefined, padding: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {evs.filter(e => !e.fim_em && sameDay(new Date(e.inicio_em), d) && new Date(e.inicio_em).getHours() === 0 && new Date(e.inicio_em).getMinutes() === 0).map(e => <EventChip key={'e' + e.id} ev={e} onClick={() => setEvEdit(fromEvent(e))} />)}
               </div>
             ))}
@@ -155,7 +155,7 @@ export default function Calendario({ initialView = 'calendar' as View }) {
               </div>
               {days.map(d => (
                 <div key={d.toISOString()} onClick={e => { const y = e.clientY - (e.currentTarget as HTMLDivElement).getBoundingClientRect().top; const min = Math.floor(y / (HOUR_PX / 2)) * 30; const t = new Date(d); t.setMinutes(min); newAt(t) }}
-                  style={{ flex: 1, position: 'relative', borderLeft: `1px solid ${K.line}`, background: sameDay(d, new Date()) ? '#f6f8fd' : undefined, cursor: 'pointer' }}>
+                  style={{ flex: 1, position: 'relative', borderLeft: `1px solid ${K.line}`, background: sameDay(d, new Date()) ? '#fdf3f5' : undefined, cursor: 'pointer' }}>
                   {Array.from({ length: 48 }, (_, i) => <div key={i} style={{ height: HOUR_PX / 2, borderTop: `1px solid ${i % 2 ? '#f3f4f6' : K.line}` }} />)}
                   {evs.filter(e => sameDay(new Date(e.inicio_em), d) && !(!e.fim_em && new Date(e.inicio_em).getHours() === 0 && new Date(e.inicio_em).getMinutes() === 0)).map(e => {
                     const a = new Date(e.inicio_em), b = e.fim_em ? new Date(e.fim_em) : new Date(a.getTime() + 3600_000)
@@ -186,7 +186,7 @@ export default function Calendario({ initialView = 'calendar' as View }) {
           {Array.from({ length: 42 }, (_, i) => addDays(range[0], i)).map(d => {
             const dayEvs = evs.filter(e => sameDay(new Date(e.inicio_em), d)), dayTks = tks.filter(t => sameDay(new Date(t.vencimento_em), d))
             return (
-              <div key={d.toISOString()} onClick={() => { const t = new Date(d); t.setHours(9); newAt(t) }} style={{ borderRight: `1px solid ${K.line}`, borderBottom: `1px solid ${K.line}`, padding: 4, overflow: 'hidden', background: sameDay(d, new Date()) ? '#f6f8fd' : undefined, opacity: d.getMonth() === cursor.getMonth() ? 1 : 0.45, cursor: 'pointer', minHeight: 0 }}>
+              <div key={d.toISOString()} onClick={() => { const t = new Date(d); t.setHours(9); newAt(t) }} style={{ borderRight: `1px solid ${K.line}`, borderBottom: `1px solid ${K.line}`, padding: 4, overflow: 'hidden', background: sameDay(d, new Date()) ? '#fdf3f5' : undefined, opacity: d.getMonth() === cursor.getMonth() ? 1 : 0.45, cursor: 'pointer', minHeight: 0 }}>
                 <div style={{ fontSize: 13, color: sameDay(d, new Date()) ? K.blue : K.muted, textAlign: 'right' }}>{d.getDate()}</div>
                 {dayEvs.slice(0, 3).map(e => <EventChip key={'e' + e.id} ev={e} onClick={() => setEvEdit(fromEvent(e))} />)}
                 {dayTks.slice(0, 2).map(t => <div key={'t' + t.id} onClick={ev => { ev.stopPropagation(); setTaskOpen(t) }} style={{ fontSize: 12, padding: '1px 4px', marginTop: 2, background: '#fff6e0', borderLeft: `3px solid ${K.orange}`, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>☐ {t.titulo}</div>)}

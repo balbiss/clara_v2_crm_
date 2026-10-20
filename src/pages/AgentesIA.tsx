@@ -39,7 +39,7 @@ function Construir({ onClose, onCreated }: { onClose: () => void; onCreated: (id
             <div style={{ color: K.muted, marginTop: 6 }}>Só mais um instante — estamos finalizando a configuração</div>
           </div>
         ) : (<>
-          <h2 style={{ textAlign: 'center', margin: '0 0 10px', fontSize: 24 }}>Configure seu agente de IA <Sparkles size={18} color="#6c5ce7" /></h2>
+          <h2 style={{ textAlign: 'center', margin: '0 0 10px', fontSize: 24 }}>Configure seu agente de IA <Sparkles size={18} color="#c8506a" /></h2>
           <p style={{ textAlign: 'center', color: K.muted, margin: '0 auto 18px', maxWidth: 480, lineHeight: 1.45 }}>Forneça informações sobre sua empresa para ajudar o agente de IA a responder perguntas e manter as conversas fluindo. Você pode vincular seu site ou adicionar manualmente os detalhes da empresa.</p>
           <div role="tablist" style={{ display: 'flex', maxWidth: 340, margin: '0 auto 18px' }}>
             <button role="tab" aria-selected={tab === 'site'} onClick={() => setTab('site')} style={tabSt(tab === 'site')}>Usar site</button>
@@ -56,7 +56,7 @@ function Construir({ onClose, onCreated }: { onClose: () => void; onCreated: (id
           </>)}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 22, flexWrap: 'wrap' }}>
             <button onClick={pular} style={kBtn('flat', { textTransform: 'none', fontSize: 14, color: K.muted })}>Pular por enquanto</button>
-            <button onClick={gerar} disabled={tab === 'site' ? !url.trim() : !description.trim()} style={{ ...kBtn('ghost', { textTransform: 'none', fontSize: 14 }), border: '1px solid #6c5ce7', color: '#3c2a98' }}><Sparkles size={15} /> Criar agente de IA</button>
+            <button onClick={gerar} disabled={tab === 'site' ? !url.trim() : !description.trim()} style={{ ...kBtn('ghost', { textTransform: 'none', fontSize: 14 }), border: '1px solid #c8506a', color: '#8e2a46' }}><Sparkles size={15} /> Criar agente de IA</button>
           </div>
         </>)}
       </div>
@@ -121,13 +121,13 @@ export default function AgentesIA() {
     <div className="k-fullbleed" style={{ margin: -24, minHeight: 'calc(100vh - var(--top-h, 0px))', background: list.length ? K.bg : '#fff', fontFamily: K.font, color: K.text }}>
       {list.length === 0 ? (
         <div style={{ maxWidth: 820, margin: '0 auto', padding: '70px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: 19, fontWeight: 700, color: '#160846', display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}><Sparkles size={20} color="#e2559c" /> Agente de IA Clara</div>
-          <h1 style={{ fontSize: 'clamp(32px, 6vw, 46px)', lineHeight: 1.1, margin: '18px 0', color: '#160846' }}>Conheça a IA que<br />te entende</h1>
+          <div style={{ fontSize: 19, fontWeight: 700, color: '#5a2433', display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}><Sparkles size={20} color="#e2559c" /> Agente de IA Clara</div>
+          <h1 style={{ fontSize: 'clamp(32px, 6vw, 46px)', lineHeight: 1.1, margin: '18px 0', color: '#5a2433' }}>Conheça a IA que<br />te entende</h1>
           <p style={{ fontSize: 17, color: '#33334d', margin: '0 auto 30px', maxWidth: 460 }}>Você cria uma vez. Ele atende, qualifica e continua a gerar engajamento com as revendedoras para sempre.</p>
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {owner ? <button onClick={() => setConstruir(true)} style={{ height: 50, padding: '0 40px', borderRadius: 25, border: 'none', background: '#160846', color: '#fff', fontFamily: K.font, fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>Construir meu Agente de IA</button>
+            {owner ? <button onClick={() => setConstruir(true)} style={{ height: 50, padding: '0 40px', borderRadius: 25, border: 'none', background: '#5a2433', color: '#fff', fontFamily: K.font, fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>Construir meu Agente de IA</button>
               : <p style={{ color: K.muted }}>Peça à diretoria para criar o agente de IA.</p>}
-            {owner && <button onClick={() => setChave(true)} style={{ height: 50, padding: '0 30px', borderRadius: 25, border: '2px solid #160846', background: '#fff', color: '#160846', fontFamily: K.font, fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>Chave da OpenAI</button>}
+            {owner && <button onClick={() => setChave(true)} style={{ height: 50, padding: '0 30px', borderRadius: 25, border: '2px solid #5a2433', background: '#fff', color: '#5a2433', fontFamily: K.font, fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>Chave da OpenAI</button>}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18, marginTop: 60, textAlign: 'left' }}>
             {[['Responde na hora', 'Atende no WhatsApp a qualquer hora, com as informações que você cadastrar.'], ['Entende áudio e foto', 'Transcreve os áudios e descreve as imagens que a cliente manda.'], ['Passa pra equipe', 'Quando a cliente pede uma pessoa, transfere com o resumo e avisa a consultora.']].map(([t, d]) => (

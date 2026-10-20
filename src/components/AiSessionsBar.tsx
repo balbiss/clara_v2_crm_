@@ -19,7 +19,7 @@ export default function AiSessionsBar({ contactId, refreshKey }: { contactId: nu
   const btn = { border: 'none', background: 'none', cursor: 'pointer', color: K.muted, padding: 4, display: 'inline-flex' }
   return (
     <div style={{ margin: '0 clamp(8px, 2vw, 22px) 6px', position: 'relative', flex: 'none' }}>
-      <button onClick={() => setOpen(o => !o)} aria-expanded={open} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid #c9bdfc', background: '#f4f1ff', color: '#4b3bb5', borderRadius: 14, padding: '4px 12px', fontFamily: K.font, fontSize: 13.5, cursor: 'pointer' }}>
+      <button onClick={() => setOpen(o => !o)} aria-expanded={open} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid #ebb3c2', background: '#fcf0f3', color: '#8e2a46', borderRadius: 14, padding: '4px 12px', fontFamily: K.font, fontSize: 13.5, cursor: 'pointer' }}>
         <Sparkles size={14} /> Agentes de IA ativos ({list.length})
       </button>
       {open && (

@@ -241,3 +241,21 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #4C8BF7
   .k-topbar { padding: 8px 12px !important; gap: 8px !important; }
   .k-topbar > div[style*='flex: 1'] { flex: 1 1 100% !important; order: 5; border-left: none !important; padding-left: 0 !important; margin-left: 0 !important; min-height: 40px; }
 }
+/* login no celular: só o painel do formulário, ocupando a tela */
+@media (max-width: 760px) {
+  .k-login-brand { display: none !important; }
+  .k-login-panel { width: 100% !important; min-height: 100vh; }
+}
+/* Configurações no celular: o menu próprio vira uma faixa no topo que rola de lado */
+@media (max-width: 900px) {
+  .k-settings { flex-direction: column; }
+  .k-settings-menu { width: 100% !important; display: flex; align-items: center; gap: 4px; overflow-x: auto; padding: 8px !important; border-right: none !important; border-bottom: 1px solid #e3e5e8; }
+  .k-settings-menu > div:first-child { display: none; }
+  .k-settings-menu > div { display: flex; flex: none; margin: 0 !important; }
+  .k-settings-menu > div > div:first-child { display: none; }
+  .k-settings-row > span { width: 100% !important; }
+}
+/* submenus do menu do usuário (Tema, Menu esquerdo): no celular abrem logo abaixo do item */
+@media (max-width: 600px) {
+  .k-submenu { position: static !important; box-shadow: none !important; border: none !important; width: auto !important; padding: 0 0 4px 26px !important; }
+}

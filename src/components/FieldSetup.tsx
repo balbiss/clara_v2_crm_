@@ -31,7 +31,7 @@ const grip = (title = 'Arraste para mover') => (
   </span>
 )
 
-export default function FieldSetup({ onClose, onChanged }: { onClose: () => void; onChanged?: () => void }) {
+export default function FieldSetup({ onClose, onChanged, inline }: { onClose: () => void; onChanged?: () => void; inline?: boolean }) {
   const { allFields } = useContactFields()
   const [groups, setGroups] = useState<any[]>([])
   const [active, setActive] = useState<number | null>(null)
@@ -86,15 +86,15 @@ export default function FieldSetup({ onClose, onChanged }: { onClose: () => void
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 85 }} />
-      <aside className="k-fields-panel" style={{ position: 'fixed', top: 0, bottom: 0, left: 'var(--k-panel-left, 240px)', width: 'min(495px, 100vw)', background: '#f5f5f5', zIndex: 86, display: 'flex', flexDirection: 'column', fontFamily: K.font, color: K.text, boxShadow: '4px 0 20px rgba(0,0,0,.2)' }}>
+      {!inline && <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 85 }} />}
+      <aside className="k-fields-panel" style={{ ...(inline ? { position: 'relative', width: '100%', maxWidth: 560, borderRadius: 3, overflow: 'hidden' } : { position: 'fixed', top: 0, bottom: 0, left: 'var(--k-panel-left, 240px)', width: 'min(495px, 100vw)' }), background: '#f5f5f5', zIndex: 86, display: 'flex', flexDirection: 'column', fontFamily: K.font, color: K.text, boxShadow: '4px 0 20px rgba(0,0,0,.2)' }}>
         <div style={{ background: '#1f3949', color: '#fff', padding: '22px 32px 12px', flex: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ flex: 1 }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 400 }}>Campos e grupos</h2>
               <p style={{ margin: '8px 0 0', fontSize: 14, color: '#aab4be', lineHeight: 1.4 }}>Você pode adicionar seus próprios campos personalizados. Eles são ótimos para filtrar dados e compilar relatórios.</p>
             </div>
-            <button title="Fechar" onClick={onClose} style={{ border: 'none', background: 'none', color: '#fff', cursor: 'pointer', display: 'flex' }}><X size={30} strokeWidth={1.5} /></button>
+            {!inline && <button title="Fechar" onClick={onClose} style={{ border: 'none', background: 'none', color: '#fff', cursor: 'pointer', display: 'flex' }}><X size={30} strokeWidth={1.5} /></button>}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 20 }}>
             {groups.map((g, i) => (

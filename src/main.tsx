@@ -12,6 +12,13 @@ const Conversas = lazy(() => import('./pages/Conversas'))
 const Kanban = lazy(() => import('./pages/Kanban'))
 const Funis = lazy(() => import('./pages/Funis'))
 const Calendario = lazy(() => import('./pages/Calendario'))
+const SettingsLayout = lazy(() => import('./components/SettingsLayout'))
+const Perfil = lazy(() => import('./pages/settings/Perfil'))
+const Trabalho = lazy(() => import('./pages/settings/Trabalho'))
+const ChatSettings = lazy(() => import('./pages/settings/Chat'))
+const Integracoes = lazy(() => import('./pages/settings/Integracoes'))
+const MotivosPerda = lazy(() => import('./pages/settings/MotivosPerda'))
+const CamposPage = lazy(() => import('./pages/settings/Campos'))
 const FunilAutomatize = lazy(() => import('./pages/FunilAutomatize'))
 const ContactDetails = lazy(() => import('./pages/ContactDetails'))
 const Contacts = lazy(() => import('./pages/Contacts'))
@@ -79,17 +86,26 @@ function App() {
             <Route path="fluxos" element={g(emMigracao('Fluxos'), { criticalConfig: true })} />
             <Route path="fluxos/novo" element={g(emMigracao('Novo fluxo'), { criticalConfig: true })} />
             <Route path="fluxos/:id" element={g(emMigracao('Construtor de fluxo'), { criticalConfig: true })} />
-            <Route path="agentes" element={g(<Agents />, { criticalConfig: true })} />
-            <Route path="agentes/novo" element={g(<AgentForm />, { criticalConfig: true })} />
-            <Route path="agentes/:id/editar" element={g(<AgentForm />, { criticalConfig: true })} />
-            <Route path="settings/inboxes" element={g(<SettingsInboxes />, { criticalConfig: true })} />
-            <Route path="settings/inboxes/new" element={g(<NewInbox />, { criticalConfig: true })} />
-            <Route path="settings/inboxes/:id" element={g(<SettingsInboxDetail />, { criticalConfig: true })} />
-            <Route path="settings/account" element={g(<Account />, { criticalConfig: true })} />
-            <Route path="settings/tags" element={g(<Tags />, { criticalConfig: true })} />
-            <Route path="settings/times-de-vendas" element={g(<SalesTeams />, { fullPortfolio: true })} />
-            <Route path="settings/campos-contato" element={g(<ContactFieldGroups />, { criticalConfig: true })} />
-            <Route path="settings/modelos-mensagem" element={g(<MessageTemplates />, { criticalConfig: true })} />
+            {/* Configurações no layout do Kommo: menu próprio + página (components/SettingsLayout) */}
+            <Route element={<SettingsLayout />}>
+              <Route path="settings" element={<Navigate to="/settings/perfil" replace />} />
+              <Route path="settings/perfil" element={g(<Perfil />)} />
+              <Route path="settings/trabalho" element={g(<Trabalho />, { criticalConfig: true })} />
+              <Route path="settings/chat" element={g(<ChatSettings />, { criticalConfig: true })} />
+              <Route path="settings/integracoes" element={g(<Integracoes />, { criticalConfig: true })} />
+              <Route path="settings/motivos-perda" element={g(<MotivosPerda />, { criticalConfig: true })} />
+              <Route path="agentes" element={g(<Agents />, { criticalConfig: true })} />
+              <Route path="agentes/novo" element={g(<AgentForm />, { criticalConfig: true })} />
+              <Route path="agentes/:id/editar" element={g(<AgentForm />, { criticalConfig: true })} />
+              <Route path="settings/inboxes" element={g(<SettingsInboxes />, { criticalConfig: true })} />
+              <Route path="settings/inboxes/new" element={g(<NewInbox />, { criticalConfig: true })} />
+              <Route path="settings/inboxes/:id" element={g(<SettingsInboxDetail />, { criticalConfig: true })} />
+              <Route path="settings/account" element={<Navigate to="/settings/trabalho" replace />} />
+              <Route path="settings/tags" element={g(<Tags />, { criticalConfig: true })} />
+              <Route path="settings/times-de-vendas" element={g(<SalesTeams />, { fullPortfolio: true })} />
+              <Route path="settings/campos-contato" element={g(<CamposPage />, { criticalConfig: true })} />
+              <Route path="settings/modelos-mensagem" element={g(<MessageTemplates />, { criticalConfig: true })} />
+            </Route>
             <Route path="funil" element={g(<Kanban />)} />
             <Route path="funil/automatize" element={g(emMigracao('Automação da régua'), { criticalConfig: true })} />
             <Route path="relatorios" element={g(emMigracao('Relatórios'), { fullPortfolio: true })} />

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
 import Swal from 'sweetalert2'
-import { Bell, CalendarDays, ChevronDown, Columns3, FileText, HelpCircle, Home, Menu, MessageSquare, PanelLeft, PieChart, Settings, Workflow, X } from 'lucide-react'
+import { Bell, CalendarDays, ChevronDown, ChevronRight, Copy, LogOut, Palette, Columns3, FileText, HelpCircle, Home, Menu, MessageSquare, PanelLeft, PieChart, Settings, Workflow, X } from 'lucide-react'
 import api from '../api'
 import { brand } from '../config/brand'
 import { usePushNotifications } from '../composables/usePushNotifications'
@@ -16,16 +16,26 @@ import { conversationsStore } from '../store/conversations'
 import { resetSocket } from '../lib/realtime'
 import { useWindowEvent, readUser } from '../lib/hooks'
 import { allowed, ROLE_LABEL, ini } from '../lib/nav'
-import { kommoNavFor, KOMMO_SETTINGS } from '../lib/navKommo'
+import { kommoNavFor } from '../lib/navKommo'
+import { firstSettingsPath } from './SettingsLayout'
 import { K } from '../lib/kommo'
 import { LogoMark } from './Logo'
 
-// Casca do app no visual do Kommo (menu lateral branco — a equipe da Clara já conhece o Kommo),
+// Casca do app no visual do Kommo (menu lateral azul-escuro, mesmo azul do login — a equipe já conhece o Kommo),
 // com toda a lógica do DashboardLayout da Clara v1: notificações, banners de caixa caída e de
 // instalação, foto de perfil, revalidação de dados parados, avisos de lead atribuído/adiamento.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Notif = { id: number; title: string; message: string; link: string; created_at: string; read_at: string | null }
 const STALE_AFTER_MS = 5 * 60 * 1000
+// menu lateral azul-escuro (mesmo azul do painel do login), itens claros, selecionado em azul
+const SB_NAVY = { bg: '#172a39', text: '#d5dee6', muted: '#8fa3b5', line: 'rgba(255,255,255,.09)', activeBg: 'rgba(76,139,247,.24)', active: '#ffffff', icon: '#9fb3c4', iconActive: '#7fb2f8', logo: '#ffffff', strong: '#ffffff' }
+const SB_LIGHT = { bg: '#ffffff', text: '#313942', muted: '#92989b', line: '#e3e5e8', activeBg: '#e8f0fe', active: '#2d74f0', icon: '#313942', iconActive: '#2d74f0', logo: '#172a39', strong: '#313942' }
+type SBPalette = typeof SB_NAVY
+
+/** Logo da Clara (PNG branco usado como máscara) pintada na cor do tema do menu. */
+function ClaraLogo({ width, color }: { width: number; color: string }) {
+  return <span role="img" aria-label="Clara Ferreira" style={{ display: 'block', width, aspectRatio: '1212 / 444', background: color, WebkitMaskImage: 'url(/logos/clara-ferreira-logo-white.png)', maskImage: 'url(/logos/clara-ferreira-logo-white.png)', WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat', WebkitMaskPosition: 'left center', maskPosition: 'left center' }} />
+}
 const isStale = (store: { lastFetchedAt: number | null }) => !store.lastFetchedAt || (Date.now() - store.lastFetchedAt) > STALE_AFTER_MS
 const groupTitle: CSSProperties = { fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--sideMuted)', margin: '18px 4px 4px' }
 const iconBtn: CSSProperties = { width: 34, height: 34, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', color: 'var(--ink)' }
@@ -41,6 +51,10 @@ export function AppShell() {
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'))
   const [sidebarOpen, setSidebarOpen] = useState(localStorage.getItem('sidebar_collapsed') !== 'true')
+  const [menuTheme, setMenuTheme] = useState<'navy' | 'light'>(() => (localStorage.getItem('sidebar_theme') === 'light' ? 'light' : 'navy'))
+  const SB: SBPalette = menuTheme === 'light' ? SB_LIGHT : SB_NAVY
+  const [subMenu, setSubMenu] = useState<'tema' | 'menu' | null>(null)
+  const changeMenuTheme = (v: 'navy' | 'light') => { setMenuTheme(v); localStorage.setItem('sidebar_theme', v); setSubMenu(null); setMenuOpen(false) }
   const [mobileNav, setMobileNav] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -228,7 +242,6 @@ export function AppShell() {
   // menu no formato do Kommo (lib/navKommo.ts): grupos com seta que abrem/fecham, badge vermelho,
   // item ativo em azul-claro. Configurações / Ajuda / Notificações ficam no rodapé, igual ao Kommo.
   const nav = kommoNavFor(role, pipelinesSnap.pipelines)
-  const settingsItems = KOMMO_SETTINGS.filter(i => allowed(i.rule, role))
   const badgeFor = (b?: string) => (b === 'conversas' ? unreadConversas : b === 'equipe' ? chatSnap.totalUnread : 0)
   const isActive = (path: string) => location.pathname === path || (path === '/conversas' && location.pathname.startsWith('/conversas')) || (path.startsWith('/pipelines/') && location.pathname.startsWith(path + '/'))
   const groupActive = (g: { path?: string; children?: { path: string }[] }) => (g.path ? isActive(g.path) : (g.children || []).some(c => isActive(c.path)))
@@ -241,7 +254,7 @@ export function AppShell() {
   )
   const row = (active: boolean, mobile: boolean): CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: mobile ? '11px 12px' : '8px 12px', border: 'none', borderRadius: 6, flex: 'none',
-    background: active ? '#e8f0fe' : 'transparent', color: active ? '#2d74f0' : K.text, fontFamily: K.font, fontSize: 15, fontWeight: active ? 700 : 400, textAlign: 'left', cursor: 'pointer',
+    background: active ? SB.activeBg : 'transparent', color: active ? SB.active : SB.text, fontFamily: K.font, fontSize: 15, fontWeight: active ? 700 : 400, textAlign: 'left', cursor: 'pointer',
   })
   const navTree = (mobile = false) => nav.map(g => {
     const active = groupActive(g)
@@ -249,7 +262,7 @@ export function AppShell() {
     if (!g.children) {
       return (
         <button key={g.id} title={g.label} onClick={e => go(g.path!, e)} style={row(active, mobile)}>
-          <NavIcon name={g.icon} active={active} />{showText && <span style={{ flex: 1 }}>{g.label}</span>}
+          <NavIcon pal={SB} name={g.icon} active={active} />{showText && <span style={{ flex: 1 }}>{g.label}</span>}
         </button>
       )
     }
@@ -258,8 +271,8 @@ export function AppShell() {
     return (
       <div key={g.id}>
         <button title={g.label} onClick={() => { if (!showText) return go(g.children![0].path); toggleGroup(g.id) }} style={row(active && !open, mobile)}>
-          <NavIcon name={g.icon} active={active} />
-          {showText && <><span style={{ flex: 1, color: active ? '#2d74f0' : undefined, fontWeight: active ? 700 : 400 }}>{g.label}</span>{!open && redBadge(total)}<ChevronDown size={16} color={K.muted} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></>}
+          <NavIcon pal={SB} name={g.icon} active={active} />
+          {showText && <><span style={{ flex: 1, color: active ? SB.active : undefined, fontWeight: active ? 700 : 400 }}>{g.label}</span>{!open && redBadge(total)}<ChevronDown size={16} color={SB.muted} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></>}
         </button>
         {showText && open && g.children.map(c => (
           <button key={c.path} onClick={e => go(c.path, e)} style={{ ...row(isActive(c.path), mobile), padding: mobile ? '9px 12px 9px 46px' : '6px 12px 6px 46px', fontSize: 14 }}>
@@ -298,22 +311,15 @@ export function AppShell() {
 
   const footer = (mobile = false) => {
     const showText = mobile || sidebarOpen
-    const setActive = settingsItems.some(s => isActive(s.path))
+    const setActive = location.pathname.startsWith('/settings') || location.pathname.startsWith('/agentes')
     return (
-      <div style={{ flex: 'none', borderTop: `1px solid ${K.line}`, padding: '8px 10px 10px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {settingsItems.length > 0 && (
-          <div>
-            <button title="Configurações" onClick={() => showText ? toggleGroup('config') : go(settingsItems[0].path)} style={row(setActive && !openGroups.config, mobile)}>
-              <NavIcon name="settings" active={setActive} />{showText && <><span style={{ flex: 1 }}>Configurações</span><ChevronDown size={16} color={K.muted} style={{ transform: openGroups.config ? 'rotate(180deg)' : undefined }} /></>}
-            </button>
-            {showText && openGroups.config && settingsItems.map(s => (
-              <button key={s.path} onClick={e => go(s.path, e)} style={{ ...row(isActive(s.path), mobile), padding: '6px 12px 6px 46px', fontSize: 14 }}>{s.label}</button>
-            ))}
-          </div>
-        )}
-        <button title="Ajuda" onClick={() => go('/manual')} style={row(isActive('/manual'), mobile)}><NavIcon name="help" active={isActive('/manual')} />{showText && <span style={{ flex: 1 }}>Ajuda</span>}</button>
+      <div style={{ flex: 'none', borderTop: `1px solid ${SB.line}`, padding: '8px 10px 10px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <button title="Configurações" onClick={e => go(firstSettingsPath(role), e)} style={row(setActive, mobile)}>
+          <NavIcon pal={SB} name="settings" active={setActive} />{showText && <span style={{ flex: 1 }}>Configurações</span>}
+        </button>
+        <button title="Ajuda" onClick={() => go('/manual')} style={row(isActive('/manual'), mobile)}><NavIcon pal={SB} name="help" active={isActive('/manual')} />{showText && <span style={{ flex: 1 }}>Ajuda</span>}</button>
         <button title="Centro de Notificação" onClick={() => { setNotifOpen(o => !o); setMenuOpen(false) }} style={row(notifOpen, mobile)}>
-          <span style={{ position: 'relative', display: 'inline-flex' }}><NavIcon name="bell" active={notifOpen} />{!showText && unreadCount > 0 && <span style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, borderRadius: '50%', background: '#e53935' }} />}</span>
+          <span style={{ position: 'relative', display: 'inline-flex' }}><NavIcon pal={SB} name="bell" active={notifOpen} />{!showText && unreadCount > 0 && <span style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, borderRadius: '50%', background: '#e53935' }} />}</span>
           {showText && <><span style={{ flex: 1 }}>Centro de Notificação</span>{redBadge(unreadCount)}</>}
         </button>
         <div style={{ position: 'relative' }}>
@@ -321,17 +327,43 @@ export function AppShell() {
             {avatar(34)}
             {showText && (
               <span style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
-                <span style={{ display: 'block', fontSize: 14, color: K.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meNome} | {ROLE_LABEL[role] || role}</span>
-                <span style={{ display: 'block', fontSize: 12.5, color: K.muted }}>{brand.name}</span>
+                <span style={{ display: 'block', fontSize: 14, color: SB.strong, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meNome} | {ROLE_LABEL[role] || role}</span>
+                <span style={{ display: 'block', fontSize: 12.5, color: SB.muted }}>{brand.name}</span>
               </span>
             )}
           </button>
           {menuOpen && (
-            <div style={{ position: 'absolute', left: 8, bottom: 'calc(100% + 4px)', background: '#fff', border: `1px solid ${K.line}`, borderRadius: 6, minWidth: 200, padding: 6, boxShadow: '0 8px 24px rgba(0,0,0,.14)', zIndex: 70 }}>
-              <button onClick={() => { setMenuOpen(false); setProfileOpen(true) }} style={menuItem}>Meu perfil</button>
-              <button onClick={() => { setMenuOpen(false); navigate('/manual') }} style={menuItem}>Manual</button>
-              <div style={{ height: 1, background: K.line, margin: '5px 0' }} />
-              <button onClick={logout} style={{ ...menuItem, color: '#e53935' }}>Sair</button>
+            <div className="k-user-menu" style={{ position: 'fixed', left: 10, bottom: 74, maxWidth: 'calc(100vw - 20px)', background: '#fff', border: `1px solid ${K.line}`, borderRadius: 6, width: 270, padding: '10px 0', boxShadow: '0 8px 24px rgba(0,0,0,.18)', zIndex: 70, color: K.text, fontFamily: K.font }}>
+              <div style={{ padding: '2px 16px 8px' }}>
+                <div style={{ fontSize: 15 }}>{meNome}</div>
+                <div style={{ fontSize: 13, color: K.muted, display: 'flex', alignItems: 'center', gap: 5 }}>ID do usuário: {currentUser.id}<button title="Copiar ID" onClick={() => { navigator.clipboard?.writeText(String(currentUser.id)) }} style={{ border: 'none', background: 'none', padding: 0, color: K.muted, cursor: 'pointer', display: 'flex' }}><Copy size={12} /></button></div>
+              </div>
+              <button onClick={() => { setMenuOpen(false); navigate('/settings/perfil') }} style={kMenuItem}><Settings size={16} color={K.muted} /> Configurações de perfil</button>
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setSubMenu(s => (s === 'tema' ? null : 'tema'))} style={kMenuItem}><Palette size={16} color={K.muted} /><span style={{ flex: 1 }}>Tema</span><ChevronRight size={15} color={K.muted} /></button>
+                {subMenu === 'tema' && (
+                  <div className="k-submenu" style={kSubMenu}>
+                    {([['navy', 'Menu azul-escuro'], ['light', 'Menu claro']] as const).map(([v, l]) => <button key={v} onClick={() => changeMenuTheme(v)} style={{ ...kMenuItem, fontWeight: menuTheme === v ? 700 : 400 }}>{menuTheme === v ? '✓ ' : ''}{l}</button>)}
+                  </div>
+                )}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setSubMenu(s => (s === 'menu' ? null : 'menu'))} style={kMenuItem}><PanelLeft size={16} color={K.muted} /><span style={{ flex: 1 }}>Menu esquerdo</span><ChevronRight size={15} color={K.muted} /></button>
+                {subMenu === 'menu' && (
+                  <div className="k-submenu" style={kSubMenu}>
+                    {([[true, 'Expandido'], [false, 'Recolhido']] as const).map(([v, l]) => <button key={l} onClick={() => { if (sidebarOpen !== v) toggleSidebar(); setSubMenu(null); setMenuOpen(false) }} style={{ ...kMenuItem, fontWeight: sidebarOpen === v ? 700 : 400 }}>{sidebarOpen === v ? '✓ ' : ''}{l}</button>)}
+                  </div>
+                )}
+              </div>
+              <button onClick={logout} style={{ ...kMenuItem, color: '#f86161' }}><LogOut size={16} /> Sair</button>
+              {role === 'diretoria' && (<>
+                <div style={{ height: 1, background: K.line, margin: '8px 0' }} />
+                <div style={{ padding: '2px 16px 8px' }}>
+                  <div style={{ fontSize: 15 }}>{currentUser.account_name || brand.name}</div>
+                  <div style={{ fontSize: 13, color: K.muted, display: 'flex', alignItems: 'center', gap: 5 }}>ID da área de trabalho: {currentUser.account_id}<button title="Copiar ID" onClick={() => { navigator.clipboard?.writeText(String(currentUser.account_id)) }} style={{ border: 'none', background: 'none', padding: 0, color: K.muted, cursor: 'pointer', display: 'flex' }}><Copy size={12} /></button></div>
+                </div>
+                <button onClick={() => { setMenuOpen(false); navigate('/settings/trabalho') }} style={kMenuItem}><Settings size={16} color={K.muted} /> Configurações de trabalho</button>
+              </>)}
             </div>
           )}
         </div>
@@ -341,13 +373,13 @@ export function AppShell() {
 
   return (
     <div data-theme="light" style={{ minHeight: '100vh', background: K.bg, color: K.text, fontFamily: K.font }}>
-      <aside className="app-sidebar" style={{ width: sidebarOpen ? 240 : 68, background: '#fff', borderRight: `1px solid ${K.line}`, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, zIndex: 50, transition: 'width .18s ease' }}>
+      <aside className="app-sidebar" style={{ width: sidebarOpen ? 240 : 68, background: SB.bg, color: SB.text, borderRight: 'none', display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, zIndex: 50, transition: 'width .18s ease' }}>
         <div style={{ flex: 'none', height: 64, padding: '0 14px 0 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          {sidebarOpen ? <span style={{ display: 'flex', alignItems: 'center', gap: 9, overflow: 'hidden' }}><LogoMark size={28} /><b style={{ fontSize: 16, letterSpacing: '-.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{brand.name}</b></span> : <LogoMark size={28} />}
-          {sidebarOpen && <button onClick={toggleSidebar} title="Recolher menu" style={{ border: 'none', background: 'none', color: K.text, padding: 4, cursor: 'pointer', display: 'flex' }}><PanelLeft size={20} strokeWidth={1.6} /></button>}
+          {sidebarOpen ? <ClaraLogo width={150} color={SB.logo} /> : <b title={brand.name} style={{ color: SB.logo, fontSize: 18, letterSpacing: '.04em', width: '100%', textAlign: 'center' }}>CF</b>}
+          {sidebarOpen && <button onClick={toggleSidebar} title="Recolher menu" style={{ border: 'none', background: 'none', color: SB.text, padding: 4, cursor: 'pointer', display: 'flex' }}><PanelLeft size={20} strokeWidth={1.6} /></button>}
         </div>
-        {!sidebarOpen && <button onClick={toggleSidebar} title="Abrir menu" style={{ border: 'none', background: 'none', color: K.text, padding: '0 0 8px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}><PanelLeft size={20} strokeWidth={1.6} /></button>}
-        <div style={{ borderTop: `1px solid ${K.line}`, margin: '0 12px' }} />
+        {!sidebarOpen && <button onClick={toggleSidebar} title="Abrir menu" style={{ border: 'none', background: 'none', color: SB.text, padding: '0 0 8px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}><PanelLeft size={20} strokeWidth={1.6} /></button>}
+        <div style={{ borderTop: `1px solid ${SB.line}`, margin: '0 12px' }} />
         <nav style={{ flex: 1, overflowY: 'auto', padding: '10px 10px 12px', display: 'flex', flexDirection: 'column', gap: 1 }}>{navTree()}</nav>
         {footer()}
       </aside>
@@ -373,10 +405,11 @@ export function AppShell() {
             </div>
           )}
           {disconnected && (
-            <div style={banner('#fdecea', '#b71c1c')}>
-              <span style={{ flex: 1 }}>⚠️ O WhatsApp "{disconnected.name}" está desconectado. As mensagens não estão sendo enviadas nem recebidas.</span>
-              {role === 'diretoria' && <button onClick={() => navigate('/settings/inboxes')} style={{ padding: '6px 12px', border: 'none', borderRadius: 3, background: '#e53935', color: '#fff', fontSize: 13, fontWeight: 700 }}>Reconectar</button>}
-              <button onClick={() => setDismissed(prev => new Set(prev).add(disconnected.id))} style={{ border: 'none', background: 'none', color: '#b71c1c' }}><X size={15} /></button>
+            // aviso no azul-escuro do menu (combina com o resto); o alerta fica no ícone amarelo
+            <div className="k-alert-bar" style={{ ...banner(SB.bg, SB.strong), borderBottom: menuTheme === 'light' ? `1px solid ${SB.line}` : 'none', flexWrap: 'wrap' }}>
+              <span style={{ flex: '1 1 260px', display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ color: '#f5b83d', fontSize: 15 }}>⚠</span>O WhatsApp "{disconnected.name}" está desconectado. As mensagens não estão sendo enviadas nem recebidas.</span>
+              {role === 'diretoria' && <button onClick={() => navigate('/settings/inboxes')} style={{ padding: '6px 14px', border: 'none', borderRadius: 3, background: '#1d8fdc', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Reconectar</button>}
+              <button title="Fechar aviso" onClick={() => setDismissed(prev => new Set(prev).add(disconnected.id))} style={{ border: 'none', background: 'none', color: SB.muted, cursor: 'pointer', display: 'flex' }}><X size={15} /></button>
             </div>
           )}
         </div>
@@ -388,10 +421,10 @@ export function AppShell() {
       {/* gaveta do celular */}
       <div hidden={!mobileNav} style={{ position: 'fixed', inset: 0, zIndex: 90 }}>
         <div onClick={() => setMobileNav(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.4)' }} />
-        <aside style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 'min(86vw, 300px)', background: '#fff', display: 'flex', flexDirection: 'column', animation: 'slideInLeft .18s ease', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <aside style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 'min(86vw, 300px)', background: SB.bg, color: SB.text, display: 'flex', flexDirection: 'column', animation: 'slideInLeft .18s ease', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}><LogoMark size={26} /><b style={{ fontSize: 17 }}>{brand.name}</b></span>
-            <button onClick={() => setMobileNav(false)} aria-label="Fechar menu" style={{ width: 32, height: 32, borderRadius: 6, border: `1px solid ${K.line}`, background: 'none', color: K.muted, fontSize: 18, lineHeight: 1 }}>×</button>
+            <ClaraLogo width={140} color={SB.logo} />
+            <button onClick={() => setMobileNav(false)} aria-label="Fechar menu" style={{ width: 32, height: 32, borderRadius: 6, border: `1px solid ${SB.line}`, background: 'none', color: SB.muted, fontSize: 18, lineHeight: 1 }}>×</button>
           </div>
           <nav style={{ flex: 1, overflowY: 'auto', padding: '4px 10px 12px' }}>{navTree(true)}</nav>
           {footer(true)}
@@ -424,10 +457,12 @@ export function AppShell() {
 }
 
 /** Ícones de linha fina do menu do Kommo. */
-function NavIcon({ name, active }: { name: string; active?: boolean }) {
-  const p = { size: 20, strokeWidth: 1.6, color: active ? '#2d74f0' : K.text }
+function NavIcon({ name, active, pal = SB_NAVY }: { name: string; active?: boolean; pal?: SBPalette }) {
+  const p = { size: 20, strokeWidth: 1.6, color: active ? pal.iconActive : pal.icon }
   const I = ({ home: Home, chat: MessageSquare, pipeline: Columns3, calendar: CalendarDays, list: FileText, automation: Workflow, insights: PieChart, settings: Settings, help: HelpCircle, bell: Bell } as Record<string, typeof Home>)[name] || Home
   return <I {...p} style={{ flex: 'none' }} />
 }
 
+const kMenuItem: CSSProperties = { width: '100%', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '9px 16px', border: 'none', background: 'none', fontFamily: "'PT Sans', Arial, sans-serif", fontSize: 15, color: '#313942', cursor: 'pointer' }
+const kSubMenu: CSSProperties = { position: 'absolute', left: 'calc(100% + 4px)', top: 0, background: '#fff', border: '1px solid #e3e5e8', borderRadius: 6, width: 200, padding: '6px 0', boxShadow: '0 8px 24px rgba(0,0,0,.18)' }
 const menuItem: CSSProperties = { width: '100%', textAlign: 'left', padding: '9px 10px', border: 'none', background: 'none', borderRadius: 6, fontSize: 13.5 }

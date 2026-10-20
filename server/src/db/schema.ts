@@ -8,6 +8,8 @@ export const accounts = pgTable('accounts', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
   createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
   contactCustomFields: jsonb('contact_custom_fields').default([]).notNull(),
+  // 0003_configuracoes: preferências da área de trabalho e do chat (padrão Kommo)
+  settings: jsonb('settings').default({}).notNull(),
   facebookPageAccessToken: varchar('facebook_page_access_token'),
   facebookPageId: varchar('facebook_page_id'),
   facebookPageName: varchar('facebook_page_name'),

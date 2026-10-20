@@ -6,6 +6,7 @@ import { requireAuth, requireFullPortfolio, isFullPortfolio, isFinance, hasPermi
 import { railsJson } from '../lib/serialize.js';
 import { MANUAL_TIPOS, MANUAL_TIPO_LABELS, PRIORIDADES, diaSP, isUniqueViolation } from '../lib/tarefas.js';
 import { hojeSP } from '../lib/pedidos.js';
+import { logEvent } from '../lib/events.js';
 
 // TarefasController + AgendamentosController da v1.
 export const tarefasRouter = Router();
@@ -28,6 +29,7 @@ tarefasRouter.get('/tarefas', requireAuth, async (req, res) => {
   if (q.status) conds.push(eq(tarefas.status, String(q.status)));
   if (q.tipo) conds.push(eq(tarefas.tipo, String(q.tipo)));
   if (q.user_id) conds.push(eq(tarefas.userId, Number(q.user_id)));
+  if (q.contact_id) conds.push(eq(tarefas.contactId, Number(q.contact_id))); // histórico do card do lead (visual Kommo)
   if (q.vencidas === 'true') conds.push(eq(tarefas.status, 'pendente'), lt(tarefas.vencimentoEm, new Date()));
   if (q.do_dia === 'true') { const [a, b] = diaSP(); conds.push(eq(tarefas.status, 'pendente'), between(tarefas.vencimentoEm, a, b)); }
   const rows = await db.select().from(tarefas).where(and(...conds))
@@ -56,6 +58,8 @@ tarefasRouter.patch('/tarefas/:id(\\d+)/complete', requireAuth, async (req, res)
   const t = await loadTarefa(req, res);
   if (!t) return;
   const [done] = await db.update(tarefas).set({ status: 'concluida', concluidaEm: new Date(), concluidaPorId: req.user!.id, resultado: req.body.resultado || null, updatedAt: new Date() }).where(eq(tarefas.id, t.id)).returning();
+  const [cn] = await db.select({ n: contacts.name }).from(contacts).where(eq(contacts.id, t.contactId));
+  void logEvent({ accountId: acc(req), userId: req.user!.id, contactId: t.contactId, objectType: 'tarefa', objectId: t.id, objectName: cn?.n, eventType: 'task_completed', before: t.titulo, after: req.body.resultado || null });
   let proxima = null;
   const pt = req.body.proxima_tarefa;
   if (pt) {
@@ -118,7 +122,7 @@ tarefasRouter.delete('/tarefas/:id(\\d+)', requireAuth, requireFullPortfolio, as
 // ---- agendamentos (calendário) -------------------------------------------------------------------
 const AG_TIPOS = ['reuniao', 'entrega_maleta', 'acerto', 'outro'];
 const visibleAg = (u: User) => (isFullPortfolio(u) ? eq(agendamentos.accountId, u.accountId!) : and(eq(agendamentos.accountId, u.accountId!), eq(agendamentos.userId, u.id))!);
-const noPeriodo = (de: Date, ate: Date) => sql`${agendamentos.inicioEm} <= ${ate} AND COALESCE(${agendamentos.fimEm}, ${agendamentos.inicioEm}) >= ${de}`;
+const noPeriodo = (de: Date, ate: Date) => sql`${agendamentos.inicioEm} <= ${ate.toISOString()} AND COALESCE(${agendamentos.fimEm}, ${agendamentos.inicioEm}) >= ${de.toISOString()}`; // ISO: o driver não aceita Date cru em sql``
 
 async function agJson(list: (typeof agendamentos.$inferSelect)[]) {
   if (!list.length) return [];

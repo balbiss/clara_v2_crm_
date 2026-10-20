@@ -482,6 +482,12 @@ export const pipelineCards = pgTable('pipeline_cards', {
   pipelineStageId: bigint('pipeline_stage_id', { mode: 'number' }).notNull().references((): AnyPgColumn => pipelineStages.id),
   position: integer('position').default(0).notNull(),
   updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  replyTriggeredAt: timestamp('reply_triggered_at', { precision: 6, mode: 'date' }),
+  // 0001_funis_kommo
+  stageEnteredAt: timestamp('stage_entered_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  value: numeric('value', { precision: 14, scale: 2 }).default('0').notNull(),
+  lossReason: varchar('loss_reason'),
+  closedAt: timestamp('closed_at', { precision: 6, mode: 'date' }),
 }, (t) => [
   index('index_pipeline_cards_on_contact_id').on(t.contactId),
   uniqueIndex('index_pipeline_cards_on_pipeline_id_and_contact_id').on(t.pipelineId, t.contactId),
@@ -497,6 +503,9 @@ export const pipelineStages = pgTable('pipeline_stages', {
   pipelineId: bigint('pipeline_id', { mode: 'number' }).notNull().references((): AnyPgColumn => pipelines.id),
   position: integer('position').default(0).notNull(),
   updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  // 0001_funis_kommo
+  description: text('description'),
+  kind: varchar('kind').default('normal').notNull(),
 }, (t) => [
   index('index_pipeline_stages_on_pipeline_id').on(t.pipelineId),
 ]);
@@ -511,6 +520,10 @@ export const pipelineTriggers = pgTable('pipeline_triggers', {
   pipelineStageId: bigint('pipeline_stage_id', { mode: 'number' }).notNull().references((): AnyPgColumn => pipelineStages.id),
   position: integer('position').default(0).notNull(),
   updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  event: varchar('event').default('enter').notNull(),
+  // 0001_funis_kommo
+  conditions: jsonb('conditions').default([]).notNull(),
+  schedule: jsonb('schedule').default({}).notNull(),
 }, (t) => [
   index('index_pipeline_triggers_on_pipeline_stage_id').on(t.pipelineStageId),
 ]);
@@ -688,3 +701,63 @@ export const users = pgTable('users', {
   index('index_users_on_round_robin_group_id').on(t.roundRobinGroupId),
 ]);
 
+
+// --- 0001_funis_kommo ---------------------------------------------------------------------------
+export const lossReasons = pgTable('loss_reasons', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  accountId: bigint('account_id', { mode: 'number' }).notNull().references((): AnyPgColumn => accounts.id),
+  name: varchar('name').notNull(),
+  position: integer('position').default(0).notNull(),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  index('index_loss_reasons_on_account_id').on(t.accountId),
+]);
+
+export const pipelineTriggerRuns = pgTable('pipeline_trigger_runs', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  pipelineTriggerId: bigint('pipeline_trigger_id', { mode: 'number' }).notNull().references((): AnyPgColumn => pipelineTriggers.id, { onDelete: 'cascade' }),
+  pipelineCardId: bigint('pipeline_card_id', { mode: 'number' }).notNull().references((): AnyPgColumn => pipelineCards.id, { onDelete: 'cascade' }),
+  runKey: varchar('run_key').notNull(),
+  runAt: timestamp('run_at', { precision: 6, mode: 'date' }).notNull(),
+  status: varchar('status').default('pending').notNull(),
+  chainDepth: integer('chain_depth').default(0).notNull(),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('idx_trigger_runs_unique').on(t.pipelineTriggerId, t.pipelineCardId, t.runKey),
+  index('idx_trigger_runs_pending').on(t.status, t.runAt),
+]);
+
+// --- 0002_eventos_metas --------------------------------------------------------------------------
+export const activityEvents = pgTable('activity_events', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  accountId: bigint('account_id', { mode: 'number' }).notNull().references((): AnyPgColumn => accounts.id),
+  userId: bigint('user_id', { mode: 'number' }).references((): AnyPgColumn => users.id),
+  contactId: bigint('contact_id', { mode: 'number' }).references((): AnyPgColumn => contacts.id, { onDelete: 'cascade' }),
+  objectType: varchar('object_type').notNull(),
+  objectId: bigint('object_id', { mode: 'number' }),
+  objectName: varchar('object_name'),
+  eventType: varchar('event_type').notNull(),
+  valueBefore: text('value_before'),
+  valueAfter: text('value_after'),
+  meta: jsonb('meta').default({}).notNull(),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_activity_events_account_created').on(t.accountId, t.createdAt),
+  index('idx_activity_events_contact').on(t.contactId),
+  index('idx_activity_events_type').on(t.accountId, t.eventType, t.createdAt),
+]);
+
+export const salesGoals = pgTable('sales_goals', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  accountId: bigint('account_id', { mode: 'number' }).notNull().references((): AnyPgColumn => accounts.id),
+  userId: bigint('user_id', { mode: 'number' }).notNull().references((): AnyPgColumn => users.id),
+  month: varchar('month').notNull(),
+  valueGoal: numeric('value_goal', { precision: 14, scale: 2 }).default('0').notNull(),
+  countGoal: integer('count_goal').default(0).notNull(),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('idx_sales_goals_user_month').on(t.userId, t.month),
+]);

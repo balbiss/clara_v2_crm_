@@ -7,6 +7,7 @@ import { attach } from './storage.js';
 import { createMessage, rebroadcast, messageStatusValue, type Message } from './messages.js';
 import { createContact, findByAnyPhone, setJidIfFree, updateContact, likeEscape, type Contact } from './contacts.js';
 import { broadcastConversations } from './realtime.js';
+import { onClientReply } from './pipelines.js';
 import { conversationTagsOf, findOrCreateConversation, findOrCreateTag, addConversationTag, convStatusValue } from './conversations.js';
 
 // Porte do WahaMessageIngestion da v1 — compartilhado entre o webhook (tempo real) e o
@@ -195,6 +196,9 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
     await db.update(messages).set({ text: '📎 Arquivo não suportado ou vazio', updatedAt: new Date() }).where(eq(messages.id, record.id));
   }
   if (!mediaInBackground) await rebroadcast(record.id);
+
+  // Gatilhos 'quando o cliente responder' dos funis — em segundo plano, nunca atrasa o recebimento.
+  if (!fromMe && !isGroup) void onClientReply(contact.id).catch(e => console.error('Gatilho client_reply falhou —', e.message));
 
   // Fluxos (resposta pendente ou gatilho por palavra-chave). Grupo nunca aciona Fluxo nem IA.
   const flowHandled = !humanReplyViaPhone && !fromMe && !isGroup && (

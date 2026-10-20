@@ -10,6 +10,9 @@ const Login = lazy(() => import('./pages/Login'))
 import { AppShell } from './components/AppShell'
 const Conversas = lazy(() => import('./pages/Conversas'))
 const Kanban = lazy(() => import('./pages/Kanban'))
+const Funis = lazy(() => import('./pages/Funis'))
+const Calendario = lazy(() => import('./pages/Calendario'))
+const FunilAutomatize = lazy(() => import('./pages/FunilAutomatize'))
 const ContactDetails = lazy(() => import('./pages/ContactDetails'))
 const Contacts = lazy(() => import('./pages/Contacts'))
 const PedidosPendentes = lazy(() => import('./pages/PedidosPendentes'))
@@ -58,7 +61,7 @@ function App() {
             <Route path="inativas" element={g(<RevendedorasInativas />)} />
             <Route path="atacado" element={g(<AtacadoView />)} />
             <Route path="pedidos-pendentes" element={g(<PedidosPendentes />)} />
-            <Route path="tarefas" element={g(emMigracao('Tarefas'))} />
+            <Route path="tarefas" element={g(<Calendario initialView="list" />)} />
             <Route path="gerencial" element={g(emMigracao('Gerencial'), { fullPortfolio: true })} />
             <Route path="atividades" element={g(emMigracao('Atividades'), { criticalConfig: true })} />
             <Route path="conversas" element={g(<Conversas />)} />
@@ -68,9 +71,10 @@ function App() {
             <Route path="contatos" element={g(<Contacts />)} />
             <Route path="contatos/:id" element={g(<ContactDetails />)} />
             <Route path="pipelines/todos-leads" element={g(emMigracao('Todos os leads'), { fullPortfolio: true })} />
-            <Route path="pipelines/:slug" element={g(emMigracao('Pipeline'), { fullPortfolio: true })} />
-            <Route path="pipelines/:slug/automatize" element={g(emMigracao('Automação do pipeline'), { criticalConfig: true })} />
-            <Route path="calendario" element={g(emMigracao('Calendário'))} />
+            <Route path="pipelines" element={g(<Funis />)} />
+            <Route path="pipelines/:slug" element={g(<Funis />)} />
+            <Route path="pipelines/:slug/automatize" element={g(<FunilAutomatize />, { criticalConfig: true })} />
+            <Route path="calendario" element={g(<Calendario />)} />
             <Route path="automacoes" element={g(<ComingSoon title="Automações" description="Regras automáticas de tarefas e mensagens — ainda não disponível." />, { criticalConfig: true })} />
             <Route path="fluxos" element={g(emMigracao('Fluxos'), { criticalConfig: true })} />
             <Route path="fluxos/novo" element={g(emMigracao('Novo fluxo'), { criticalConfig: true })} />

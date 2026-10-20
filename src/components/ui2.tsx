@@ -2,13 +2,13 @@ import type { CSSProperties, ReactNode } from 'react'
 import Swal from 'sweetalert2'
 import { PILL, serif } from './ui'
 
-// Peças de página no padrão do Visita IA v2: cabeçalho, tabela, aviso rápido, confirmação, switch.
+// Peças de página no padrão do Kommo: cabeçalho, tabela, aviso rápido, confirmação, switch.
 
 export function PageHead({ title, subtitle, children }: { title: ReactNode; subtitle?: ReactNode; children?: ReactNode }) {
   return (
     <div className="page-head" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
       <div style={{ minWidth: 0 }}>
-        <h1 style={{ ...serif, fontSize: 27, margin: 0, lineHeight: 1.15 }}>{title}</h1>
+        <h1 style={{ ...serif, fontSize: 18, margin: 0, lineHeight: 1.2, letterSpacing: '.03em', textTransform: 'uppercase' }}>{title}</h1>
         {subtitle && <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0', maxWidth: '70ch', lineHeight: 1.55 }}>{subtitle}</p>}
       </div>
       {children && <div className="page-toolbar" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>{children}</div>}
@@ -16,20 +16,20 @@ export function PageHead({ title, subtitle, children }: { title: ReactNode; subt
   )
 }
 
-export const th: CSSProperties = { textAlign: 'left', padding: '9px 14px', fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--muted)', borderBottom: '1px solid var(--line)', background: 'var(--bg)', whiteSpace: 'nowrap' }
-export const td: CSSProperties = { padding: '9px 14px', fontSize: 13, borderBottom: '1px solid var(--line)', verticalAlign: 'middle' }
+export const th: CSSProperties = { textAlign: 'left', padding: '10px 14px', fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--muted)', borderBottom: '1px solid var(--line)', background: '#fff', whiteSpace: 'nowrap' }
+export const td: CSSProperties = { padding: '10px 14px', fontSize: 14, borderBottom: '1px solid var(--line)', verticalAlign: 'middle' }
 
 type Col = { label: ReactNode; width?: number | string; align?: 'left' | 'right' | 'center' }
 
 /** Tabela no padrão do v2: cartão branco, cabeçalho em caixa-alta. */
-/** compact: tabela larga (muitas colunas) cabe na largura da página, sem rolagem lateral. */
+/** compact: tabela larga com fonte menor; se ainda não couber (tela estreita), rola de lado em vez de cortar. */
 export function DataTable({ columns, rows, empty = 'Nada por aqui ainda.', loading, onRowClick, compact }: { columns: Col[]; rows: ReactNode[][]; empty?: ReactNode; loading?: boolean; onRowClick?: (i: number) => void; compact?: boolean }) {
   const thS: CSSProperties = compact ? { ...th, padding: '10px 6px', fontSize: 9.5, letterSpacing: '.05em', whiteSpace: 'normal', lineHeight: 1.3 } : th
   const tdS: CSSProperties = compact ? { ...td, padding: '9px 6px', fontSize: 12.5 } : td
   const msg = (m: ReactNode) => <tr><td colSpan={columns.length} style={{ ...tdS, textAlign: 'center', color: 'var(--muted)', padding: 28 }}>{m}</td></tr>
   return (
     <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' }}>
-      <div style={{ overflowX: compact ? 'hidden' : 'auto' }}>
+      <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead><tr>{columns.map((c, i) => <th key={i} style={{ ...thS, width: c.width, textAlign: c.align || 'left' }}>{c.label}</th>)}</tr></thead>
           <tbody>
@@ -56,7 +56,7 @@ export const toast = (icon: 'success' | 'error' | 'info' | 'warning', title: str
   Swal.fire({ toast: true, position: 'top-end', icon, title, text, showConfirmButton: false, timer: icon === 'error' ? 4500 : 3000, timerProgressBar: true })
 
 export async function confirmBox(title: string, text: string, confirmText = 'Confirmar', danger = true): Promise<boolean> {
-  const r = await Swal.fire({ title, text, icon: 'warning', showCancelButton: true, confirmButtonText: confirmText, cancelButtonText: 'Cancelar', confirmButtonColor: danger ? '#B42318' : '#123C87' })
+  const r = await Swal.fire({ title, text, icon: 'warning', showCancelButton: true, confirmButtonText: confirmText, cancelButtonText: 'Cancelar', confirmButtonColor: danger ? '#F86161' : '#4C8BF7' })
   return r.isConfirmed
 }
 
@@ -96,7 +96,7 @@ export function Panel({ icon, title, description, children, footer, right }: { i
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '14px 16px 2px' }}>
         <span style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--terraSoft)', color: 'var(--terra)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{icon}</span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <h3 style={{ fontFamily: 'Newsreader,serif', fontWeight: 400, fontSize: 17, margin: 0, lineHeight: 1.25 }}>{title}</h3>
+          <h3 style={{ ...serif, fontSize: 16, margin: 0, lineHeight: 1.25 }}>{title}</h3>
           {description && <p style={{ margin: '1px 0 0', fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 }}>{description}</p>}
         </div>
         {right}

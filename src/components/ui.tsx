@@ -1,21 +1,20 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { X } from 'lucide-react'
 
-// Peças visuais no padrão do Visita IA v2 (cores via variáveis do index.css), usadas por todas
-// as telas portadas da Clara.
+// Peças visuais no padrão do Kommo (cores via variáveis do index.css), usadas por todas as telas.
 
-export const serif: CSSProperties = { fontFamily: 'Newsreader,serif', fontWeight: 400 }
+export const serif: CSSProperties = { fontFamily: "'PT Sans', Arial, sans-serif", fontWeight: 700 }
 
-export const inputStyle: CSSProperties = { width: '100%', padding: '9px 12px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--bg)', fontSize: 13.5, boxSizing: 'border-box' }
-export const labelStyle: CSSProperties = { display: 'block', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6, fontWeight: 600 }
+export const inputStyle: CSSProperties = { width: '100%', padding: '8px 10px', border: '1px solid #C3C7CC', borderRadius: 3, background: '#fff', fontSize: 14, boxSizing: 'border-box' }
+export const labelStyle: CSSProperties = { display: 'block', fontSize: 13, color: 'var(--muted)', marginBottom: 5 }
 
 type Variant = 'primary' | 'ghost' | 'danger' | 'soft'
 export function btn(variant: Variant = 'primary', extra: CSSProperties = {}): CSSProperties {
-  const base: CSSProperties = { padding: '9px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }
+  const base: CSSProperties = { minHeight: 36, padding: '0 16px', borderRadius: 3, fontSize: 13, fontWeight: 700, letterSpacing: '.02em', textTransform: 'uppercase', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }
   const v: Record<Variant, CSSProperties> = {
     primary: { border: 'none', background: 'var(--terra)', color: '#fff' },
-    ghost: { border: '1px solid var(--line)', background: 'none', color: 'var(--ink)' },
-    danger: { border: 'none', background: '#B42318', color: '#fff' },
+    ghost: { border: '1px solid #C3C7CC', background: '#fff', color: 'var(--ink)' },
+    danger: { border: 'none', background: '#F86161', color: '#fff' },
     soft: { border: 'none', background: 'var(--terraSoft)', color: 'var(--terra)' },
   }
   return { ...base, ...v[variant], ...extra }
@@ -29,7 +28,7 @@ export function Modal({ title, subtitle, onClose, children, footer, width = 460 
         style={{ width: '100%', maxWidth: width, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(10,15,26,.25)', animation: 'fadeUp .14s ease' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '22px 24px 14px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h2 style={{ ...serif, fontSize: 23, margin: 0 }}>{title}</h2>
+            <h2 style={{ ...serif, fontSize: 20, margin: 0 }}>{title}</h2>
             {subtitle && <p style={{ color: 'var(--muted)', fontSize: 13, lineHeight: 1.55, margin: '6px 0 0' }}>{subtitle}</p>}
           </div>
           <button onClick={onClose} title="Fechar" style={{ width: 30, height: 30, border: '1px solid var(--line)', borderRadius: 8, background: 'none', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><X size={15} /></button>
@@ -43,7 +42,7 @@ export function Modal({ title, subtitle, onClose, children, footer, width = 460 
 
 export function Card({ title, right, children, style, onHeaderClick }: { title?: ReactNode; right?: ReactNode; children?: ReactNode; style?: CSSProperties; onHeaderClick?: () => void }) {
   return (
-    <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, ...style }}>
+    <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 3, ...style }}>
       {title && (
         <div onClick={onHeaderClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '12px 14px', cursor: onHeaderClick ? 'pointer' : undefined }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--muted)' }}>{title}</span>
@@ -65,13 +64,13 @@ export function Field({ label, value, empty, onClick }: { label: ReactNode; valu
   )
 }
 
-export const PILL: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap' }
+export const PILL: CSSProperties = { fontSize: 11, fontWeight: 400, letterSpacing: '.02em', textTransform: 'uppercase', padding: '1px 6px', borderRadius: 2, whiteSpace: 'nowrap' }
 
 export function Tag({ name, color, onRemove }: { name: string; color: string; onRemove?: () => void }) {
   return (
-    <span title={name} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: 160, padding: '2px 8px', borderRadius: 20, background: color, color: '#fff', fontSize: 11, fontWeight: 700, lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+    <span title={name} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: 160, padding: '1px 6px', borderRadius: 2, background: '#fff', border: '1px solid ' + color, color, fontSize: 11, fontWeight: 400, textTransform: 'uppercase', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
       {name}
-      {onRemove && <button onClick={onRemove} title="Remover" style={{ border: 'none', background: 'none', color: '#fff', padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>}
+      {onRemove && <button onClick={onRemove} title="Remover" style={{ border: 'none', background: 'none', color, padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>}
     </span>
   )
 }

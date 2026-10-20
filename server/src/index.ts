@@ -21,7 +21,11 @@ import { internalMessagesRouter } from './routes/internalMessages.js';
 import { accountRouter } from './routes/account.js';
 import { pedidosRouter } from './routes/pedidos.js';
 import { tarefasRouter } from './routes/tarefas.js';
+import { pipelinesRouter } from './routes/pipelines.js';
 import { startJobs } from './jobs/index.js';
+
+// Express 4 não captura erro de rota async: sem isto uma query com problema derruba o servidor inteiro.
+process.on('unhandledRejection', err => console.error('Erro não tratado (servidor segue no ar):', err));
 
 const app = express();
 // exposedHeaders: o front lê o token do header Authorization da resposta do login (igual à v1).
@@ -36,6 +40,7 @@ app.use(conversationsRouter);
 app.use(inboxesRouter);
 app.use(pedidosRouter);
 app.use(tarefasRouter);
+app.use(pipelinesRouter);
 app.use(contactsRouter);
 app.use(salesTeamsRouter);
 app.use(internalMessagesRouter);

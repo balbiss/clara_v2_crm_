@@ -8,6 +8,20 @@
       "when": 1792102395499,
       "tag": "0000_inicial_schema_clara_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792471628664,
+      "tag": "0001_funis_kommo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792474847414,
+      "tag": "0002_eventos_metas",
+      "breakpoints": true
     }
   ]
 }

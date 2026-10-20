@@ -6,7 +6,14 @@ import EmojiPicker, { EmojiStyle } from 'emoji-picker-react'
 import {
   Filter, ArrowDownUp, MoreVertical, Paperclip, Smile, CheckCheck, Send, Info, X, ExternalLink, Mail, Phone, Copy, MessageCircle,
   Edit2, GitMerge, Trash2, Minus, Plus, ChevronDown, Sparkles, Loader2, BotOff, Bot, Mic, Pencil, Forward,
+  Search, MoreHorizontal, ChevronLeft, Clock,
 } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import SnoozeModal from '../components/SnoozeModal'
+import ResolveModal from '../components/ResolveModal'
+import { K, kBtn, kInput, TIPOS_TAREFA } from '../lib/kommo'
+import KField from '../components/KField'
+import FieldSetup from '../components/FieldSetup'
 import api from '../api'
 import { conversationsStore, isSemResposta } from '../store/conversations'
 import { prepareImage } from '../utils/prepareImage'
@@ -30,7 +37,7 @@ import { serif, inputStyle, labelStyle, btn, Card, Field, PILL, Tag, Dropdown, M
 import { ChatAvatar } from '../components/ChatAvatar'
 import { inboxesStore } from '../store/inboxes'
 
-// Porte de views/Conversas.vue (lista + chat + painel da revendedora).
+// Porte de views/Conversas.vue (lógica da v1) no layout do Kommo: lista | card do lead | histórico.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any
 
@@ -131,7 +138,7 @@ export default function Conversas() {
   const navigate = useNavigate()
   const store = useSnapshot(conversationsStore) as Any
   const conv = store.activeConversation as Any
-  const { allFields: principalFields, labelOf: fieldLabelOf } = useContactFields()
+  const { allFields: principalFields, labelOf: fieldLabelOf, fieldOf } = useContactFields()
   const [detailsOpen, setDetailsOpen] = useState(() => window.innerWidth > 1150)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900)
   useEffect(() => { const f = () => setIsMobile(window.innerWidth <= 900); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
@@ -752,76 +759,178 @@ export default function Conversas() {
     const d = new Date(iso)
     return d.toDateString() === new Date().toDateString() ? hora(iso) : dayOf(iso) + ' ' + hora(iso)
   }
+  // ===================== layout do Kommo (Comunicações › Inbox de chat) =====================
+  // lista | card do lead (painel escuro + abas) | histórico (tarefas + bloco do WhatsApp + composer)
   const showDetails = isMobile ? v.mobileView === 'details' : detailsOpen
-  const gridCols = isMobile ? '1fr' : conv && showDetails ? '340px minmax(0,1fr) 340px' : '340px minmax(0,1fr)'
+  // colunas encolhem em tela menor (notebook) em vez de empurrar o histórico pra fora da tela
+  const gridCols = isMobile ? '1fr' : conv && showDetails ? 'minmax(240px,340px) minmax(270px,330px) minmax(0,1fr)' : 'minmax(260px,365px) minmax(0,1fr)'
+  const me = store.currentUser || {}
+  const canCreateTask = ['gerente', 'diretoria'].includes(me.role)
+
+  // tarefas pendentes do contato (aparecem no topo do histórico, igual ao Kommo)
+  const [tasks, setTasks] = useState<Any[]>([])
+  const [taskResult, setTaskResult] = useState<Record<number, string>>({})
+  const contactId = conv?.contact?.id
+  const loadTasks = async (id = contactId) => { if (!id) return setTasks([]); try { setTasks((await api.get('/tarefas', { params: { contact_id: id, status: 'pendente' } })).data) } catch { setTasks([]) } }
+  useEffect(() => { loadTasks() }, [contactId])
+  const completeTask = async (t: Any) => {
+    try { await api.patch(`/tarefas/${t.id}/complete`, { resultado: taskResult[t.id] || null }); setTasks(ts => ts.filter(x => x.id !== t.id)); Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Tarefa concluída.', showConfirmButton: false, timer: 2500 }) }
+    catch { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Não foi possível concluir.', showConfirmButton: false, timer: 3000 }) }
+  }
+
+  // funil do lead no cabeçalho: Consignado (régua) pra revendedora; senão o 1º funil em que está
+  const [cards, setCards] = useState<Any[]>([])
+  const [pipes, setPipes] = useState<Any[]>([])
+  useEffect(() => { if (contactId) api.get('/pipeline_cards', { params: { contact_id: contactId } }).then(r => setCards(r.data)).catch(() => setCards([])) }, [contactId])
+  useEffect(() => { api.get('/pipelines').then(r => setPipes(r.data)).catch(() => {}) }, [])
+  const card = cards[0]
+  const cardPipe = card && pipes.find(p => p.id === card.pipeline_id)
+  const regua = !!conv?.contact?.id_jueri || !card
+  const reguaKeys = [...Object.keys(ACTIVE_STATUS_LABELS), ...Object.keys(INACTIVE_STATUS_LABELS)]
+  const stageIdx = regua ? reguaKeys.indexOf(conv?.contact?.status || 'revendedor_ativo') : (cardPipe?.pipeline_stages || []).findIndex((x: Any) => x.id === card?.pipeline_stage_id)
+  const stageTotal = regua ? Object.keys(ACTIVE_STATUS_LABELS).length : (cardPipe?.pipeline_stages || []).length
+  const stageDays = regua ? daysInStage(conv?.contact) : card ? Math.floor((Date.now() - new Date(card.stage_entered_at).getTime()) / 86_400_000) : null
+  const moveCard = async (stageId: number) => {
+    try { const { data } = await api.put(`/pipeline_cards/${card.id}`, { pipeline_stage_id: stageId }); setCards(cs => cs.map(c => (c.id === data.id ? data : c))); loadTasks() }
+    catch (e: Any) { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Erro ao mudar etapa.', showConfirmButton: false, timer: 3000 }) }
+  }
+
+  // composer: Bate-papo / Nota / Tarefa (o "Bate-papo ▾" do Kommo)
+  const [mode, setMode] = useState<'chat' | 'nota' | 'tarefa'>('chat')
+  const [modeOpen, setModeOpen] = useState(false)
+  const [taskForm, setTaskForm] = useState({ tipo: 'manual_acompanhamento', vencimento: '', titulo: '' })
+  useEffect(() => { s.isPrivateMessage = mode === 'nota' }, [mode])
+  const createTask = async () => {
+    if (!taskForm.titulo.trim() || !contactId) return
+    try {
+      await api.post('/tarefas', { tarefa: { contact_id: contactId, tipo: taskForm.tipo, titulo: taskForm.titulo, vencimento_em: taskForm.vencimento ? new Date(taskForm.vencimento).toISOString() : new Date().toISOString() } })
+      setTaskForm(f => ({ ...f, titulo: '', vencimento: '' })); setMode('chat'); loadTasks()
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Tarefa criada.', showConfirmButton: false, timer: 2500 })
+    } catch (e: Any) { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || e.response?.data?.error || 'Não foi possível criar a tarefa.', showConfirmButton: false, timer: 3500 }) }
+  }
+
+  const [listMenu, setListMenu] = useState(false)
+  const [headMenu, setHeadMenu] = useState(false)
+  const [tabMenu, setTabMenu] = useState(false)
+  const [tagBox, setTagBox] = useState(false)
+  const [showSnooze, setShowSnooze] = useState(false)
+  const [showResolve, setShowResolve] = useState(false)
+  const dark = '#2e3c4c'
+  const convNo = (c: Any) => 'A' + String(c.id).padStart(5, '0')
+  const tabsK = v.contactFieldGroups.length
+    ? v.contactFieldGroups.map((g: Any, i: number) => ({ id: i === 0 ? 'principal' : 'g' + g.id, label: g.name, group: g }))
+    : [{ id: 'principal', label: 'Principal', group: null }]
+  const moreTabs = [{ id: 'configuracoes', label: 'Ajustes' }, ...(me.role === 'diretoria' ? [{ id: 'setup', label: 'Configurações' }] : [])]
+  const activeTab = tabsK.find((x: Any) => x.id === v.activeDetailsTab)
+  const fieldsOfGroup = (g: Any) => (g?.field_keys || []).map((k: string) => fieldOf(k)).filter((fd: Any) => fd && !fd.hidden)
+  const saveField = async (key: string, value: Any) => {
+    const contact = activeProxy()?.contact
+    if (!contact?.id) return
+    const custom = { ...(contact.custom_attributes || {}) }
+    if (value === '' || value == null || (Array.isArray(value) && !value.length)) delete custom[key]; else custom[key] = value
+    try { await conversationsStore.updateContact(contact.id, { custom_attributes: custom }) }
+    catch { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Não foi possível salvar.', showConfirmButton: false, timer: 3000 }) }
+  }
+  const uploadField = async (key: string, file: File) => {
+    const contact = activeProxy()?.contact
+    if (!contact?.id) return
+    const fd = new FormData(); fd.append('file', file)
+    try { const { data } = await api.post(`/contacts/${contact.id}/field_file`, fd, { params: { key }, headers: { 'Content-Type': undefined } }); contact.custom_attributes = data.custom_attributes }
+    catch (e: Any) { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Não foi possível enviar o arquivo.', showConfirmButton: false, timer: 3500 }) }
+  }
+  const kfield = (fd: Any) => <KField key={fd.key} field={fd} value={getAttr(fd.key)} onSave={(val: Any) => saveField(fd.key, val)} onUpload={(f: File) => uploadField(fd.key, f)} />
+  // linha de campo no jeito do Kommo: rótulo cinza à esquerda, valor (ou "...") à direita, clica e edita
+  const rowK = (key: string, label: string) => (
+    <div key={key} style={{ display: 'flex', alignItems: 'center', minHeight: 32, gap: 10 }}>
+      <span title={label} style={{ width: '42%', flex: 'none', color: K.muted, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      {v.editingFieldKey === key
+        ? <input ref={fieldInputRef} value={v.editingFieldValue} onChange={e => { s.editingFieldValue = e.target.value }} onBlur={saveFieldValue}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveFieldValue() } else if (e.key === 'Escape') { e.preventDefault(); s.editingFieldKey = null } }}
+            style={{ flex: 1, minWidth: 0, border: 'none', borderBottom: `1px solid ${K.blue}`, outline: 'none', fontFamily: K.font, fontSize: 14, padding: '3px 0', background: 'none' }} />
+        : <span onClick={() => startEditingField(key)} style={{ flex: 1, minWidth: 0, fontSize: 14, color: getAttr(key) ? K.text : K.muted, cursor: 'text', overflowWrap: 'anywhere' }}>{getAttr(key) || '...'}</span>}
+    </div>
+  )
+  const roRow = (label: string, value: Any, key?: string) => (
+    <div key={key || label} style={{ display: 'flex', alignItems: 'center', minHeight: 32, gap: 10 }}>
+      <span style={{ width: '42%', flex: 'none', color: K.muted, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: value ? K.text : K.muted, overflowWrap: 'anywhere' }}>{value || '...'}</span>
+    </div>
+  )
+  const sectionK = (title: string) => <div key={'sec-' + title} style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: K.muted, margin: '16px 0 4px' }}>{title}</div>
+  const kSmallBtn: React.CSSProperties = { whiteSpace: 'nowrap', height: 30, padding: '0 12px', border: `1px solid ${K.lineDark}`, borderRadius: 3, background: '#fff', fontFamily: K.font, fontSize: 13, color: K.text, cursor: 'pointer' }
+  const menuK: React.CSSProperties = { position: 'absolute', zIndex: 40, background: '#fff', border: `1px solid ${K.line}`, borderRadius: 3, boxShadow: '0 4px 16px rgba(0,0,0,.14)', padding: '6px 0', minWidth: 210 }
+  const menuItemK: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', border: 'none', background: 'none', padding: '8px 16px', fontFamily: K.font, fontSize: 14, color: K.text, cursor: 'pointer' }
 
   return (
-    <div className="conv-fullbleed">
+    <div className="conv-fullbleed" style={{ fontFamily: K.font, color: K.text }}>
       <div className="conv-grid conv-grid-3" style={{ gridTemplateColumns: gridCols }}>
         {/* ---------------- lista ---------------- */}
-        <div className="conv-col" data-hide={v.mobileView !== 'list' ? '1' : '0'} style={{ borderRight: '1px solid var(--line)', background: 'var(--card)', display: 'flex', flexDirection: 'column', overflow: 'visible', minHeight: 0, position: 'relative', zIndex: 3 }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h1 style={{ ...serif, fontSize: 21, margin: 0, flex: 1 }}>{listTitle}</h1>
-              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{store.filteredConversations.length}</span>
-              <button title="Nova conversa" style={squareBtn} onClick={e => { stop(e); s.isNewConversationModalOpen = true }}><Plus size={16} /></button>
-              <div style={{ position: 'relative' }}>
-                <button title="Filtrar" style={{ ...squareBtn, borderColor: store.advancedFilters.length ? 'var(--terra)' : 'var(--line)', color: store.advancedFilters.length ? 'var(--terra)' : 'var(--ink)' }}
-                  onClick={e => { stop(e); s.isFilterPopoverOpen = !s.isFilterPopoverOpen; s.isSortPopoverOpen = false }}><Filter size={15} /></button>
-                <ConversationFilterPopover isOpen={v.isFilterPopoverOpen} initialFilters={store.advancedFilters}
-                  onClose={() => { s.isFilterPopoverOpen = false }} onApply={(f: Any) => conversationsStore.setAdvancedFilters(f)} />
-              </div>
-              <div style={{ position: 'relative' }}>
-                <button title="Ordenar" style={squareBtn} onClick={e => { stop(e); s.isSortPopoverOpen = !s.isSortPopoverOpen; s.isFilterPopoverOpen = false }}><ArrowDownUp size={15} /></button>
+        <div className="conv-col" data-hide={v.mobileView !== 'list' ? '1' : '0'} style={{ borderRight: `1px solid ${K.line}`, background: '#fff', display: 'flex', flexDirection: 'column', minHeight: 0, position: 'relative', zIndex: 3 }}>
+          <div style={{ height: 64, display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', borderBottom: `1px solid ${K.line}`, flex: 'none' }}>
+            <Search size={18} color={K.text} />
+            <input value={v.searchQuery} placeholder="Buscar" onChange={e => { s.searchQuery = e.target.value }} onKeyDown={e => { if (e.key === 'Escape') clearSearch() }}
+              style={{ flex: 1, border: 'none', outline: 'none', fontFamily: K.font, fontSize: 16, background: 'none', color: K.text }} />
+            {v.searchQuery && <button title="Limpar pesquisa" onClick={clearSearch} style={{ border: 'none', background: 'none', color: K.muted, display: 'flex', cursor: 'pointer' }}><X size={15} /></button>}
+          </div>
+          {!isSearchActive && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: `1px solid ${K.line}`, flex: 'none', position: 'relative' }}>
+              <button onClick={() => setListMenu(m => !m)} title="Trocar filtro" style={{ fontFamily: K.font, fontSize: 13, padding: '2px 8px', border: '1px solid #b9d98a', background: '#e6f2d2', color: '#4f6b25', borderRadius: 2, cursor: 'pointer' }}>
+                {(tabs.find(t => t.id === store.currentFilter) || tabs[0]).id === 'all' ? 'Conversas abertas' : tabs.find(t => t.id === store.currentFilter)?.label}
+                {store.advancedFilters.length > 0 && ` + ${store.advancedFilters.length} filtro(s)`}
+              </button>
+              {params.inboxId && <span style={{ fontSize: 12.5, color: K.muted }}>{inboxes.inboxes.find((i: Any) => String(i.id) === String(params.inboxId))?.name}</span>}
+              <span style={{ flex: 1 }} />
+              <span style={{ fontSize: 13, color: K.muted }}>Total: {store.filteredConversations.length}</span>
+              <button title="Mais opções" onClick={e => { stop(e); setListMenu(m => !m) }} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', color: K.text }}><MoreHorizontal size={18} /></button>
+              {listMenu && (
+                <div style={{ ...menuK, top: '100%', right: 10 }} onClick={stop}>
+                  <div style={{ padding: '4px 16px', fontSize: 11.5, fontWeight: 700, color: K.muted, textTransform: 'uppercase' }}>Mostrar</div>
+                  {tabs.map(t => (
+                    <button key={t.id} onClick={() => { conversationsStore.setFilter(t.id); setListMenu(false) }} style={{ ...menuItemK, background: (store.currentFilter === t.id || (t.id === 'all' && !tabs.some(x => x.id === store.currentFilter))) ? '#eef4fe' : 'none' }}>
+                      <span style={{ flex: 1 }}>{t.id === 'all' ? 'Conversas abertas' : t.label}</span><span style={{ color: K.muted }}>{t.n}</span>
+                    </button>
+                  ))}
+                  {inboxes.inboxes.length > 1 && (<>
+                    <div style={{ borderTop: `1px solid ${K.line}`, margin: '6px 0' }} />
+                    <div style={{ padding: '4px 16px', fontSize: 11.5, fontWeight: 700, color: K.muted, textTransform: 'uppercase' }}>Canal</div>
+                    <button onClick={() => { navigate('/conversas'); setListMenu(false) }} style={{ ...menuItemK, background: !params.inboxId ? '#eef4fe' : 'none' }}>Todos os canais</button>
+                    {inboxes.inboxes.map((i: Any) => <button key={i.id} onClick={() => { navigate(`/conversas/inbox/${i.id}`); setListMenu(false) }} style={{ ...menuItemK, background: String(params.inboxId) === String(i.id) ? '#eef4fe' : 'none' }}>{i.name}{i.connected === false ? ' (desconectada)' : ''}</button>)}
+                  </>)}
+                  <div style={{ borderTop: `1px solid ${K.line}`, margin: '6px 0' }} />
+                  <button onClick={() => { setListMenu(false); s.isFilterPopoverOpen = true }} style={menuItemK}><Filter size={14} /> Filtro avançado</button>
+                  <button onClick={() => { setListMenu(false); s.isSortPopoverOpen = true }} style={menuItemK}><ArrowDownUp size={14} /> Ordenar</button>
+                  <button onClick={() => { setListMenu(false); s.isNewConversationModalOpen = true }} style={menuItemK}><Plus size={14} /> Nova conversa</button>
+                </div>
+              )}
+              <div style={{ position: 'absolute', top: '100%', right: 10 }}>
+                <ConversationFilterPopover isOpen={v.isFilterPopoverOpen} initialFilters={store.advancedFilters} onClose={() => { s.isFilterPopoverOpen = false }} onApply={(f: Any) => conversationsStore.setAdvancedFilters(f)} />
                 <ConversationSortPopover isOpen={v.isSortPopoverOpen} onClose={() => { s.isSortPopoverOpen = false }} />
               </div>
             </div>
-            <div style={{ position: 'relative' }}>
-              <input value={v.searchQuery} placeholder="Pesquisar nome, telefone ou mensagem…" style={{ ...inputStyle, paddingRight: 32 }}
-                onChange={e => { s.searchQuery = e.target.value }} onKeyDown={e => { if (e.key === 'Escape') clearSearch() }} />
-              {v.searchQuery && <button title="Limpar pesquisa" onClick={clearSearch} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', color: 'var(--muted)', display: 'flex' }}><X size={14} /></button>}
-            </div>
-            {inboxes.inboxes.length > 1 && !isSearchActive && (
-              <select value={params.inboxId || ''} style={inputStyle}
-                onChange={e => navigate(e.target.value ? `/conversas/inbox/${e.target.value}` : '/conversas')}>
-                <option value="">Todas as caixas</option>
-                {inboxes.inboxes.map((i: Any) => <option key={i.id} value={i.id}>{i.name}{i.connected === false ? ' (desconectada)' : ''}</option>)}
-              </select>
-            )}
-            {!isSearchActive && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {tabs.map(t => (
-                  <button key={t.id} style={chipBtn(store.currentFilter === t.id)} onClick={() => conversationsStore.setFilter(t.id)}>
-                    {t.label}<span style={{ opacity: 0.75, fontWeight: 700 }}>{t.n}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
 
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {isSearchActive ? (
-              v.isSearching && !v.searchResults ? <p style={{ ...small, padding: 20, textAlign: 'center' }}>Pesquisando…</p> : v.searchResults ? (
+              v.isSearching && !v.searchResults ? <p style={{ fontSize: 14, color: K.muted, padding: 20, textAlign: 'center' }}>Pesquisando…</p> : v.searchResults ? (
                 <>
-                  {v.searchResults.conversations.length > 0 && <p style={{ ...labelStyle, margin: '14px 16px 6px' }}>Revendedoras</p>}
+                  {v.searchResults.conversations.length > 0 && <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: K.muted, margin: '14px 16px 6px' }}>Contatos</p>}
                   {v.searchResults.conversations.map((r: Any) => (
-                    <button key={'c' + r.conversation_id} onClick={() => openSearchResult(r.conversation_id)} style={{ width: '100%', textAlign: 'left', padding: '11px 16px', border: 'none', borderBottom: '1px solid var(--line)', background: 'none' }}>
-                      <span style={{ display: 'flex', gap: 8 }}><b style={{ flex: 1, fontSize: 13.5 }}>{r.contact_name}</b><span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{formatSearchDate(r.last_activity_iso)}</span></span>
-                      <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{r.contact_phone}{r.inbox_name && ' · ' + r.inbox_name}{r.status === 'resolved' && ' · Resolvida'}</span>
+                    <button key={'c' + r.conversation_id} onClick={() => openSearchResult(r.conversation_id)} style={{ width: '100%', textAlign: 'left', padding: '11px 16px', border: 'none', borderBottom: `1px solid ${K.line}`, background: 'none', fontFamily: K.font, cursor: 'pointer' }}>
+                      <span style={{ display: 'flex', gap: 8 }}><b style={{ flex: 1, fontSize: 14 }}>{r.contact_name}</b><span style={{ fontSize: 12, color: K.muted }}>{formatSearchDate(r.last_activity_iso)}</span></span>
+                      <span style={{ display: 'block', fontSize: 13, color: K.muted, marginTop: 2 }}>{r.contact_phone}{r.inbox_name && ' · ' + r.inbox_name}{r.status === 'resolved' && ' · Fechada'}</span>
                     </button>
                   ))}
-                  {v.searchResults.messages.length > 0 && <p style={{ ...labelStyle, margin: '14px 16px 6px' }}>Mensagens</p>}
+                  {v.searchResults.messages.length > 0 && <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: K.muted, margin: '14px 16px 6px' }}>Mensagens</p>}
                   {v.searchResults.messages.map((m: Any) => (
-                    <button key={'m' + m.id} onClick={() => openSearchResult(m.conversation_id, m.id)} style={{ width: '100%', textAlign: 'left', padding: '11px 16px', border: 'none', borderBottom: '1px solid var(--line)', background: 'none' }}>
-                      <span style={{ display: 'flex', gap: 8 }}><b style={{ flex: 1, fontSize: 13.5 }}>{m.contact_name}</b><span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{formatSearchDate(m.timestamp)}</span></span>
-                      <span style={{ display: 'block', fontSize: 12.5, color: 'var(--ink)', marginTop: 3, lineHeight: 1.5 }}>
-                        {m.sender && <span style={{ color: 'var(--muted)' }}>{m.sender}: </span>}
-                        {highlightParts(m.text).map((part, i) => (part.hit ? <mark key={i} style={{ background: 'var(--terraSoft)', color: 'var(--terra)', fontWeight: 700 }}>{part.text}</mark> : <Fragment key={i}>{part.text}</Fragment>))}
+                    <button key={'m' + m.id} onClick={() => openSearchResult(m.conversation_id, m.id)} style={{ width: '100%', textAlign: 'left', padding: '11px 16px', border: 'none', borderBottom: `1px solid ${K.line}`, background: 'none', fontFamily: K.font, cursor: 'pointer' }}>
+                      <span style={{ display: 'flex', gap: 8 }}><b style={{ flex: 1, fontSize: 14 }}>{m.contact_name}</b><span style={{ fontSize: 12, color: K.muted }}>{formatSearchDate(m.timestamp)}</span></span>
+                      <span style={{ display: 'block', fontSize: 13, marginTop: 3, lineHeight: 1.5 }}>
+                        {m.sender && <span style={{ color: K.muted }}>{m.sender}: </span>}
+                        {highlightParts(m.text).map((part, i) => (part.hit ? <mark key={i} style={{ background: '#fff3a8', fontWeight: 700 }}>{part.text}</mark> : <Fragment key={i}>{part.text}</Fragment>))}
                       </span>
-                      {m.inbox_name && <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{m.inbox_name}</span>}
                     </button>
                   ))}
-                  {!v.searchResults.conversations.length && !v.searchResults.messages.length && <p style={{ ...small, padding: '40px 20px', textAlign: 'center' }}>Nada encontrado para "{v.searchQuery}".</p>}
+                  {!v.searchResults.conversations.length && !v.searchResults.messages.length && <p style={{ fontSize: 14, color: K.muted, padding: '40px 20px', textAlign: 'center' }}>Nada encontrado para "{v.searchQuery}".</p>}
                 </>
               ) : null
             ) : (
@@ -829,461 +938,401 @@ export default function Conversas() {
                 {store.filteredConversations.map((c: Any) => {
                   const on = c.id === store.activeConversationId
                   const last = c.messages?.[c.messages.length - 1]
+                  const fg = on ? '#fff' : K.text
                   return (
                     <button key={c.id} onClick={() => openConversationMobile(c.id)}
-                      style={{ width: '100%', display: 'flex', gap: 11, alignItems: 'center', padding: '13px 14px', border: 'none', borderBottom: '1px solid var(--line)', background: on ? 'var(--bg)' : 'transparent', boxShadow: 'inset 3px 0 0 ' + (on ? 'var(--terra)' : 'transparent') }}>
-                      <ChatAvatar nome={c.contact.name || ''} foto={c.contact.avatar_url} size={38} />
+                      style={{ width: '100%', display: 'flex', gap: 12, alignItems: 'center', padding: '10px 14px 10px 16px', border: 'none', borderBottom: `1px solid ${on ? K.blue : K.line}`, background: on ? K.blue : c.unread > 0 ? '#eef4fe' : '#fff', fontFamily: K.font, cursor: 'pointer' }}>
+                      <span style={{ position: 'relative', flex: 'none' }}>
+                        <ChatAvatar nome={c.contact.name || ''} foto={c.contact.avatar_url} size={42} />
+                        <span style={{ position: 'absolute', right: -2, bottom: -2, width: 16, height: 16, borderRadius: '50%', background: '#fff', padding: 1, display: 'flex' }}><WhatsappIcon source={c.source || 'whatsapp'} /></span>
+                      </span>
                       <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.contact.name}</span>
-                          <span style={{ fontSize: 10.5, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{listTime(c.last_activity_iso)}</span>
+                          <b style={{ flex: '0 1 auto', minWidth: 0, fontSize: 15, color: fg, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.contact.name}</b>
+                          <span style={{ flex: 'none', fontSize: 11, fontWeight: 700, padding: '0 4px', borderRadius: 2, background: on ? 'rgba(255,255,255,.25)' : '#7dbb2d', color: '#fff' }}>{convNo(c)}</span>
+                          <span style={{ flex: 1 }} />
+                          <span style={{ fontSize: 13, color: on ? '#fff' : K.muted, whiteSpace: 'nowrap' }}>{listTime(c.last_activity_iso)}</span>
                         </span>
-                        {c.tags?.length > 0 && <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>{c.tags.slice(0, 2).map((t: Any) => <Tag key={t.id} name={t.name} color={t.color} />)}{c.tags.length > 2 && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>+{c.tags.length - 2}</span>}</span>}
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                          {c.inbox_name && <span title={'Caixa: ' + c.inbox_name + (c.inbox_phone ? ' (' + c.inbox_phone + ')' : '')} style={{ flex: 'none', maxWidth: 96, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 4, color: 'var(--olive)', background: 'var(--oliveSoft)' }}>{c.inbox_name}</span>}
-                          <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: c.unread > 0 ? 'var(--ink)' : 'var(--muted)', fontWeight: c.unread > 0 ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(last?.senderType === 'agent' ? 'Você: ' : '') + (c.preview || '')}</span>
-                          {c.unread > 0 && <span style={{ flex: 'none', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: 'var(--olive)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.unread > 99 ? '99+' : c.unread}</span>}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: on ? '#fff' : c.unread > 0 ? K.text : '#5c6670', fontWeight: c.unread > 0 ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {(last?.senderType === 'agent' ? (last.agentName || 'Você') : c.contact.name) + ': ' + (c.preview || '')}
+                          </span>
+                          {c.unread > 0 && <span style={{ flex: 'none', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: '#e53935', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.unread > 99 ? '99+' : c.unread}</span>}
                         </span>
-                        {c.assignee && <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>Atendente: {c.assignee}</span>}
                       </span>
                     </button>
                   )
                 })}
                 {store.filteredConversations.length === 0 && (
-                  <div style={{ padding: '44px 20px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 13.5, margin: '0 0 4px' }}>Nenhuma conversa neste filtro.</p>
-                    <p style={small}>Ajuste os filtros, a caixa ou a aba.</p>
-                  </div>
+                  <div style={{ padding: '44px 20px', textAlign: 'center', color: K.muted, fontSize: 14 }}>Nenhuma conversa neste filtro.</div>
                 )}
               </>
             )}
           </div>
         </div>
 
-        {/* ---------------- chat ---------------- */}
-        <div className="conv-col" data-hide={v.mobileView === 'chat' ? '0' : '1'} style={{ background: 'var(--bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+        {/* ---------------- card do lead (painel escuro do Kommo) ---------------- */}
+        {conv && showDetails && (
+          <div className="conv-col conv-details" data-hide='0' style={{ borderRight: `1px solid ${K.line}`, background: '#fff', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div style={{ background: dark, color: '#fff', padding: '16px 18px 0', flex: 'none', position: 'relative' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <button title="Fechar card" onClick={() => { if (isMobile) s.mobileView = 'chat'; else setDetailsOpen(false) }} style={{ border: 'none', background: 'none', color: '#aab4be', cursor: 'pointer', padding: '4px 0', display: 'flex' }}><ChevronLeft size={18} /></button>
+                {v.isEditingName ? (
+                  <input ref={nameInputRef} value={v.editingName} maxLength={120} onChange={e => { s.editingName = e.target.value }} onBlur={saveContactName}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveContactName() } else if (e.key === 'Escape') { e.preventDefault(); s.isEditingName = false } }}
+                    style={{ flex: 1, minWidth: 0, background: 'none', border: 'none', borderBottom: '1px solid #fff', color: '#fff', fontFamily: K.font, fontSize: 22, fontWeight: 700, outline: 'none' }} />
+                ) : (
+                  <h2 onClick={startEditingName} title="Clique pra editar o nome" style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 22, lineHeight: 1.25, fontWeight: 700, textTransform: 'uppercase', cursor: 'text', overflowWrap: 'anywhere' }}>{conv.contact.name}</h2>
+                )}
+                <div style={{ position: 'relative' }}>
+                  <button title="Mais" onClick={e => { stop(e); setHeadMenu(m => !m) }} style={{ border: 'none', background: 'none', color: '#fff', cursor: 'pointer', display: 'flex', padding: 4 }}><MoreHorizontal size={20} /></button>
+                  {headMenu && (
+                    <div style={{ ...menuK, top: '100%', right: 0, color: K.text }} onClick={stop}>
+                      <button onClick={() => { setHeadMenu(false); s.isEditModalOpen = true }} style={menuItemK}><Edit2 size={14} /> Editar contato</button>
+                      <button onClick={() => { setHeadMenu(false); navigate('/settings/tags') }} style={menuItemK}># Gerenciar tags</button>
+                      <button onClick={() => { setHeadMenu(false); navigate(`/contatos/${conv.contact.id}`) }} style={menuItemK}><ExternalLink size={14} /> Abrir ficha completa</button>
+                      <button disabled={!conv.assignee_id} onClick={() => { setHeadMenu(false); s.showTransferModal = true }} style={{ ...menuItemK, opacity: conv.assignee_id ? 1 : 0.45 }}><Forward size={14} /> Transferir com nota</button>
+                      <button onClick={() => { setHeadMenu(false); s.isScheduleModalOpen = true }} style={menuItemK}><Clock size={14} /> Agendar mensagem</button>
+                      <button onClick={() => { setHeadMenu(false); s.isMergeModalOpen = true }} style={menuItemK}><GitMerge size={14} /> Mesclar contato</button>
+                      <div style={{ borderTop: `1px solid ${K.line}`, margin: '6px 0' }} />
+                      <button onClick={() => { setHeadMenu(false); s.isDeleteConversationModalOpen = true }} style={{ ...menuItemK, color: '#e53935' }}><MessageCircle size={14} /> Apagar conversa</button>
+                      <button onClick={() => { setHeadMenu(false); s.isDeleteModalOpen = true }} style={{ ...menuItemK, color: '#e53935' }}><Trash2 size={14} /> Apagar contato</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, margin: '10px 0 0 26px', position: 'relative' }}>
+                <span style={{ fontSize: 14, color: '#aab4be', marginRight: 2 }}>#{conv.contact.id}</span>
+                {(conv.tags || []).map((t: Any) => (
+                  <span key={t.id} title="Clique pra remover" onClick={() => removeTag(t.id)} style={{ fontSize: 13, textTransform: 'uppercase', padding: '1px 7px', border: `1px solid ${t.color || '#7f8b97'}`, background: 'rgba(255,255,255,.08)', color: '#fff', borderRadius: 2, cursor: 'pointer' }}>{t.name}</span>
+                ))}
+                <button onClick={e => { stop(e); setTagBox(b => !b) }} style={{ fontSize: 11.5, textTransform: 'uppercase', padding: '2px 7px', border: '1px solid #66727e', background: 'none', color: '#c5ccd3', borderRadius: 2, cursor: 'pointer' }}>#adicionar tags</button>
+                {tagBox && (
+                  <div onClick={stop} style={{ ...menuK, top: '100%', left: 0, padding: 10, width: 260, color: K.text }}>
+                    <input autoFocus value={v.newTagName} onChange={e => { s.newTagName = e.target.value; s.showTagSuggestions = true }} onKeyUp={e => { if (e.key === 'Enter') { addTag(); setTagBox(false) } }} placeholder="Buscar ou criar tag" style={kInput} />
+                    <div style={{ maxHeight: 180, overflowY: 'auto', marginTop: 6 }}>
+                      {tagSuggestions.map((t: Any) => <button key={t.id} onClick={() => { pickTagSuggestion(t); setTagBox(false) }} style={{ ...menuItemK, padding: '6px 4px' }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: t.color }} />{t.name}</button>)}
+                    </div>
+                    {v.newTagName.trim() && <button onClick={() => { addTag(); setTagBox(false) }} style={{ ...kBtn('blue'), marginTop: 6, width: '100%', justifyContent: 'center' }}>Criar "{v.newTagName.trim()}"</button>}
+                  </div>
+                )}
+              </div>
+              {/* funil › etapa (dias) + barra de progresso */}
+              <div style={{ margin: '14px 0 0 26px' }}>
+                <div style={{ fontSize: 13, color: '#aab4be' }}>{regua ? 'Consignado' : cardPipe?.name}</div>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, textTransform: 'uppercase' }}>{regua ? statusLabel(conv.contact.status) : cardPipe?.pipeline_stages.find((x: Any) => x.id === card?.pipeline_stage_id)?.name}</span>
+                  {stageDays != null && <span style={{ fontSize: 14, color: '#aab4be', marginLeft: 6 }}>({stageDays} dias)</span>}
+                  <span style={{ flex: 1 }} />
+                  <ChevronDown size={16} color="#aab4be" />
+                  {regua ? (
+                    <select aria-label="Etapa" value={conv.contact.status || 'revendedor_ativo'} disabled={v.isChangingStatus} onChange={e => changeContactStatus(e.target.value)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}>
+                      {statusOptions.map(grp => <optgroup key={grp.group} label={grp.group}>{Object.entries(grp.options).map(([key, label]) => <option key={key} value={key}>{label as string}</option>)}</optgroup>)}
+                    </select>
+                  ) : (
+                    <select aria-label="Etapa" value={card?.pipeline_stage_id} onChange={e => moveCard(Number(e.target.value))} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}>
+                      {(cardPipe?.pipeline_stages || []).map((x: Any) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                    </select>
+                  )}
+                </div>
+                <div style={{ height: 3, background: '#4a5867', borderRadius: 2, margin: '7px 0 0' }}>
+                  <div style={{ height: 3, borderRadius: 2, background: '#7fb2f0', width: `${stageTotal ? Math.min(100, ((Math.max(stageIdx, 0) + 1) / stageTotal) * 100) : 0}%` }} />
+                </div>
+              </div>
+              {/* abas */}
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, margin: '16px 0 0 26px', position: 'relative' }}>
+                {/* as abas rolam de lado dentro do painel quando não cabem (nunca passam da borda) */}
+                <div className="k-tabs" style={{ flex: 1, minWidth: 0, display: 'flex', gap: 16, overflowX: 'auto', scrollbarWidth: 'none', paddingRight: 14, maskImage: 'linear-gradient(90deg, #000 calc(100% - 22px), transparent)', WebkitMaskImage: 'linear-gradient(90deg, #000 calc(100% - 22px), transparent)' }}>
+                  {tabsK.map(tab => {
+                    const on = v.activeDetailsTab === tab.id
+                    return <button key={tab.id} onClick={e => { s.activeDetailsTab = tab.id; (e.currentTarget as HTMLElement).scrollIntoView({ inline: 'nearest', block: 'nearest' }) }} style={{ flex: 'none', whiteSpace: 'nowrap', border: 'none', background: 'none', padding: '0 0 9px', fontFamily: K.font, fontSize: 14.5, fontWeight: 700, color: on ? '#fff' : '#8b97a3', borderBottom: `2px solid ${on ? '#fff' : 'transparent'}`, cursor: 'pointer' }}>{tab.label}</button>
+                  })}
+                </div>
+                <button title="Mais abas" onClick={e => { stop(e); setTabMenu(m => !m) }} style={{ border: 'none', background: 'none', color: moreTabs.some(t => t.id === v.activeDetailsTab) ? '#fff' : '#8b97a3', padding: '0 0 9px', cursor: 'pointer', display: 'flex' }}><MoreHorizontal size={18} /></button>
+                {tabMenu && (
+                  <div style={{ ...menuK, top: '100%', right: 0, color: K.text }} onClick={stop}>
+                    {moreTabs.map(t => <button key={t.id} onClick={() => { s.activeDetailsTab = t.id; setTabMenu(false) }} style={{ ...menuItemK, background: v.activeDetailsTab === t.id ? '#eef4fe' : 'none' }}>{t.label}</button>)}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 18px 24px 44px' }}>
+              {activeTab && (
+                <>
+                  {activeTab.id === 'principal' && (
+                    <div style={{ display: 'flex', alignItems: 'center', minHeight: 32, gap: 10 }}>
+                      <span style={{ width: '42%', flex: 'none', color: K.muted, fontSize: 14 }}>Usuário responsável</span>
+                      <select value={conv.assignee_id || ''} onChange={e => handleAssign(e.target.value)} disabled={v.isAssigning} style={{ flex: 1, minWidth: 0, border: 'none', background: 'none', fontFamily: K.font, fontSize: 14, color: K.text, padding: 0, cursor: 'pointer' }}>
+                        <option value="">Não atribuído</option>
+                        {agentsByDepartment.map(group => <optgroup key={group.dept} label={group.label}>{group.agents.map((agent: Any) => <option key={agent.id} value={agent.id}>{agent.first_name} {agent.last_name}</option>)}</optgroup>)}
+                      </select>
+                    </div>
+                  )}
+                  {activeTab.group ? fieldsOfGroup(activeTab.group).map(kfield) : principalFields.filter((fd: Any) => !fd.hidden).map(kfield)}
+                  {activeTab.id === 'principal' && (<>
+                    {unassignedFields.filter((fd: Any) => !fd.hidden).length > 0 && sectionK('Outros')}
+                    {unassignedFields.filter((fd: Any) => !fd.hidden).map(kfield)}
+                    {sectionK('Contato')}
+                    {roRow('Telefone', formatPhoneDisplay(conv.contact.phone))}
+                    {roRow('E-mail', conv.contact.email)}
+                    {roRow('Carteira', conv.contact.custom_attributes?.gerente_jueri_nome)}
+                    {sectionK('Notas')}
+                    {(conv.contact?.notes || []).map((n: Any) => (
+                      <div key={n.id} style={{ fontSize: 13.5, padding: '6px 0', borderBottom: `1px solid ${K.line}` }}>
+                        <span style={{ display: 'block', fontSize: 12, color: K.muted }}>{n.author} · {new Date(n.created_at).toLocaleDateString('pt-BR')}</span>
+                        <span style={{ whiteSpace: 'pre-wrap' }}>{n.content}</span>
+                      </div>
+                    ))}
+                    <textarea value={v.newNoteText} onChange={e => { s.newNoteText = e.target.value }} placeholder="Adicionar nota…" rows={2} style={{ ...kInput, height: 'auto', padding: 8, marginTop: 8, resize: 'vertical' }} />
+                    {v.newNoteText.trim() && <button onClick={saveNote} disabled={v.isSavingNote} style={{ ...kBtn('blue'), marginTop: 6 }}>{v.isSavingNote ? 'Salvando…' : 'Salvar nota'}</button>}
+                  </>)}
+                  {/^dados/i.test(activeTab.label) && (<>
+                    {sectionK('Cadastro')}
+                    {roRow('E-mail', conv.contact.email)}
+                    {(conv.contact.reseller_phones || []).map((tp: Any) => roRow(tp.label || 'Telefone adicional', tp.phone, 't-' + tp.id))}
+                    {roRow('Data de cadastro', formatDate(conv.contact.created_at))}
+                    {sectionK('Dados do Jueri (sincronizado)')}
+                    {dadosFields.map(fd => roRow(fd.label, getDadoValue(fd), 'j-' + fd.key))}
+                    {extraAttributes.filter(a => !fieldOf(a.key)?.label || fieldOf(a.key)?.label === a.key).map(a => roRow(a.label, String(a.value), 'x-' + a.key))}
+                    {sectionK('Anexos da conversa')}
+                    {conversationAttachments.length ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                        {conversationAttachments.map((a: Any) => (
+                          <a key={a.id} href={a.attachmentUrl} target="_blank" rel="noreferrer" style={{ aspectRatio: '1', border: `1px solid ${K.line}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: K.muted }}>
+                            {a.attachmentType?.startsWith('image/') ? <img src={a.attachmentUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📎 Arquivo'}
+                          </a>
+                        ))}
+                      </div>
+                    ) : <p style={{ fontSize: 13.5, color: K.muted, margin: 0 }}>Nenhum anexo.</p>}
+                  </>)}
+                  {/^financ/i.test(activeTab.label) && (<>
+                    {sectionK('Resumo')}
+                    {roRow('Total vendido', brl(totalVendido))}
+                    {roRow('Em aberto', brl(totalEmAberto))}
+                    {sectionK('Pedidos / acertos (Jueri)')}
+                    {pedidos.length ? pedidos.map((p: Any) => (
+                      <div key={p.id} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: `1px solid ${K.line}`, fontSize: 13.5 }}>
+                        <span style={{ fontSize: 11.5, textTransform: 'uppercase', padding: '0 6px', border: `1px solid ${K.lineDark}`, borderRadius: 2, color: K.muted }}>{PEDIDO_STATUS_LABELS[p.status_id] || '—'}</span>
+                        <span style={{ flex: 1, color: K.muted }}>{formatDate(p.data_criacao)}</span><b>{brl(p.valor_total)}</b>
+                      </div>
+                    )) : <p style={{ fontSize: 13.5, color: K.muted, margin: 0 }}>Nenhum pedido sincronizado.</p>}
+                  </>)}
+                  {/^estat/i.test(activeTab.label) && (<>
+                    {sectionK('Números')}
+                    {roRow('Dias como revendedora', daysAsClient)}
+                    {roRow('Dias na etapa', stageDays)}
+                    {roRow('Mensagens', totalMessagesCount)}
+                    {roRow('Pedidos baixados', pedidosFechadosCount)}
+                    {roRow('Tags', activeTagsCount)}
+                    {roRow('Última interação', formatDateTime(lastMessageAt))}
+                    {sectionK('Ciclo de vida')}
+                    {lifecycleEvents.length ? lifecycleEvents.map((ev: Any) => roRow(LIFECYCLE_EVENT_LABELS[ev.event_type] || ev.event_type, formatDateTime(ev.occurred_at), 'ev' + ev.id)) : <p style={{ fontSize: 13.5, color: K.muted, margin: 0 }}>Nenhum marco registrado.</p>}
+                  </>)}
+                </>
+              )}
+
+              {v.activeDetailsTab === 'setup' && <FieldSetup onClose={() => { s.activeDetailsTab = 'principal' }} onChanged={() => api.get('/contact_field_groups').then(r => { s.contactFieldGroups = r.data })} />}
+
+              {v.activeDetailsTab === 'configuracoes' && (
+                <>
+                  {roRow('Criado em', formatDateTime(conv.contact.created_at))}
+                  {roRow('Última mudança de etapa', formatDateTime(conv.contact.status_changed_at))}
+                  {sectionK('Mensagens agendadas')}
+                  {v.scheduledMessages.length ? v.scheduledMessages.map((m: Any) => (
+                    <div key={m.id} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: `1px solid ${K.line}`, fontSize: 13.5 }}>
+                      <span style={{ flex: 1 }}><b style={{ display: 'block', fontSize: 12.5, color: K.link }}>{new Date(m.send_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</b>{m.text}</span>
+                      <button title="Cancelar envio" onClick={() => cancelScheduledMessage(m.id)} style={{ border: 'none', background: 'none', color: K.muted, cursor: 'pointer' }}><X size={14} /></button>
+                    </div>
+                  )) : <p style={{ fontSize: 13.5, color: K.muted, margin: 0 }}>Nenhuma.</p>}
+                  <button onClick={() => { s.isScheduleModalOpen = true }} style={{ ...kSmallBtn, marginTop: 8 }}>+ Agendar mensagem</button>
+                  {sectionK('Ações')}
+                  <button onClick={() => { s.isMergeModalOpen = true }} style={{ ...kSmallBtn, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}><GitMerge size={14} /> Mesclar com outro contato</button>
+                  <button onClick={() => { s.isDeleteModalOpen = true }} style={{ ...kSmallBtn, display: 'flex', alignItems: 'center', gap: 6, color: '#e53935' }}><Trash2 size={14} /> Apagar este contato</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- histórico (feed do Kommo) ---------------- */}
+        <div className="conv-col" data-hide={v.mobileView === 'chat' ? '0' : '1'} style={{ background: '#f5f5f5', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           {conv ? (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderBottom: '1px solid var(--line)', background: 'var(--card)', flex: 'none' }}>
-                <button className="conv-back" onClick={() => { s.mobileView = 'list' }} style={{ display: 'none', width: 30, height: 30, flex: 'none', border: '1px solid var(--line)', borderRadius: 8, background: 'none', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>‹</button>
-                <button onClick={() => { if (isMobile) s.mobileView = 'details'; else setDetailsOpen(o => !o) }} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', textAlign: 'left', padding: 0 }}>
-                  <ChatAvatar nome={conv.contact.name || ''} foto={conv.contact.avatar_url} size={38} />
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{conv.contact.name}</span>
-                    <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>
-                      #{conv.id}{conv.contact.id_jueri ? ' · ' + statusLabel(conv.contact.status) : ''}{conv.assignee ? ' · ' + conv.assignee : ''}{conv.inbox_name ? ' · pela caixa ' + conv.inbox_name : ''}
-                    </span>
-                  </span>
-                </button>
-                <ConversationStatusDropdown conversationId={conv.id} currentStatus={conv.status} />
-                <ConversationMoreOptionsDropdown conversationId={conv.id} contactId={conv.contact?.id} contactStatus={conv.contact?.status}
-                  onContactBlocked={() => { activeProxy().contact.status = 'blocked' }}
-                  onContactUnblocked={() => { activeProxy().contact.status = 'active' }} />
-                <button onClick={() => { if (isMobile) s.mobileView = 'details'; else setDetailsOpen(o => !o) }} style={btn('ghost', { padding: '7px 12px', fontSize: 12.5 })}>
-                  {detailsOpen ? 'Ocultar ficha' : 'Ver revendedora'}
-                </button>
-              </div>
+              {(isMobile || !showDetails) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: '#fff', borderBottom: `1px solid ${K.line}`, flex: 'none' }}>
+                  <button className="conv-back" onClick={() => { s.mobileView = 'list' }} style={{ display: 'none', border: 'none', background: 'none', cursor: 'pointer' }}><ChevronLeft size={20} /></button>
+                  <button onClick={() => { if (isMobile) s.mobileView = 'details'; else setDetailsOpen(true) }} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, border: 'none', background: 'none', textAlign: 'left', fontFamily: K.font, cursor: 'pointer' }}>
+                    <ChatAvatar nome={conv.contact.name || ''} foto={conv.contact.avatar_url} size={34} />
+                    <span style={{ minWidth: 0 }}><b style={{ display: 'block', fontSize: 15 }}>{conv.contact.name}</b><span style={{ fontSize: 13, color: K.link }}>Abrir card do lead</span></span>
+                  </button>
+                </div>
+              )}
 
-              <div ref={messagesContainerRef} className="chat-messages" style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {conv.messages.map((msg: Any) => {
-                  const day = dayOf(msg.timestamp)
-                  const sep = day !== lastDay
-                  lastDay = day
-                  const out = msg.senderType === 'agent'
-                  const bubble: React.CSSProperties = msg.isPrivate
-                    ? { background: '#FFF6DB', border: '1px solid #F1D37A', color: '#5B4300' }
-                    : out ? { background: 'var(--terra)', color: '#fff' } : { background: 'var(--card)', border: '1px solid var(--line)' }
-                  const hit = v.highlightedMessageId === msg.id
-                  return (
-                    <div key={msg.id} id={'msg-' + msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {sep && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '6px 0' }}>
-                          <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-                          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>{day}</span>
-                          <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+              <div ref={messagesContainerRef} className="chat-messages" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, padding: '18px clamp(10px, 2vw, 22px)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* bloco do WhatsApp: mensagens da conversa num cartão branco */}
+                <div style={{ background: '#fff', border: `1px solid ${K.line}`, borderRadius: 3, boxShadow: '0 3px 0 -1px #fff, 0 3px 0 0 #e3e5e8, 0 6px 0 -1px #fff, 0 6px 0 0 #e3e5e8', padding: '14px 18px 12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: '#5c6670', marginBottom: 12 }}>
+                    <span style={{ width: 14, height: 14, display: 'flex' }}><WhatsappIcon source="whatsapp" /></span>{conv.inbox_phone || conv.inbox_name || 'WhatsApp'}
+                  </div>
+                  {conv.messages.map((msg: Any) => {
+                    const day = dayOf(msg.timestamp)
+                    const sep = day !== lastDay
+                    lastDay = day
+                    const out = msg.senderType === 'agent'
+                    const hit = v.highlightedMessageId === msg.id
+                    const head = `${formatDate(msg.timestamp) || ''} ${hora(msg.timestamp)} ${out ? (msg.agentName || 'Você') : conv.contact.name}`
+                    if (msg.isPrivate) {
+                      return (
+                        <div key={msg.id} id={'msg-' + msg.id} style={{ margin: '8px 0', padding: '8px 12px', background: '#fffbe6', border: '1px solid #f1e0a0', borderRadius: 3, fontSize: 14 }}>
+                          <span style={{ display: 'block', fontSize: 12.5, color: K.muted, marginBottom: 2 }}>{head} · Nota</span>
+                          <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>
                         </div>
-                      )}
-                      <div style={{ display: 'flex', justifyContent: out ? 'flex-end' : 'flex-start' }}>
-                        <span style={{ maxWidth: '72%', padding: '11px 14px', borderRadius: 12, fontSize: 13.5, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', outline: hit ? '2px solid var(--olive)' : undefined, ...bubble }}>
-                          {(msg.isPrivate || (out && msg.agentName)) && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', background: msg.isPrivate ? 'rgba(91,67,0,.1)' : 'rgba(255,255,255,.18)', padding: '3px 8px', borderRadius: 20, marginBottom: 7 }}>
-                              {msg.isPrivate ? 'Nota privada' : ''}{msg.isPrivate && msg.agentName ? ' · ' : ''}{msg.agentName || ''}
+                      )
+                    }
+                    return (
+                      <div key={msg.id} id={'msg-' + msg.id}>
+                        {sep && <div style={{ textAlign: 'center', fontSize: 12.5, color: K.muted, margin: '10px 0' }}>{day}</div>}
+                        <div style={{ display: 'flex', justifyContent: out ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8, margin: '4px 0' }}>
+                          {!out && <ChatAvatar nome={conv.contact.name || ''} foto={conv.contact.avatar_url} size={34} />}
+                          <div style={{ maxWidth: '74%', padding: '8px 12px', borderRadius: 6, fontSize: 14.5, lineHeight: 1.45, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', outline: hit ? '2px solid #f0a33a' : undefined, ...(out ? { background: '#3a87d3', color: '#fff' } : { background: '#f1f2f4', color: K.text }) }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, opacity: out ? 0.85 : 1, color: out ? '#fff' : K.muted, marginBottom: 3 }}>
+                              {head}{out && <><CheckCheck size={13} /> Entregue</>}
                             </span>
-                          )}
-                          {msg.attachmentUrl && (
-                            msg.attachmentType?.startsWith('image/') ? (
-                              <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginBottom: 6 }}>
-                                <img src={msg.attachmentUrl} alt="Anexo" onLoad={scrollToBottom} style={{ display: 'block', maxWidth: 260, maxHeight: 320, borderRadius: 8, objectFit: 'cover', cursor: 'zoom-in' }} />
-                              </a>
-                            ) : msg.attachmentType?.startsWith('audio/') ? (
-                              <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                                <audio src={msg.attachmentUrl} controls style={{ maxWidth: 240, height: 36 }} />
-                                {!msg.transcription && (
-                                  <button disabled={!!v.transcribingIds[msg.id]} onClick={() => transcribeAudio(msg.id)} title={v.transcribingIds[msg.id] ? 'Transcrevendo…' : 'Transcrever áudio'}
-                                    style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid currentColor', background: 'none', color: 'inherit', fontWeight: 800, fontSize: 12, opacity: 0.85 }}>{v.transcribingIds[msg.id] ? '…' : 'T'}</button>
-                                )}
-                              </span>
-                            ) : msg.attachmentType?.startsWith('video/') ? (
-                              <video src={msg.attachmentUrl} controls onLoadedData={scrollToBottom} style={{ display: 'block', maxWidth: 280, maxHeight: 360, borderRadius: 8, marginBottom: 6, background: '#000' }} />
-                            ) : (
-                              <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', border: '1px solid currentColor', borderRadius: 8, marginBottom: 6, color: 'inherit', fontSize: 12.5 }}>
-                                <Paperclip size={14} /> Ver anexo
-                              </a>
-                            )
-                          )}
-                          {msg.transcription && <span style={{ display: 'block', fontSize: 12.5, fontStyle: 'italic', opacity: 0.85, marginBottom: 4 }}>Transcrição: “{msg.transcription}”</span>}
-                          {msg.text && <span style={{ display: 'block' }}>{msg.text}</span>}
-                          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, fontSize: 10.5, opacity: 0.75, marginTop: 5 }}>
-                            {!msg.isPrivate && (msg.attachmentUrl || msg.text) && (
-                              <button onClick={() => { s.forwardingMessage = { ...msg } }} title="Encaminhar" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 'none', background: 'none', color: 'inherit', fontSize: 10.5, padding: 0 }}><Forward size={11} /> Encaminhar</button>
+                            {msg.attachmentUrl && (
+                              msg.attachmentType?.startsWith('image/') ? (
+                                <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginBottom: 6 }}><img src={msg.attachmentUrl} alt="Anexo" onLoad={scrollToBottom} style={{ display: 'block', maxWidth: 260, maxHeight: 320, borderRadius: 4, objectFit: 'cover', cursor: 'zoom-in' }} /></a>
+                              ) : msg.attachmentType?.startsWith('audio/') ? (
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                                  <audio src={msg.attachmentUrl} controls style={{ maxWidth: 240, height: 36 }} />
+                                  {!msg.transcription && <button disabled={!!v.transcribingIds[msg.id]} onClick={() => transcribeAudio(msg.id)} title={v.transcribingIds[msg.id] ? 'Transcrevendo…' : 'Transcrever áudio'} style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid currentColor', background: 'none', color: 'inherit', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>{v.transcribingIds[msg.id] ? '…' : 'T'}</button>}
+                                </span>
+                              ) : msg.attachmentType?.startsWith('video/') ? (
+                                <video src={msg.attachmentUrl} controls onLoadedData={scrollToBottom} style={{ display: 'block', maxWidth: 280, maxHeight: 360, borderRadius: 4, marginBottom: 6, background: '#000' }} />
+                              ) : (
+                                <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', border: '1px solid currentColor', borderRadius: 3, marginBottom: 6, color: 'inherit', fontSize: 13 }}><Paperclip size={14} /> Ver anexo</a>
+                              )
                             )}
-                            {hora(msg.timestamp)}
-                            {out && <CheckCheck size={13} strokeWidth={2.5} />}
-                          </span>
-                        </span>
+                            {msg.transcription && <span style={{ display: 'block', fontSize: 13, fontStyle: 'italic', opacity: 0.85, marginBottom: 4 }}>Transcrição: “{msg.transcription}”</span>}
+                            {msg.text && <span style={{ display: 'block' }}>{msg.text}</span>}
+                            {(msg.attachmentUrl || msg.text) && <button onClick={() => { s.forwardingMessage = { ...msg } }} title="Encaminhar" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 'none', background: 'none', color: 'inherit', opacity: 0.7, fontSize: 12, padding: 0, marginTop: 4, cursor: 'pointer' }}><Forward size={11} /> Encaminhar</button>}
+                          </div>
+                          {out && <ChatAvatar nome={msg.agentName || me.first_name || ''} foto={null} size={34} />}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {conv.messages.length === 0 && <p style={{ fontSize: 14, color: K.muted, textAlign: 'center', margin: '20px 0' }}>Nenhuma mensagem ainda.</p>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                    {conv.status === 'open' || !conv.status ? (<>
+                      <button onClick={() => setShowResolve(true)} style={kSmallBtn}>Fechar conversa</button>
+                      <button onClick={() => setShowSnooze(true)} style={kSmallBtn}>Colocar em espera</button>
+                    </>) : (
+                      <button onClick={() => conversationsStore.updateConversationStatus(conv.id, 'open')} style={kSmallBtn}>{conv.status === 'snoozed' ? 'Em espera — reabrir' : 'Fechada — reabrir'}</button>
+                    )}
+                    <button onClick={generateSummary} disabled={v.isGeneratingSummary} style={{ ...kSmallBtn, display: 'flex', alignItems: 'center', gap: 5 }}>{v.isGeneratingSummary ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={13} />} Resumo</button>
+                    <span style={{ flex: 1 }} />
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#7dbb2d', whiteSpace: 'nowrap', marginLeft: 'auto' }}>Nº {convNo(conv)}</span>
+                  </div>
+                </div>
+
+                {/* tarefas pendentes, com borda rosa quando atrasadas (igual ao Kommo) */}
+                {tasks.map(t => {
+                  const late = t.vencimento_em && new Date(t.vencimento_em) < new Date()
+                  const dias = late ? Math.floor((Date.now() - new Date(t.vencimento_em).getTime()) / 86_400_000) : 0
+                  return (
+                    <div key={t.id} style={{ display: 'flex', gap: 12, background: '#fff', border: `1px solid ${late ? '#f3a5b5' : K.line}`, borderRadius: 3, padding: '12px 14px' }}>
+                      <Clock size={30} color={late ? '#e2557a' : K.muted} strokeWidth={1.3} style={{ flex: 'none' }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: K.muted }}>{formatDateTime(t.vencimento_em)}{late && <span style={{ color: '#e2557a' }}> ({dias} dias)</span>} {t.user ? `para ${t.user.first_name || ''}` : ''}</div>
+                        <div style={{ fontSize: 14.5, margin: '3px 0 2px' }}><b>{TIPOS_TAREFA[t.tipo] || t.tipo}</b> — {t.titulo}</div>
+                        {t.descricao && <div style={{ fontSize: 14, whiteSpace: 'pre-line' }}>{t.descricao.split('\n').map((l: string) => '-' + l).join('\n')}</div>}
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                          <input value={taskResult[t.id] || ''} onChange={e => setTaskResult(r => ({ ...r, [t.id]: e.target.value }))} placeholder="Adicionar resultado" style={{ ...kInput, flex: '1 1 160px' }} />
+                          <button onClick={() => completeTask(t)} style={{ height: 36, padding: '0 14px', border: 'none', borderRadius: 3, background: '#c5cbd1', color: '#fff', fontFamily: K.font, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Tarefa concluída</button>
+                        </div>
                       </div>
                     </div>
                   )
                 })}
-                {conv.messages.length === 0 && <p style={{ ...small, textAlign: 'center', marginTop: 40 }}>Não há mensagens nesta conversa ainda.</p>}
               </div>
 
               {v.aiPauseStatus.paused && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: '#FFF6DB', color: '#5B4300', fontSize: 12.5, borderTop: '1px solid #F1D37A' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 18px', background: '#fffbe6', color: '#6b5300', fontSize: 13.5, borderTop: '1px solid #f1e0a0' }}>
                   <BotOff size={15} /><span style={{ flex: 1 }}>IA pausada — <b>{formatAiRemaining(v.aiPauseStatus.remaining_seconds)}</b> para voltar sozinha</span>
-                  <button onClick={resumeAi} style={btn('ghost', { padding: '5px 10px', fontSize: 12 })}><Bot size={13} /> Reativar agora</button>
+                  <button onClick={resumeAi} style={kSmallBtn}>Reativar agora</button>
                 </div>
               )}
 
-              <div style={{ borderTop: '1px solid var(--line)', padding: '12px 18px 14px', position: 'relative', background: 'var(--card)', flex: 'none' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-                  <button style={chipBtn(!v.isPrivateMessage)} onClick={() => { s.isPrivateMessage = false }}>Responder</button>
-                  <button style={chipBtn(v.isPrivateMessage)} onClick={() => { s.isPrivateMessage = true }}>Nota privada</button>
-                  {!v.isPrivateMessage && conv.inbox_name && <span title={conv.inbox_phone || ''} style={{ fontSize: 11.5, color: 'var(--muted)', marginLeft: 4 }}>Enviando por <b style={{ color: 'var(--ink)' }}>{conv.inbox_name}</b></span>}
-                  <span style={{ flex: 1 }} />
-                  <button onClick={generateSummary} disabled={v.isGeneratingSummary} style={btn('soft', { padding: '5px 10px', fontSize: 12 })}>
-                    {v.isGeneratingSummary ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={13} />}
-                    {v.isGeneratingSummary ? 'Resumindo…' : 'Gerar resumo'}
-                  </button>
+              {/* composer: "Bate-papo ▾ com Nome:" */}
+              <div style={{ margin: '0 clamp(8px, 2vw, 22px) 14px', background: '#fff', border: `1px solid ${mode === 'nota' ? '#f1e0a0' : K.line}`, borderRadius: 3, padding: '10px 14px', position: 'relative', flex: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, marginBottom: 6, position: 'relative', flexWrap: 'wrap' }}>
+                  <button onClick={e => { stop(e); setModeOpen(o => !o) }} style={{ border: 'none', background: 'none', padding: 0, color: K.link, fontFamily: K.font, fontSize: 14, textDecoration: 'underline dotted', cursor: 'pointer' }}>{mode === 'chat' ? 'Bate-papo' : mode === 'nota' ? 'Nota' : 'Tarefa'}</button>
+                  {mode === 'chat' && <>com <span style={{ color: K.link }}>{conv.contact.name}</span>{conv.inbox_name && <span style={{ color: K.muted }}> · pelo {conv.inbox_name}</span>}:</>}
+                  {modeOpen && (
+                    <div style={{ ...menuK, bottom: '100%', left: 0 }} onClick={stop}>
+                      <button onClick={() => { setMode('chat'); setModeOpen(false) }} style={menuItemK}>Bate-papo</button>
+                      <button onClick={() => { setMode('nota'); setModeOpen(false) }} style={menuItemK}>Nota</button>
+                      {canCreateTask && <button onClick={() => { setMode('tarefa'); setModeOpen(false) }} style={menuItemK}>Tarefa</button>}
+                    </div>
+                  )}
                 </div>
 
-                {slashSuggestions.length > 0 && !v.isRecording && (
-                  <div style={{ position: 'absolute', left: 18, right: 18, bottom: '100%', marginBottom: 6, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 10, padding: 6, boxShadow: '0 12px 28px rgba(28,27,26,.14)', maxHeight: 280, overflowY: 'auto', zIndex: 5 }}>
-                    <p style={{ ...labelStyle, margin: '6px 10px 8px' }}>Modelos de mensagem</p>
-                    {slashSuggestions.map((tpl: Any) => (
-                      <button key={tpl.id} onClick={() => applyTemplate(tpl)} style={{ width: '100%', textAlign: 'left', padding: '9px 10px', border: 'none', background: 'none', borderRadius: 6, fontSize: 13, display: 'flex', gap: 10, alignItems: 'center' }}>
-                        <span style={{ color: 'var(--terra)', fontWeight: 700, fontSize: 12.5, flex: 'none' }}>{tpl.nome}</span>
-                        {tpl.attachment_url && <Paperclip size={12} color="var(--muted)" />}
-                        {tpl.categoria && <span style={{ ...PILL, border: '1px solid var(--line)', color: 'var(--muted)' }}>{tpl.categoria}</span>}
-                        <span style={{ flex: 1, minWidth: 0, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tpl.mensagem || (tpl.attachment_url ? 'Anexo' : '')}</span>
-                      </button>
-                    ))}
+                {mode === 'tarefa' ? (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <input type="datetime-local" value={taskForm.vencimento} onChange={e => setTaskForm(f => ({ ...f, vencimento: e.target.value }))} style={{ ...kInput, width: 210 }} />
+                    <select value={taskForm.tipo} onChange={e => setTaskForm(f => ({ ...f, tipo: e.target.value }))} style={{ ...kInput, width: 200 }}>{Object.entries(TIPOS_TAREFA).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+                    <input value={taskForm.titulo} onChange={e => setTaskForm(f => ({ ...f, titulo: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') createTask() }} placeholder="O que precisa ser feito" style={{ ...kInput, flex: 1, minWidth: 180 }} />
+                    <button onClick={createTask} disabled={!taskForm.titulo.trim()} style={kBtn('blue')}>Definir</button>
                   </div>
-                )}
-
-                {v.isRecording ? (
+                ) : v.isRecording ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <button onClick={cancelRecording} title="Cancelar gravação" style={squareBtn}><X size={16} /></button>
-                    <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5 }}>
-                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#D92D20', animation: 'pulse 1s infinite' }} />Gravando áudio… {formatRecordingTime(v.recordingSeconds)}
-                    </span>
-                    <button onClick={finishRecording} style={btn('primary')}><Send size={14} /> Enviar</button>
+                    <button onClick={cancelRecording} title="Cancelar gravação" style={kSmallBtn}><X size={15} /></button>
+                    <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: '#e53935', animation: 'pulse 1s infinite' }} />Gravando áudio… {formatRecordingTime(v.recordingSeconds)}</span>
+                    <button onClick={finishRecording} style={kBtn('blue')}><Send size={14} /> Enviar</button>
                   </div>
                 ) : (
                   <>
-                    {v.selectedFile && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, border: '1px solid var(--line)', borderRadius: 8, marginBottom: 8, background: 'var(--bg)' }}>
-                        {v.selectedFilePreview ? <img src={v.selectedFilePreview} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6 }} /> : <Paperclip size={18} />}
-                        <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.selectedFile.name}</span>
-                        <button onClick={clearSelectedFile} style={{ border: 'none', background: 'none', color: 'var(--muted)' }}><X size={15} /></button>
+                    {slashSuggestions.length > 0 && (
+                      <div style={{ ...menuK, left: 0, right: 0, bottom: '100%', marginBottom: 4, maxHeight: 260, overflowY: 'auto' }}>
+                        <div style={{ padding: '4px 16px', fontSize: 11.5, fontWeight: 700, color: K.muted, textTransform: 'uppercase' }}>Modelos de mensagem</div>
+                        {slashSuggestions.map((tpl: Any) => (
+                          <button key={tpl.id} onClick={() => applyTemplate(tpl)} style={menuItemK}><b style={{ color: K.link }}>{tpl.nome}</b><span style={{ flex: 1, minWidth: 0, color: K.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.mensagem || 'Anexo'}</span></button>
+                        ))}
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                      <input type="file" ref={fileInputRef} hidden onChange={e => { const f = e.target.files?.[0]; if (f) setSelectedFile(f) }} />
-                      <button title="Anexar arquivo" onClick={() => fileInputRef.current?.click()} style={{ ...squareBtn, width: 38, height: 38, color: 'var(--muted)' }}><Paperclip size={16} /></button>
-                      <div style={{ position: 'relative', flex: 'none' }}>
-                        <button title="Emojis" onClick={e => { stop(e); s.isEmojiPickerOpen = !s.isEmojiPickerOpen }} style={{ ...squareBtn, width: 38, height: 38, color: 'var(--muted)' }}><Smile size={16} /></button>
-                        {v.isEmojiPickerOpen && (
-                          <div onClick={stop} style={{ position: 'absolute', bottom: 46, left: 0, zIndex: 30 }}>
-                            <EmojiPicker emojiStyle={EmojiStyle.NATIVE} onEmojiClick={e => { s.newMessageText += e.emoji }} lazyLoadEmojis theme={(document.querySelector('[data-theme="dark"]') ? 'dark' : 'light') as Any} />
-                          </div>
-                        )}
+                    {v.selectedFile && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 6, border: `1px solid ${K.line}`, borderRadius: 3, marginBottom: 6 }}>
+                        {v.selectedFilePreview ? <img src={v.selectedFilePreview} style={{ width: 40, height: 40, objectFit: 'cover' }} /> : <Paperclip size={16} />}
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.selectedFile.name}</span>
+                        <button onClick={clearSelectedFile} style={{ border: 'none', background: 'none', color: K.muted, cursor: 'pointer' }}><X size={15} /></button>
                       </div>
-                      {!v.newMessageText.trim() && !v.selectedFile && (
-                        <button title="Gravar áudio" onClick={startRecording} style={{ ...squareBtn, width: 38, height: 38, color: 'var(--muted)' }}><Mic size={16} /></button>
-                      )}
-                      <textarea value={v.newMessageText} rows={1} onChange={e => { s.newMessageText = e.target.value }} onPaste={handlePaste}
-                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); handleSendMessage() } }}
-                        placeholder={v.isPrivateMessage ? 'Nota privada (só a equipe vê) · digite / para modelos' : 'Mensagem · Shift+Enter pula linha · digite / para modelos'}
-                        style={{ flex: 1, minWidth: 0, padding: '10px 14px', border: '1px solid ' + (v.isPrivateMessage ? '#F1D37A' : 'var(--line)'), borderRadius: 8, background: v.isPrivateMessage ? '#FFFBEB' : 'var(--bg)', fontSize: 13.5, resize: 'none', minHeight: 40, maxHeight: 140, fieldSizing: 'content' } as React.CSSProperties} />
-                      <button onClick={handleSendMessage} style={btn('primary', { padding: '11px 20px' })}>Enviar</button>
+                    )}
+                    <textarea value={v.newMessageText} rows={2} onChange={e => { s.newMessageText = e.target.value }} onPaste={handlePaste}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); handleSendMessage() } }}
+                      placeholder={mode === 'nota' ? 'Escreva uma nota (só a equipe vê)' : 'Escreva uma mensagem · / para modelos'}
+                      style={{ width: '100%', border: 'none', outline: 'none', resize: 'none', fontFamily: K.font, fontSize: 15, color: K.text, background: 'none', minHeight: 40, maxHeight: 160, fieldSizing: 'content' } as React.CSSProperties} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                      <input type="file" ref={fileInputRef} hidden onChange={e => { const f = e.target.files?.[0]; if (f) setSelectedFile(f) }} />
+                      {mode === 'chat' && <>
+                        <button title="Anexar arquivo" onClick={() => fileInputRef.current?.click()} style={{ border: 'none', background: 'none', color: K.muted, padding: 6, display: 'flex', cursor: 'pointer' }}><Paperclip size={17} /></button>
+                        <div style={{ position: 'relative' }}>
+                          <button title="Emojis" onClick={e => { stop(e); s.isEmojiPickerOpen = !s.isEmojiPickerOpen }} style={{ border: 'none', background: 'none', color: K.muted, padding: 6, display: 'flex', cursor: 'pointer' }}><Smile size={17} /></button>
+                          {v.isEmojiPickerOpen && <div onClick={stop} style={{ position: 'absolute', bottom: 36, left: 0, zIndex: 30 }}><EmojiPicker emojiStyle={EmojiStyle.NATIVE} onEmojiClick={e => { s.newMessageText += e.emoji }} lazyLoadEmojis /></div>}
+                        </div>
+                        {!v.newMessageText.trim() && !v.selectedFile && <button title="Gravar áudio" onClick={startRecording} style={{ border: 'none', background: 'none', color: K.muted, padding: 6, display: 'flex', cursor: 'pointer' }}><Mic size={17} /></button>}
+                      </>}
+                      <span style={{ flex: 1 }} />
+                      <button onClick={handleSendMessage} disabled={!v.newMessageText.trim() && !v.selectedFile} style={{ ...kBtn('blue'), opacity: v.newMessageText.trim() || v.selectedFile ? 1 : 0.5 }}>{mode === 'nota' ? 'Salvar nota' : 'Enviar'}</button>
                     </div>
                   </>
                 )}
               </div>
             </>
           ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 40 }}>
-              <span style={{ width: 64, height: 64, border: '1.5px solid var(--line)', borderRadius: '16px 16px 4px 16px', marginBottom: 24, display: 'block' }} />
-              <h2 style={{ ...serif, fontSize: 28, margin: '0 0 10px' }}>Conversas</h2>
-              <p style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--muted)', margin: 0, maxWidth: '38ch' }}>Selecione uma conversa à esquerda para ver o histórico da revendedora, responder e abrir a ficha completa.</p>
-            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: K.muted, fontSize: 15, padding: 40, textAlign: 'center' }}>Selecione uma conversa à esquerda.</div>
           )}
         </div>
-
-        {/* ---------------- ficha da revendedora ---------------- */}
-        {conv && showDetails && (
-          <div className="conv-col conv-details" data-hide='0' style={{ borderLeft: '1px solid var(--line)', background: 'var(--bg)', overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <button className="conv-back" onClick={() => { s.mobileView = 'chat' }} style={{ ...btn('ghost', { padding: '5px 10px', fontSize: 12 }), display: 'none' }}>‹ Conversa</button>
-                <span style={{ flex: 1 }} />
-                <div style={{ position: 'relative' }}>
-                  <button title="Mais opções" onClick={e => { stop(e); s.isDetailsMenuOpen = !s.isDetailsMenuOpen }} style={{ ...squareBtn, width: 30, height: 30 }}><MoreVertical size={14} /></button>
-                  <Dropdown open={v.isDetailsMenuOpen}>
-                    <MenuItem onClick={() => { s.isMergeModalOpen = true; s.isDetailsMenuOpen = false }}><GitMerge size={14} /> Mesclar contato</MenuItem>
-                    <MenuItem danger onClick={() => { s.isDeleteConversationModalOpen = true; s.isDetailsMenuOpen = false }}><MessageCircle size={14} /> Apagar conversa</MenuItem>
-                  </Dropdown>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 6 }}>
-                <ChatAvatar nome={conv.contact.name || ''} foto={conv.contact.avatar_url} size={64} />
-                {v.isEditingName ? (
-                  <input ref={nameInputRef} value={v.editingName} maxLength={120} style={{ ...inputStyle, textAlign: 'center', fontWeight: 600 }}
-                    onChange={e => { s.editingName = e.target.value }}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveContactName() } else if (e.key === 'Escape') { e.preventDefault(); s.isEditingName = false } }}
-                    onBlur={saveContactName} />
-                ) : (
-                  <h3 onClick={startEditingName} title="Clique pra editar o nome" style={{ ...serif, fontSize: 22, margin: '4px 0 0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {conv.contact.name} <Pencil size={13} color="var(--muted)" />
-                  </h3>
-                )}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
-                  <span style={{ ...PILL, border: '1px solid var(--line)', color: 'var(--muted)' }}>#{conv.contact.id}</span>
-                  {conv.contact.id_jueri
-                    ? conv.contact.nivel && <span style={{ ...PILL, color: nivelInfo(conv.contact.nivel).color, background: nivelInfo(conv.contact.nivel).bg }}>{nivelInfo(conv.contact.nivel).emoji} {nivelInfo(conv.contact.nivel).nome}</span>
-                    : <span style={{ ...PILL, background: 'var(--oliveSoft)', color: 'var(--olive)' }}>Novo contato</span>}
-                  {conv.contact.id_jueri && <span style={{ ...PILL, background: 'var(--terraSoft)', color: 'var(--terra)' }}>{statusLabel(conv.contact.status)}{daysInStage(conv.contact) ? ` · ${daysInStage(conv.contact)}d` : ''}</span>}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}><Phone size={12} /> {formatPhoneDisplay(conv.contact.phone) || 'Sem telefone'}</span>
-                  {conv.contact.email && <span style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}><Mail size={12} /> {conv.contact.email}</span>}
-                </div>
-                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                  <button onClick={focusMessageInput} style={btn('ghost', { padding: '6px 10px', fontSize: 12 })}><MessageCircle size={13} /> Responder</button>
-                  <button onClick={() => navigate(`/contatos/${conv.contact.id}`)} style={btn('ghost', { padding: '6px 10px', fontSize: 12 })}><ExternalLink size={13} /> Perfil completo</button>
-                </div>
-              </div>
-            </div>
-
-            {/* abas da ficha: linha única com traço azul na aba aberta (padrão do v2) */}
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--line)', margin: '0 2px' }}>
-              {detailsTabs.map(tab => {
-                const on = v.activeDetailsTab === tab.id
-                return (
-                  <button key={tab.id} onClick={() => { s.activeDetailsTab = tab.id }}
-                    style={{ flex: 1, padding: '9px 2px 10px', border: 'none', background: 'none', fontSize: 12.5, fontWeight: on ? 700 : 500, color: on ? 'var(--terra)' : 'var(--muted)', boxShadow: on ? 'inset 0 -2px 0 var(--terra)' : 'none', whiteSpace: 'nowrap' }}>
-                    {tab.label}
-                  </button>
-                )
-              })}
-            </div>
-
-            {v.activeDetailsTab === 'principal' && (
-              <>
-                <Card title="Atendimento">
-                  <Field label="Atendente" value={conv.assignee || 'Não atribuído'} empty={!conv.assignee} />
-                  <Field label="Carteira" value={conv.contact.custom_attributes?.gerente_jueri_nome || 'Sem time'} empty={!conv.contact.custom_attributes?.gerente_jueri_nome} />
-                  <select value={conv.assignee_id || ''} onChange={e => handleAssign(e.target.value)} disabled={v.isAssigning} style={{ ...inputStyle, marginTop: 10 }}>
-                    <option value="">Nenhum atendente</option>
-                    {agentsByDepartment.map(group => (
-                      <optgroup key={group.dept} label={group.label}>
-                        {group.agents.map((agent: Any) => <option key={agent.id} value={agent.id}>{agent.first_name} {agent.last_name}</option>)}
-                      </optgroup>
-                    ))}
-                  </select>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                    <button disabled={!conv.assignee_id || v.isAssigning} onClick={() => { s.showTransferModal = true }} style={btn('ghost', { flex: '1 1 auto', fontSize: 12, padding: '8px 10px', opacity: !conv.assignee_id ? 0.5 : 1 })}>Transferir com nota</button>
-                    <button onClick={() => { s.isEditModalOpen = true }} style={btn('soft', { flex: '1 1 auto', fontSize: 12, padding: '8px 10px' })}><Edit2 size={13} /> Editar campos</button>
-                  </div>
-                </Card>
-
-                {v.contactFieldGroups.map((group: Any) => {
-                  const open = v.openGroupIds.includes(group.id)
-                  return (
-                    <Card key={group.id} title={group.name} right={toggle(open)} onHeaderClick={() => toggleGroup(group.id)}>
-                      {open && ((group.field_keys || []).length
-                        ? (group.field_keys || []).map((key: string) => fieldRow(key, fieldLabelOf(key)))
-                        : <p style={small}>Nenhum campo neste grupo ainda. Adicione em Configurações → Campos do Contato.</p>)}
-                    </Card>
-                  )
-                })}
-                {unassignedFields.length > 0 && (
-                  <Card title="Outros" right={toggle(v.isUnassignedOpen)} onHeaderClick={() => { s.isUnassignedOpen = !s.isUnassignedOpen }}>
-                    {v.isUnassignedOpen && unassignedFields.map((f: Any) => fieldRow(f.key, f.label))}
-                  </Card>
-                )}
-                <Card title="Dados do Jueri (sincronizado)" right={toggle(v.isDadosJueriOpen)} onHeaderClick={() => { s.isDadosJueriOpen = !s.isDadosJueriOpen }}>
-                  {v.isDadosJueriOpen && (
-                    <>
-                      {dadosFields.map(f => <Field key={'j-' + f.key} label={f.label} value={getDadoValue(f) || '—'} empty={!getDadoValue(f)} />)}
-                      {extraAttributes.map(a => <Field key={'x-' + a.key} label={a.label} value={String(a.value)} />)}
-                    </>
-                  )}
-                </Card>
-
-                <Card title="Etiquetas">
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
-                    {(conv.tags || []).map((t: Any) => <Tag key={t.id} name={t.name} color={t.color} onRemove={() => removeTag(t.id)} />)}
-                    {!conv.tags?.length && <span style={small}>Nenhuma etiqueta</span>}
-                  </div>
-                  <div style={{ position: 'relative', display: 'flex', gap: 6 }}>
-                    <input value={v.newTagName} onChange={e => { s.newTagName = e.target.value }} onKeyUp={e => { if (e.key === 'Enter') addTag() }}
-                      onFocus={() => { s.showTagSuggestions = true }} onClick={e => { stop(e); s.showTagSuggestions = true }}
-                      placeholder="Escolha ou crie uma etiqueta…" autoComplete="off" style={{ ...inputStyle, fontSize: 12.5 }} />
-                    <button onClick={addTag} disabled={!v.newTagName.trim()} style={btn('primary', { padding: '8px 12px', opacity: v.newTagName.trim() ? 1 : 0.5 })}><Plus size={13} /></button>
-                    {v.showTagSuggestions && tagSuggestions.length > 0 && (
-                      <div onClick={stop} style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, maxHeight: 220, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 12px 28px rgba(8,17,31,.14)', zIndex: 20, padding: 4 }}>
-                        {tagSuggestions.map((t: Any) => (
-                          <button key={t.id} onClick={() => pickTagSuggestion(t)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', border: 'none', background: 'none', borderRadius: 6, fontSize: 12.5, textAlign: 'left' }}>
-                            <span style={{ width: 9, height: 9, borderRadius: '50%', background: t.color }} />{t.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                    {TAG_COLORS.map(c => <button key={c} title={c} onClick={() => { s.newTagColor = c }} style={{ width: 18, height: 18, borderRadius: '50%', background: c, border: v.newTagColor === c ? '2px solid var(--ink)' : '2px solid transparent' }} />)}
-                  </div>
-                </Card>
-
-                <Card title="Mensagens agendadas" right={<button onClick={() => { s.isScheduleModalOpen = true }} style={{ border: 'none', background: 'none', color: 'var(--terra)', fontSize: 12, fontWeight: 700 }}>+ Agendar</button>}>
-                  {v.scheduledMessages.length ? v.scheduledMessages.map((m: Any) => (
-                    <div key={m.id} style={{ display: 'flex', gap: 8, padding: '8px 0', borderBottom: '1px dashed var(--line)' }}>
-                      <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--terra)' }}>{new Date(m.send_at).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                        {m.text && <span style={{ display: 'block', fontSize: 12.5 }}>{m.text.length > 60 ? m.text.substring(0, 60) + '…' : m.text}</span>}
-                        {m.attachmentUrl && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)' }}>📎 {m.attachmentName || 'Anexo'}</span>}
-                      </span>
-                      <button title="Cancelar envio" onClick={() => cancelScheduledMessage(m.id)} style={{ border: 'none', background: 'none', color: 'var(--muted)', alignSelf: 'flex-start' }}><X size={14} /></button>
-                    </div>
-                  )) : <p style={small}>Ainda não há mensagens agendadas.</p>}
-                </Card>
-
-                <Card title="Notas da revendedora" right={toggle(v.isNotesOpen)} onHeaderClick={() => { s.isNotesOpen = !s.isNotesOpen }}>
-                  {v.isNotesOpen && (
-                    <>
-                      {conv.contact?.notes?.length ? conv.contact.notes.map((n: Any) => (
-                        <div key={n.id} style={{ padding: '8px 10px', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, marginBottom: 6 }}>
-                          <span style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}><b>{n.author}</b>{new Date(n.created_at).toLocaleDateString('pt-BR')}</span>
-                          <span style={{ fontSize: 12.5, whiteSpace: 'pre-wrap' }}>{n.content}</span>
-                        </div>
-                      )) : <p style={{ ...small, marginBottom: 8 }}>Nenhuma nota adicionada.</p>}
-                      <textarea value={v.newNoteText} onChange={e => { s.newNoteText = e.target.value }} placeholder="Adicionar nova nota…" rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
-                      <button onClick={saveNote} disabled={v.isSavingNote || !v.newNoteText.trim()} style={btn('primary', { width: '100%', marginTop: 6, opacity: v.newNoteText.trim() ? 1 : 0.5 })}>{v.isSavingNote ? 'Salvando…' : 'Salvar nota'}</button>
-                    </>
-                  )}
-                </Card>
-
-                <Card title="Anexos da conversa" right={toggle(v.isAttachmentsOpen)} onHeaderClick={() => { s.isAttachmentsOpen = !s.isAttachmentsOpen }}>
-                  {v.isAttachmentsOpen && (conversationAttachments.length ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                      {conversationAttachments.map((a: Any) => (
-                        <a key={a.id} href={a.attachmentUrl} target="_blank" rel="noreferrer" style={{ aspectRatio: '1', borderRadius: 8, border: '1px solid var(--line)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', fontSize: 11, color: 'var(--muted)' }}>
-                          {a.attachmentType?.startsWith('image/') ? <img src={a.attachmentUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📎 Arquivo'}
-                        </a>
-                      ))}
-                    </div>
-                  ) : <p style={small}>Nenhum anexo nesta conversa.</p>)}
-                </Card>
-              </>
-            )}
-
-            {v.activeDetailsTab === 'dados' && (
-              <Card title="Dados">
-                <Field label="E-mail" value={conv.contact.email || '—'} empty={!conv.contact.email} />
-                {(conv.contact.reseller_phones || []).map((t: Any) => <Field key={'t-' + t.id} label={t.label || 'Telefone adicional'} value={t.phone} />)}
-                <Field label="Data de cadastro" value={formatDate(conv.contact.created_at) || '—'} empty={!conv.contact.created_at} />
-                {conv.contact.bio && <p style={{ fontSize: 12.5, lineHeight: 1.6, margin: '10px 0 0' }}>{conv.contact.bio}</p>}
-                <button onClick={() => { s.isEditModalOpen = true }} style={btn('soft', { width: '100%', marginTop: 10, fontSize: 12.5 })}><Edit2 size={13} /> Editar campos</button>
-              </Card>
-            )}
-
-            {v.activeDetailsTab === 'financeiro' && (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {[['Total vendido', brl(totalVendido), 'var(--olive)'], ['Em aberto', brl(totalEmAberto), totalEmAberto > 0 ? '#B54708' : 'var(--ink)']].map(([k, val, color]) => (
-                    <div key={k} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: 14 }}>
-                      <span style={{ display: 'block', ...labelStyle }}>{k}</span>
-                      <span style={{ ...serif, fontSize: 22, color }}>{val}</span>
-                    </div>
-                  ))}
-                </div>
-                <Card title="Pedidos / acertos">
-                  <p style={{ ...small, marginBottom: 8 }}>Sincronizado do Jueri — baixa e cancelamento são feitos lá.</p>
-                  {pedidos.length ? pedidos.map((p: Any) => (
-                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px dashed var(--line)', fontSize: 12.5 }}>
-                      <span style={{ ...PILL, background: p.status_id === 1 ? 'var(--terraSoft)' : p.status_id === 2 ? 'var(--oliveSoft)' : 'var(--line)', color: p.status_id === 1 ? 'var(--terra)' : p.status_id === 2 ? 'var(--olive)' : 'var(--muted)' }}>{PEDIDO_STATUS_LABELS[p.status_id] || 'Desconhecido'}</span>
-                      <span style={{ flex: 1, color: 'var(--muted)' }}>{formatDate(p.data_criacao)}</span>
-                      <b>{brl(p.valor_total)}</b>
-                    </div>
-                  )) : <p style={small}>Nenhum pedido sincronizado ainda.</p>}
-                </Card>
-              </>
-            )}
-
-            {v.activeDetailsTab === 'estatisticas' && (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {[
-                    ['Dias como revendedora', daysAsClient ?? '—'], ['Dias na etapa', daysInStage(conv.contact) ?? '—'],
-                    ['Mensagens', totalMessagesCount], ['Pedidos baixados', pedidosFechadosCount],
-                    ['Etiquetas', activeTagsCount], ['Última interação', formatDateTime(lastMessageAt) || '—'],
-                  ].map(([k, val]) => (
-                    <div key={k as string} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
-                      <span style={{ display: 'block', ...serif, fontSize: typeof val === 'string' && val.length > 8 ? 14 : 24 }}>{val}</span>
-                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>{k}</span>
-                    </div>
-                  ))}
-                </div>
-                <Card title="Ciclo de vida">
-                  {lifecycleEvents.length ? lifecycleEvents.map((ev: Any) => (
-                    <div key={ev.id} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px dashed var(--line)' }}>
-                      <span style={{ width: 8, height: 8, marginTop: 5, flex: 'none', transform: 'rotate(45deg)', background: ev.event_type === 'churn' ? '#B42318' : 'var(--terra)' }} />
-                      <span style={{ fontSize: 12.5 }}>
-                        <b>{LIFECYCLE_EVENT_LABELS[ev.event_type] || ev.event_type}</b>
-                        <span style={{ display: 'block', color: 'var(--muted)', fontSize: 11.5 }}>{formatDateTime(ev.occurred_at)}{ev.metadata?.pecas_abertas != null ? ` · ${ev.metadata.pecas_abertas} peças abertas` : ''}</span>
-                      </span>
-                    </div>
-                  )) : <p style={small}>Nenhum marco registrado ainda pra essa revendedora.</p>}
-                </Card>
-              </>
-            )}
-
-            {v.activeDetailsTab === 'configuracoes' && (
-              <>
-                <Card title="Funil consignado">
-                  <span style={{ display: 'block', ...labelStyle, marginTop: 4 }}>Etapa atual</span>
-                  <select value={conv.contact.status || 'revendedor_ativo'} disabled={v.isChangingStatus} onChange={e => changeContactStatus(e.target.value)} style={inputStyle}>
-                    {statusOptions.map(grp => (
-                      <optgroup key={grp.group} label={grp.group}>
-                        {Object.entries(grp.options).map(([key, label]) => <option key={key} value={key}>{label as string}</option>)}
-                      </optgroup>
-                    ))}
-                  </select>
-                  <div style={{ marginTop: 8 }}>
-                    <Field label="Criado em" value={formatDateTime(conv.contact.created_at) || '—'} empty={!conv.contact.created_at} />
-                    <Field label="Última mudança de etapa" value={formatDateTime(conv.contact.status_changed_at) || '—'} empty={!conv.contact.status_changed_at} />
-                  </div>
-                </Card>
-                <Card title="Ações">
-                  <button onClick={() => { s.isMergeModalOpen = true }} style={btn('ghost', { width: '100%', marginBottom: 6 })}><GitMerge size={14} /> Mesclar com outro contato</button>
-                  <button onClick={() => { s.isDeleteModalOpen = true }} style={btn('ghost', { width: '100%', color: '#B42318' })}><Trash2 size={14} /> Apagar este contato</button>
-                </Card>
-              </>
-            )}
-          </div>
-        )}
 
         {/* modais */}
         <EditContactModal isOpen={v.isEditModalOpen} contact={conv?.contact} onClose={() => { s.isEditModalOpen = false }} />
@@ -1295,6 +1344,8 @@ export default function Conversas() {
         <ForwardMessageModal isOpen={!!v.forwardingMessage} message={v.forwardingMessage} onClose={() => { s.forwardingMessage = null }} />
         {v.showTransferModal && <TransferModal agents={store.agents} currentAssigneeId={conv?.assignee_id} onClose={() => { s.showTransferModal = false }} onConfirm={handleTransfer} />}
         <ScheduleMessageModal isOpen={v.isScheduleModalOpen} conversationId={conv?.id} onClose={() => { s.isScheduleModalOpen = false }} onScheduled={onMessageScheduled} />
+        {conv && showSnooze && createPortal(<SnoozeModal conversationId={conv.id} onClose={() => setShowSnooze(false)} onConfirm={async (until: string) => { setShowSnooze(false); await conversationsStore.snoozeConversation(conv.id, until) }} />, document.body)}
+        {conv && showResolve && createPortal(<ResolveModal conversationId={conv.id} onClose={() => setShowResolve(false)} onConfirm={async (opts: Any) => { setShowResolve(false); await conversationsStore.resolveConversation(conv.id, opts) }} />, document.body)}
       </div>
     </div>
   )

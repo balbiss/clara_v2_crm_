@@ -4,6 +4,9 @@ import { db } from '../db/client.js';
 import { contacts, resellerPhones, pedidos, agendamentos, conversations, messages, notes, tags, contactTags, contactAuditEvents, users, accounts, contactFieldGroups } from '../db/schema.js';
 import { requireAuth, requireOwner, requireFullPortfolio, isFullPortfolio, isFinance, isOwner, visibleContactsWhere } from '../middleware/auth.js';
 import { createContact, updateContact, searchByNameOrPhoneWhere, channelIdentifier, type Contact } from '../lib/contacts.js';
+import { ASSIGNABLE_FIELD_KEYS, allFieldsOf, cleanFieldInput, customFieldsOf, missingRequired, type CustomField } from '../lib/customFields.js';
+import multer from 'multer';
+import { attach, blobUrl } from '../lib/storage.js';
 import { deleteContactCascade } from '../lib/wahaIngestion.js';
 import { cache } from '../lib/cache.js';
 import { railsJson } from '../lib/serialize.js';
@@ -118,7 +121,12 @@ contactsRouter.post('/contacts', async (req, res) => {
 async function updateContactRoute(req: Request, res: Response) {
   const c = await loadContact(req, res);
   if (!c) return;
-  const updated = await updateContact(c, contactParams(req), req.user!.id);
+  const v = contactParams(req);
+  if (v.status && v.status !== c.status) {
+    const faltam = await missingRequired(c.accountId, (v.customAttributes ?? c.customAttributes) as Record<string, unknown>, 'status:' + v.status);
+    if (faltam.length) return res.status(422).json({ error: 'required_fields', message: 'Preencha antes de mudar de etapa: ' + faltam.join(', '), fields: faltam });
+  }
+  const updated = await updateContact(c, v, req.user!.id);
   res.json({ ...railsJson(updated), reseller_phones: (await phonesOf([c.id])).get(c.id) ?? [] });
 }
 contactsRouter.put('/contacts/:id(\\d+)', updateContactRoute);
@@ -214,14 +222,8 @@ contactsRouter.delete('/contacts/:contact_id/tags/:id', async (req, res) => {
 });
 
 // --- grupos de campos e campos personalizados --------------------------------------------------
-export const ASSIGNABLE_FIELD_KEYS = ['venda', 'proximo_agendamento', 'limite_inicial', 'dia_fechamento', 'data_agendamento', 'obs_fechamento',
-  'dia_pf_fechamento', 'horario_fechamento', 'atraso', 'observacao_mes', 'meta', 'desafio_combinado', 'como_chegar_meta'];
-
-async function customFieldsOf(accountId: number): Promise<{ key: string; label: string }[]> {
-  const [a] = await db.select({ f: accounts.contactCustomFields }).from(accounts).where(eq(accounts.id, accountId));
-  return Array.isArray(a?.f) ? a.f as { key: string; label: string }[] : [];
-}
-const assignableKeysFor = async (accountId: number) => [...ASSIGNABLE_FIELD_KEYS, ...(await customFieldsOf(accountId)).map(f => f.key)];
+export { ASSIGNABLE_FIELD_KEYS };
+const assignableKeysFor = async (accountId: number) => [...ASSIGNABLE_FIELD_KEYS, ...(await customFieldsOf(accountId)).filter(f => !f.builtin).map(f => f.key)];
 
 contactsRouter.get('/contact_field_groups', async (req, res) => {
   const [existing] = await db.select({ id: contactFieldGroups.id }).from(contactFieldGroups).where(eq(contactFieldGroups.accountId, acc(req))).limit(1);
@@ -229,9 +231,10 @@ contactsRouter.get('/contact_field_groups', async (req, res) => {
   res.json((await db.select().from(contactFieldGroups).where(eq(contactFieldGroups.accountId, acc(req))).orderBy(asc(contactFieldGroups.position), asc(contactFieldGroups.id))).map(g => railsJson(g)));
 });
 async function groupParams(req: Request) {
-  const p = (req.body.contact_field_group ?? {}) as { name?: string; field_keys?: string[] };
+  const p = (req.body.contact_field_group ?? {}) as { name?: string; field_keys?: string[]; position?: number };
   const out: Record<string, unknown> = {};
   if ('name' in p) out.name = p.name;
+  if ('position' in p) out.position = Number((p as { position?: number }).position) || 0;
   if (Array.isArray(p.field_keys)) { const ok = await assignableKeysFor(acc(req)); out.fieldKeys = p.field_keys.filter(k => ok.includes(k)); }
   return out;
 }
@@ -256,22 +259,68 @@ contactsRouter.delete('/contact_field_groups/:id', requireOwner, async (req, res
   res.status(204).end();
 });
 
-contactsRouter.get('/contact_custom_fields', async (req, res) => res.json(await customFieldsOf(acc(req))));
+// GET devolve só os campos criados (compatível com a v1); ?all=1 devolve fixos + criados com tipo/config (aba Configurar).
+// campo do tipo Arquivo (Kommo): sobe pro MinIO e guarda { name, url } no campo do lead
+const fieldUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+contactsRouter.post('/contacts/:id(\\d+)/field_file', fieldUpload.single('file'), async (req, res) => {
+  const c = await loadContact(req, res);
+  if (!c) return;
+  const key = String(req.query.key || '');
+  const campo = (await allFieldsOf(acc(req))).find(f => f.key === key);
+  if (!campo || campo.type !== 'file') return res.status(422).json({ message: 'Campo de arquivo inválido.' });
+  if (!req.file) return res.status(422).json({ message: 'Escolha um arquivo.' });
+  const nome = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+  const blob = await attach('Contact', c.id, 'cf_file_' + key, req.file.buffer, nome, req.file.mimetype || 'application/octet-stream');
+  const valor = { name: nome, url: blobUrl(blob) };
+  const updated = await updateContact(c, { customAttributes: { ...(c.customAttributes as Record<string, unknown> || {}), [key]: valor } }, req.user!.id);
+  res.json({ value: valor, custom_attributes: updated.customAttributes });
+});
+
+contactsRouter.get('/contact_custom_fields', async (req, res) => {
+  if (req.query.all) return res.json(await allFieldsOf(acc(req)));
+  res.json((await customFieldsOf(acc(req))).filter(f => !f.builtin).map(f => ({ type: 'text', ...f })));
+});
 contactsRouter.post('/contact_custom_fields', requireOwner, async (req, res) => {
-  const label = String(req.body.label ?? '').trim();
+  const input = cleanFieldInput(req.body ?? {});
+  const label = input.label || '';
   if (!label) return res.status(422).json({ message: 'Dê um nome pro campo.' });
+  if (['select', 'multiselect', 'radiobutton'].includes(input.type || '') && !(input.options || []).length) return res.status(422).json({ message: 'Adicione pelo menos uma opção na lista.' });
   const campos = await customFieldsOf(acc(req));
-  if (campos.some(f => String(f.label).toLowerCase() === label.toLowerCase())) return res.status(422).json({ message: 'Já existe um campo com esse nome.' });
+  if ((await allFieldsOf(acc(req))).some(f => String(f.label).toLowerCase() === label.toLowerCase())) return res.status(422).json({ message: 'Já existe um campo com esse nome.' });
   const translit = label.normalize('NFD').replace(/[̀-ͯ]/g, '');
   const base = ('cf_' + translit.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')).slice(0, 40);
   let key = base;
   for (let n = 2; campos.some(f => f.key === key) || ASSIGNABLE_FIELD_KEYS.includes(key); n++) key = `${base}_${n}`;
-  const campo = { key, label };
+  const campo: CustomField = { type: 'text', ...input, key, label };
   await db.update(accounts).set({ contactCustomFields: [...campos, campo], updatedAt: new Date() }).where(eq(accounts.id, acc(req)));
+  // entra na aba escolhida (ou na primeira)
+  const groupId = Number(req.body.group_id) || null;
+  const grupos = await db.select().from(contactFieldGroups).where(eq(contactFieldGroups.accountId, acc(req))).orderBy(asc(contactFieldGroups.position), asc(contactFieldGroups.id));
+  const alvo = grupos.find(g => g.id === groupId) ?? grupos[0];
+  if (alvo) await db.update(contactFieldGroups).set({ fieldKeys: [...(alvo.fieldKeys as string[] || []), key] }).where(eq(contactFieldGroups.id, alvo.id));
   res.status(201).json(campo);
+});
+// editar: nome/tipo/opções/obrigatório/só API/oculto. Campo fixo: só as configurações (nome e tipo não mudam).
+contactsRouter.put('/contact_custom_fields/:id', requireOwner, async (req, res) => {
+  const key = req.params.id;
+  const input = cleanFieldInput(req.body ?? {});
+  const campos = await customFieldsOf(acc(req));
+  const builtin = ASSIGNABLE_FIELD_KEYS.includes(key);
+  if (!builtin && !campos.some(f => f.key === key)) return res.status(404).json({ message: 'Campo não encontrado.' });
+  if (!builtin && 'label' in input) {
+    if (!input.label) return res.status(422).json({ message: 'Dê um nome pro campo.' });
+    if ((await allFieldsOf(acc(req))).some(f => f.key !== key && String(f.label).toLowerCase() === String(input.label).toLowerCase())) return res.status(422).json({ message: 'Já existe um campo com esse nome.' });
+  }
+  if (builtin) { delete input.label; delete input.type; }
+  const next = builtin
+    ? [...campos.filter(f => f.key !== key), { ...(campos.find(f => f.key === key) || {}), ...input, key, label: key, builtin: true } as CustomField]
+    : campos.map(f => (f.key === key ? { ...f, ...input } : f));
+  await db.update(accounts).set({ contactCustomFields: next, updatedAt: new Date() }).where(eq(accounts.id, acc(req)));
+  res.json((await allFieldsOf(acc(req))).find(f => f.key === key));
 });
 contactsRouter.delete('/contact_custom_fields/:id', requireOwner, async (req, res) => {
   const key = req.params.id;
+  if (ASSIGNABLE_FIELD_KEYS.includes(key)) return res.status(422).json({ message: 'Campos padrão não podem ser excluídos.' });
   await db.update(accounts).set({ contactCustomFields: (await customFieldsOf(acc(req))).filter(f => f.key !== key), updatedAt: new Date() }).where(eq(accounts.id, acc(req)));
   for (const g of await db.select().from(contactFieldGroups).where(eq(contactFieldGroups.accountId, acc(req)))) {
     const keys = Array.isArray(g.fieldKeys) ? g.fieldKeys as string[] : [];

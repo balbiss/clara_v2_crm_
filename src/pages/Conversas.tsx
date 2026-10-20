@@ -823,7 +823,8 @@ export default function Conversas() {
     try { await api.post(`/salesbots/${b.id}/run`, { contact_id: conv.contact.id, conversation_id: conv.id }); setRunBot(false); Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `Robô "${b.name}" iniciado.`, showConfirmButton: false, timer: 2500 }) }
     catch (e: Any) { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Não foi possível iniciar o robô.', showConfirmButton: false, timer: 3500 }) }
   }
-  const dark = '#2e3c4c'
+  // card do lead no rosa da Clara (hsl(347 52% 88%)), texto em vinho — pedido da cliente
+  const dark = '#f0d0d7', ink = '#4a2430', inkMuted = '#85525f', inkSoft = '#9a6b77'
   const convNo = (c: Any) => 'A' + String(c.id).padStart(5, '0')
   const tabsK = v.contactFieldGroups.length
     ? v.contactFieldGroups.map((g: Any, i: number) => ({ id: i === 0 ? 'principal' : 'g' + g.id, label: g.name, group: g }))
@@ -982,18 +983,18 @@ export default function Conversas() {
         {/* ---------------- card do lead (painel escuro do Kommo) ---------------- */}
         {conv && showDetails && (
           <div className="conv-col conv-details" data-hide='0' style={{ borderRight: `1px solid ${K.line}`, background: '#fff', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <div style={{ background: dark, color: '#fff', padding: '16px 18px 0', flex: 'none', position: 'relative' }}>
+            <div style={{ background: dark, color: ink, padding: '16px 18px 0', flex: 'none', position: 'relative' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <button title="Fechar card" onClick={() => { if (isMobile) s.mobileView = 'chat'; else setDetailsOpen(false) }} style={{ border: 'none', background: 'none', color: '#aab4be', cursor: 'pointer', padding: '4px 0', display: 'flex' }}><ChevronLeft size={18} /></button>
+                <button title="Fechar card" onClick={() => { if (isMobile) s.mobileView = 'chat'; else setDetailsOpen(false) }} style={{ border: 'none', background: 'none', color: inkMuted, cursor: 'pointer', padding: '4px 0', display: 'flex' }}><ChevronLeft size={18} /></button>
                 {v.isEditingName ? (
                   <input ref={nameInputRef} value={v.editingName} maxLength={120} onChange={e => { s.editingName = e.target.value }} onBlur={saveContactName}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveContactName() } else if (e.key === 'Escape') { e.preventDefault(); s.isEditingName = false } }}
-                    style={{ flex: 1, minWidth: 0, background: 'none', border: 'none', borderBottom: '1px solid #fff', color: '#fff', fontFamily: K.font, fontSize: 22, fontWeight: 700, outline: 'none' }} />
+                    style={{ flex: 1, minWidth: 0, background: 'none', border: 'none', borderBottom: `1px solid ${ink}`, color: ink, fontFamily: K.font, fontSize: 22, fontWeight: 700, outline: 'none' }} />
                 ) : (
                   <h2 onClick={startEditingName} title="Clique pra editar o nome" style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 22, lineHeight: 1.25, fontWeight: 700, textTransform: 'uppercase', cursor: 'text', overflowWrap: 'anywhere' }}>{conv.contact.name}</h2>
                 )}
                 <div style={{ position: 'relative' }}>
-                  <button title="Mais" onClick={e => { stop(e); setHeadMenu(m => !m) }} style={{ border: 'none', background: 'none', color: '#fff', cursor: 'pointer', display: 'flex', padding: 4 }}><MoreHorizontal size={20} /></button>
+                  <button title="Mais" onClick={e => { stop(e); setHeadMenu(m => !m) }} style={{ border: 'none', background: 'none', color: ink, cursor: 'pointer', display: 'flex', padding: 4 }}><MoreHorizontal size={20} /></button>
                   {headMenu && (
                     <div style={{ ...menuK, top: '100%', right: 0, color: K.text }} onClick={stop}>
                       <button onClick={() => { setHeadMenu(false); s.isEditModalOpen = true }} style={menuItemK}><Edit2 size={14} /> Editar contato</button>
@@ -1011,11 +1012,11 @@ export default function Conversas() {
                 </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, margin: '10px 0 0 26px', position: 'relative' }}>
-                <span style={{ fontSize: 14, color: '#aab4be', marginRight: 2 }}>#{conv.contact.id}</span>
+                <span style={{ fontSize: 14, color: inkMuted, marginRight: 2 }}>#{conv.contact.id}</span>
                 {(conv.tags || []).map((t: Any) => (
-                  <span key={t.id} title="Clique pra remover" onClick={() => removeTag(t.id)} style={{ fontSize: 13, textTransform: 'uppercase', padding: '1px 7px', border: `1px solid ${t.color || '#7f8b97'}`, background: 'rgba(255,255,255,.08)', color: '#fff', borderRadius: 2, cursor: 'pointer' }}>{t.name}</span>
+                  <span key={t.id} title="Clique pra remover" onClick={() => removeTag(t.id)} style={{ fontSize: 13, textTransform: 'uppercase', padding: '1px 7px', border: `1px solid ${t.color || '#7f8b97'}`, background: 'rgba(255,255,255,.6)', color: ink, borderRadius: 2, cursor: 'pointer' }}>{t.name}</span>
                 ))}
-                <button onClick={e => { stop(e); setTagBox(b => !b) }} style={{ fontSize: 11.5, textTransform: 'uppercase', padding: '2px 7px', border: '1px solid #66727e', background: 'none', color: '#c5ccd3', borderRadius: 2, cursor: 'pointer' }}>#adicionar tags</button>
+                <button onClick={e => { stop(e); setTagBox(b => !b) }} style={{ fontSize: 11.5, textTransform: 'uppercase', padding: '2px 7px', border: '1px solid rgba(90,36,51,.35)', background: 'none', color: ink, borderRadius: 2, cursor: 'pointer' }}>#adicionar tags</button>
                 {tagBox && (
                   <div onClick={stop} style={{ ...menuK, top: '100%', left: 0, padding: 10, width: 260, color: K.text }}>
                     <input autoFocus value={v.newTagName} onChange={e => { s.newTagName = e.target.value; s.showTagSuggestions = true }} onKeyUp={e => { if (e.key === 'Enter') { addTag(); setTagBox(false) } }} placeholder="Buscar ou criar tag" style={kInput} />
@@ -1028,12 +1029,12 @@ export default function Conversas() {
               </div>
               {/* funil › etapa (dias) + barra de progresso */}
               <div style={{ margin: '14px 0 0 26px' }}>
-                <div style={{ fontSize: 13, color: '#aab4be' }}>{regua ? 'Consignado' : cardPipe?.name}</div>
+                <div style={{ fontSize: 13, color: inkMuted }}>{regua ? 'Consignado' : cardPipe?.name}</div>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <span style={{ fontSize: 15, fontWeight: 700, textTransform: 'uppercase' }}>{regua ? statusLabel(conv.contact.status) : cardPipe?.pipeline_stages.find((x: Any) => x.id === card?.pipeline_stage_id)?.name}</span>
-                  {stageDays != null && <span style={{ fontSize: 14, color: '#aab4be', marginLeft: 6 }}>({stageDays} dias)</span>}
+                  {stageDays != null && <span style={{ fontSize: 14, color: inkMuted, marginLeft: 6 }}>({stageDays} dias)</span>}
                   <span style={{ flex: 1 }} />
-                  <ChevronDown size={16} color="#aab4be" />
+                  <ChevronDown size={16} color={inkMuted} />
                   {regua ? (
                     <select aria-label="Etapa" value={conv.contact.status || 'revendedor_ativo'} disabled={v.isChangingStatus} onChange={e => changeContactStatus(e.target.value)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}>
                       {statusOptions.map(grp => <optgroup key={grp.group} label={grp.group}>{Object.entries(grp.options).map(([key, label]) => <option key={key} value={key}>{label as string}</option>)}</optgroup>)}
@@ -1044,8 +1045,8 @@ export default function Conversas() {
                     </select>
                   )}
                 </div>
-                <div style={{ height: 3, background: '#4a5867', borderRadius: 2, margin: '7px 0 0' }}>
-                  <div style={{ height: 3, borderRadius: 2, background: '#7fb2f0', width: `${stageTotal ? Math.min(100, ((Math.max(stageIdx, 0) + 1) / stageTotal) * 100) : 0}%` }} />
+                <div style={{ height: 3, background: 'rgba(90,36,51,.18)', borderRadius: 2, margin: '7px 0 0' }}>
+                  <div style={{ height: 3, borderRadius: 2, background: '#8e2a46', width: `${stageTotal ? Math.min(100, ((Math.max(stageIdx, 0) + 1) / stageTotal) * 100) : 0}%` }} />
                 </div>
               </div>
               {/* abas */}
@@ -1054,10 +1055,10 @@ export default function Conversas() {
                 <div className="k-tabs" style={{ flex: 1, minWidth: 0, display: 'flex', gap: 16, overflowX: 'auto', scrollbarWidth: 'none', paddingRight: 14, maskImage: 'linear-gradient(90deg, #000 calc(100% - 22px), transparent)', WebkitMaskImage: 'linear-gradient(90deg, #000 calc(100% - 22px), transparent)' }}>
                   {tabsK.map(tab => {
                     const on = v.activeDetailsTab === tab.id
-                    return <button key={tab.id} onClick={e => { s.activeDetailsTab = tab.id; (e.currentTarget as HTMLElement).scrollIntoView({ inline: 'nearest', block: 'nearest' }) }} style={{ flex: 'none', whiteSpace: 'nowrap', border: 'none', background: 'none', padding: '0 0 9px', fontFamily: K.font, fontSize: 14.5, fontWeight: 700, color: on ? '#fff' : '#8b97a3', borderBottom: `2px solid ${on ? '#fff' : 'transparent'}`, cursor: 'pointer' }}>{tab.label}</button>
+                    return <button key={tab.id} onClick={e => { s.activeDetailsTab = tab.id; (e.currentTarget as HTMLElement).scrollIntoView({ inline: 'nearest', block: 'nearest' }) }} style={{ flex: 'none', whiteSpace: 'nowrap', border: 'none', background: 'none', padding: '0 0 9px', fontFamily: K.font, fontSize: 14.5, fontWeight: 700, color: on ? ink : inkSoft, borderBottom: `2px solid ${on ? ink : 'transparent'}`, cursor: 'pointer' }}>{tab.label}</button>
                   })}
                 </div>
-                <button title="Mais abas" onClick={e => { stop(e); setTabMenu(m => !m) }} style={{ border: 'none', background: 'none', color: moreTabs.some(t => t.id === v.activeDetailsTab) ? '#fff' : '#8b97a3', padding: '0 0 9px', cursor: 'pointer', display: 'flex' }}><MoreHorizontal size={18} /></button>
+                <button title="Mais abas" onClick={e => { stop(e); setTabMenu(m => !m) }} style={{ border: 'none', background: 'none', color: moreTabs.some(t => t.id === v.activeDetailsTab) ? ink : inkSoft, padding: '0 0 9px', cursor: 'pointer', display: 'flex' }}><MoreHorizontal size={18} /></button>
                 {tabMenu && (
                   <div style={{ ...menuK, top: '100%', right: 0, color: K.text }} onClick={stop}>
                     {moreTabs.map(t => <button key={t.id} onClick={() => { s.activeDetailsTab = t.id; setTabMenu(false) }} style={{ ...menuItemK, background: v.activeDetailsTab === t.id ? '#eef4fe' : 'none' }}>{t.label}</button>)}

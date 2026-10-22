@@ -25,7 +25,9 @@ export class WahaService {
     const force = process.env.WAHA_FORCE_ENV === 'true';
     this.apiUrl = ((force ? '' : inbox.apiUrl) || process.env.WAHA_URL || '').replace(/\/$/, '');
     this.apiKey = (force ? '' : inbox.apiKey) || process.env.WAHA_API_KEY || '';
-    this.session = 'waha_' + String(inbox.phoneNumber || '').replace(/\D/g, '');
+    // WAHA_SESSION_PREFIX separa as sessões deste CRM das de outro CRM no mesmo servidor WAHA
+    // (a v2 de validação usa "clarav2_" pra nunca mexer nas sessões "waha_" da v1 em produção)
+    this.session = (process.env.WAHA_SESSION_PREFIX || 'waha_') + String(inbox.phoneNumber || '').replace(/\D/g, '');
   }
 
   get configured() { return !!this.apiUrl; }

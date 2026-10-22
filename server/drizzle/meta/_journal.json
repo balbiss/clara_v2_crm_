@@ -43,6 +43,13 @@
       "when": 1792489714799,
       "tag": "0005_agente_ia",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792710870945,
+      "tag": "0006_jueri_webhook",
+      "breakpoints": true
     }
   ]
 }

@@ -831,3 +831,16 @@ export const aiAgentLogs = pgTable('ai_agent_logs', {
 }, (t) => [
   index('idx_ai_agent_logs_agent_created').on(t.agentId, t.createdAt),
 ]);
+
+// --- 0006_jueri_webhook --------------------------------------------------------------------------
+export const jueriWebhookEvents = pgTable('jueri_webhook_events', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  accountId: bigint('account_id', { mode: 'number' }).notNull().references((): AnyPgColumn => accounts.id),
+  event: varchar('event'),
+  payload: jsonb('payload').default({}).notNull(),
+  headers: jsonb('headers').default({}).notNull(),
+  signatureOk: boolean('signature_ok'),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_jueri_webhook_events_account_created').on(t.accountId, t.createdAt),
+]);

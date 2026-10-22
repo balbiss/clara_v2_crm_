@@ -26,6 +26,7 @@ import { settingsRouter } from './routes/settings.js';
 import { salesbotRouter } from './routes/salesbot.js';
 import { insightsRouter } from './routes/insights.js';
 import { aiAgentsRouter } from './routes/aiAgents.js';
+import { jueriRouter } from './routes/jueri.js';
 import './lib/aiAgent.js';
 import { startJobs } from './jobs/index.js';
 
@@ -35,7 +36,8 @@ process.on('unhandledRejection', err => console.error('Erro não tratado (servid
 const app = express();
 // exposedHeaders: o front lê o token do header Authorization da resposta do login (igual à v1).
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5183', exposedHeaders: ['Authorization'] }));
-app.use(express.json({ limit: '25mb' }));
+// guarda o corpo bruto: o webhook do Jueri confere a assinatura (HMAC) em cima dele
+app.use(express.json({ limit: '25mb', verify: (req, _res, buf) => { (req as { rawBody?: Buffer }).rawBody = buf } }));
 
 app.get('/up', (_req, res) => res.json({ ok: true }));
 app.use(sessionsRouter);
@@ -50,6 +52,7 @@ app.use(settingsRouter);
 app.use(salesbotRouter);
 app.use(insightsRouter);
 app.use(aiAgentsRouter);
+app.use(jueriRouter);
 app.use(contactsRouter);
 app.use(salesTeamsRouter);
 app.use(internalMessagesRouter);

@@ -26,6 +26,8 @@ console.log('   ', JSON.stringify({ ativas: d.carteira.ativas, sem_maleta: d.car
 const busca = await api('GET', '/contacts?q=Clinica%20Moreira')
 const lista = Array.isArray(busca.data) ? busca.data : busca.data?.contacts || []
 const teste = lista.find(c => /Moreira/.test(c.name || ''))
+// fecha tarefas de teste que sobraram de outra execução (só 1 pendente por tipo por revendedora)
+if (teste) for (const t of ((await api('GET', `/tarefas?contact_id=${teste.id}&status=pendente`)).data || []).filter(t => /^Teste do Início/.test(t.titulo))) await api('PATCH', `/tarefas/${t.id}/complete`, { resultado: 'limpeza do teste' })
 const titulo = 'Teste do Início ' + Date.now().toString().slice(-5)
 const venc = new Date(Date.now() + 60 * 60e3).toISOString()
 const nova = teste ? await api('POST', '/tarefas', { tarefa: { contact_id: teste.id, titulo, tipo: 'manual_outro', vencimento_em: venc } }) : { status: 0 }

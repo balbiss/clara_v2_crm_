@@ -81,6 +81,16 @@ export default function Inicio() {
     catch (e: any) { toast('error', e.response?.data?.error || 'Não foi possível concluir.') } finally { setConcluindo(null) }
   }
   if (!d) return <div style={{ padding: 40, color: K.muted, fontFamily: K.font }}>Carregando…</div>
+  const tarefaLinha = (t: any, atrasada: boolean) => (
+    <div key={t.id} data-testid={atrasada ? 'tarefa-atrasada' : 'tarefa'} style={linha}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.titulo}</div>
+        <button onClick={() => navigate(`/contatos/${t.contact_id}`)} style={{ ...link, fontSize: 13.5 }}>{t.contato}</button>
+        <span style={{ fontSize: 13, color: atrasada ? '#c0392b' : K.muted }}> · {atrasada && t.vencimento ? `venceu em ${ddmm(new Date(t.vencimento).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }))}` : t.vencimento ? `até ${hora(t.vencimento)}` : 'sem horário'}</span>
+      </div>
+      <button onClick={() => concluir(t.id)} disabled={concluindo === t.id} style={{ flex: 'none', height: 30, padding: '0 12px', border: `1px solid ${ROSA}`, borderRadius: 15, background: '#fff', color: VINHO, fontFamily: K.font, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{concluindo === t.id ? '…' : 'Concluir'}</button>
+    </div>
+  )
   const dataLonga = new Date(`${d.hoje}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
@@ -106,19 +116,16 @@ export default function Inicio() {
         <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
           <Bloco titulo="Tarefas de hoje" icone={<CheckCircle2 size={18} />} extra={<span style={{ fontSize: 13, color: K.muted }}>{d.tarefas.hoje} hoje{d.tarefas.atrasadas ? <> · <b style={{ color: '#c0392b' }}>{d.tarefas.atrasadas} atrasadas</b></> : null}</span>}>
             {!d.tarefas.lista.length && <Vazio>Nenhuma tarefa pra hoje.</Vazio>}
-            {d.tarefas.lista.map((t: any) => {
-              const atrasada = !!t.vencimento && new Date(t.vencimento) < new Date(`${d.hoje}T00:00:00-03:00`)
-              return (
-                <div key={t.id} data-testid="tarefa" style={linha}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.titulo}</div>
-                    <button onClick={() => navigate(`/contatos/${t.contact_id}`)} style={{ ...link, fontSize: 13.5 }}>{t.contato}</button>
-                    <span style={{ fontSize: 13, color: atrasada ? '#c0392b' : K.muted }}> · {atrasada ? `atrasada desde ${ddmm(t.vencimento.slice(0, 10))}` : t.vencimento ? `até ${hora(t.vencimento)}` : 'sem horário'}</span>
-                  </div>
-                  <button onClick={() => concluir(t.id)} disabled={concluindo === t.id} style={{ flex: 'none', height: 30, padding: '0 12px', border: `1px solid ${ROSA}`, borderRadius: 15, background: '#fff', color: VINHO, fontFamily: K.font, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{concluindo === t.id ? '…' : 'Concluir'}</button>
+            {d.tarefas.lista.map((t: any) => tarefaLinha(t, false))}
+            {d.tarefas.atrasadas > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#c0392b', textTransform: 'uppercase', letterSpacing: '.04em', padding: '6px 0' }}>
+                  <span style={{ flex: 1 }}>Atrasadas ({d.tarefas.atrasadas.toLocaleString('pt-BR')})</span>
+                  <button onClick={() => navigate('/tarefas')} style={{ ...link, fontSize: 13, textTransform: 'none', letterSpacing: 0 }}>Ver todas</button>
                 </div>
-              )
-            })}
+                {(d.tarefas.atrasadas_lista || []).map((t: any) => tarefaLinha(t, true))}
+              </div>
+            )}
           </Bloco>
 
           <Bloco titulo="Esperando resposta" icone={<MessageCircle size={18} />} extra={<span style={{ fontSize: 13, color: d.esperando.total ? '#c0392b' : K.muted }}>{d.esperando.total} conversa(s)</span>}>

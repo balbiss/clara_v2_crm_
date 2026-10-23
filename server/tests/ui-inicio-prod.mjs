@@ -45,6 +45,7 @@ check('saudação com o nome', await page.getByRole('heading', { level: 1 }).inn
 for (const b of ['Carteira', 'Tarefas de hoje', 'Esperando resposta', 'Acertos da semana', 'Aniversariantes da semana', 'Equipe', 'Novidades do Jueri hoje']) check(`bloco "${b}"`, await page.getByRole('region', { name: b }).isVisible())
 const ativasTela = await page.getByRole('region', { name: 'Carteira' }).getByRole('button').first().innerText()
 check('número de Ativas igual ao da API', ativasTela.replace(/\D/g, '').startsWith(String(d.carteira.ativas)), ativasTela.split('\n')[0])
+if (d.tarefas.atrasadas) check('atrasadas separadas, com as 10 mais recentes e Ver todas', (await page.locator('[data-testid="tarefa-atrasada"]').count()) === Math.min(10, d.tarefas.atrasadas) && await page.getByRole('button', { name: 'Ver todas' }).isVisible())
 check('ranking da equipe na tela', (await page.locator('[data-testid="ranking"]').count()) === d.ranking.length)
 await page.screenshot({ path: OUT + '/inicio-prod.png', fullPage: true })
 

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { contacts, conversations, lifecycleEvents, notifications, pedidos, tarefas, users } from '../db/schema.js';
 import { requireAuth, isFullPortfolio, visibleContactsWhere } from '../middleware/auth.js';
@@ -17,6 +17,8 @@ export const inicioRouter = Router();
 const nome = (u: { f: string | null; l: string | null }) => `${u.f || ''} ${u.l || ''}`.trim();
 const maisDias = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) };
 
+const fmtT = (r: any) => ({ id: r.t.id, titulo: r.t.titulo, tipo: r.t.tipo, prioridade: r.t.prioridade, vencimento: r.t.vencimentoEm ? new Date(r.t.vencimentoEm).toISOString() : null, contact_id: r.t.contactId, contato: r.nome || r.phone });
+
 inicioRouter.get('/inicio', requireAuth, async (req, res) => {
   const u = req.user!;
   const hoje = hojeSP();
@@ -27,8 +29,12 @@ inicioRouter.get('/inicio', requireAuth, async (req, res) => {
   const time = isFullPortfolio(u);
 
   // 1) tarefas de hoje + atrasadas
-  const tRows = await db.select({ t: tarefas, nome: contacts.name, phone: contacts.phone }).from(tarefas).innerJoin(contacts, eq(contacts.id, tarefas.contactId))
-    .where(and(visT, eq(tarefas.status, 'pendente'), lte(tarefas.vencimentoEm, fimHoje))).orderBy(asc(tarefas.vencimentoEm)).limit(40);
+  // hoje: todas as do dia (mais cedo primeiro); atrasadas: só as 10 mais recentes (o total vai no contador)
+  const [iniHoje] = diaSP(hoje);
+  const tHoje = await db.select({ t: tarefas, nome: contacts.name, phone: contacts.phone }).from(tarefas).innerJoin(contacts, eq(contacts.id, tarefas.contactId))
+    .where(and(visT, eq(tarefas.status, 'pendente'), gte(tarefas.vencimentoEm, iniHoje), lte(tarefas.vencimentoEm, fimHoje))).orderBy(asc(tarefas.vencimentoEm)).limit(100);
+  const tAtras = await db.select({ t: tarefas, nome: contacts.name, phone: contacts.phone }).from(tarefas).innerJoin(contacts, eq(contacts.id, tarefas.contactId))
+    .where(and(visT, eq(tarefas.status, 'pendente'), lt(tarefas.vencimentoEm, iniHoje))).orderBy(desc(tarefas.vencimentoEm)).limit(10);
   const [tCount] = await db.select({
     atrasadas: sql<number>`COUNT(*) FILTER (WHERE ${tarefas.vencimentoEm} < ${diaSP(hoje)[0].toISOString()}::timestamptz AT TIME ZONE 'UTC')::int`,
     hoje: sql<number>`COUNT(*) FILTER (WHERE ${tarefas.vencimentoEm} >= ${diaSP(hoje)[0].toISOString()}::timestamptz AT TIME ZONE 'UTC')::int`,
@@ -66,7 +72,7 @@ inicioRouter.get('/inicio', requireAuth, async (req, res) => {
 
   const out: any = {
     usuario: { nome: u.firstName || '', time }, hoje,
-    tarefas: { lista: tRows.map(r => ({ id: r.t.id, titulo: r.t.titulo, tipo: r.t.tipo, prioridade: r.t.prioridade, vencimento: r.t.vencimentoEm ? new Date(r.t.vencimentoEm).toISOString() : null, contact_id: r.t.contactId, contato: r.nome || r.phone })), ...tCount },
+    tarefas: { lista: tHoje.map(fmtT), atrasadas_lista: tAtras.map(fmtT), ...tCount },
     carteira, acertos, aniversarios,
     esperando: { total: esperaN?.n ?? 0, lista: espera.map(e => ({ conversation_id: Number(e.id), contact_id: Number(e.contact_id), nome: e.name, texto: (e.text && !String(e.text).startsWith('📎') ? e.text : e.transcription) || 'Mídia', desde: e.desde })) },
   };

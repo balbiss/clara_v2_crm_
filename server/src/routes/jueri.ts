@@ -4,6 +4,7 @@ import { desc, eq, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { accounts, jueriWebhookEvents } from '../db/schema.js';
 import { requireAuth, requireOwner } from '../middleware/auth.js';
+import { aplicarEventoJueri, jueriConfigurado, ultimaSync } from '../lib/jueriSync.js';
 
 // Webhook do Jueri (Configurações › Webhooks no painel do Jueri). Por enquanto a v2 só RECEBE e
 // GUARDA cada evento (corpo + cabeçalhos) pra validar os campos; a sincronização vem depois.
@@ -46,6 +47,8 @@ jueriRouter.post('/webhooks/jueri/:token', async (req: Request & { rawBody?: Buf
   const event = String(body.event ?? body.evento ?? body.type ?? body.tipo ?? headers['x-jueri-event'] ?? headers['x-event'] ?? '').slice(0, 120) || null;
   await db.insert(jueriWebhookEvents).values({ accountId: a.id, event, payload: body, headers, signatureOk: assinaturaConfere(req.rawBody, assinatura, (a.settings as any)?.jueri_webhook_key) });
   res.json({ status: 'ok' });
+  // aplica o pedido do evento na hora (mesmo "fast path" da v1), sem segurar a resposta
+  void aplicarEventoJueri(a.id, event, body).catch(e => console.error('[Webhook Jueri] evento', event, (e as Error).message));
 });
 
 // tela Configurações › Jueri: URL, chave e os últimos eventos recebidos
@@ -55,7 +58,7 @@ jueriRouter.get('/jueri/webhook', requireAuth, requireOwner, async (req, res) =>
   const base = (process.env.PUBLIC_URL || process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
   const eventos = await db.select().from(jueriWebhookEvents).where(eq(jueriWebhookEvents.accountId, accountId)).orderBy(desc(jueriWebhookEvents.id)).limit(100);
   res.json({
-    url: `${base}/webhooks/jueri/${token}`, chave,
+    url: `${base}/webhooks/jueri/${token}`, chave, sync_configurado: jueriConfigurado(), ultima_sync: ultimaSync,
     eventos: eventos.map(e => ({ id: e.id, event: e.event, payload: e.payload, headers: e.headers, signature_ok: e.signatureOk, created_at: e.createdAt.toISOString() })),
   });
 });
@@ -64,3 +67,4 @@ jueriRouter.delete('/jueri/webhook/eventos', requireAuth, requireOwner, async (r
   await db.delete(jueriWebhookEvents).where(eq(jueriWebhookEvents.accountId, req.user!.accountId!));
   res.status(204).end();
 });
+

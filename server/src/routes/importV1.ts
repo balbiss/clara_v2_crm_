@@ -16,8 +16,8 @@ let rodando = false;
 let ultimo: any = null;
 
 async function colunas(conn: postgres.Sql, tabela: string) {
-  const r = await conn`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tabela}`;
-  return new Set(r.map((x: any) => x.column_name as string));
+  const r = await conn`SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tabela}`;
+  return new Map(r.map((x: any) => [x.column_name as string, x.data_type as string]));
 }
 
 async function importar() {
@@ -54,15 +54,26 @@ async function importar() {
     const guardar = async (t: string, oldId: number, newId: number) => { m(t).set(oldId, newId); await v2`INSERT INTO v1_import_map (table_name, old_id, new_id) VALUES (${t}, ${oldId}, ${newId}) ON CONFLICT (table_name, old_id) DO UPDATE SET new_id = EXCLUDED.new_id` };
 
     /** Copia uma linha da v1 pra v2 usando só as colunas que existem nas duas; atualiza se já veio. */
-    const cols2 = new Map<string, Set<string>>();
+    // SQL montado coluna a coluna pelo tipo REAL na v2: json/jsonb vai como texto ($n::text::jsonb,
+    // o banco converte), data/hora como texto ISO, o resto como veio.
+    const cols2 = new Map<string, Map<string, string>>();
     const copiar = async (tabela: string, row: any, troca: Record<string, any>, existenteId?: number | null) => {
       if (!cols2.has(tabela)) cols2.set(tabela, await colunas(v2, tabela));
       const cols = cols2.get(tabela)!;
-      const valores: Record<string, any> = {};
-      for (const [k, v] of Object.entries({ ...row, ...troca })) if (k !== 'id' && cols.has(k)) valores[k] = v instanceof Date ? v.toISOString() : (v !== null && typeof v === 'object' && !Array.isArray(v)) ? v2.json(v as any) : Array.isArray(v) && (k === "field_keys" || k.endsWith("_attributes")) ? v2.json(v as any) : v;
-      const ks = Object.keys(valores);
-      if (existenteId) { await v2`UPDATE ${v2(tabela)} SET ${v2(valores, ks)} WHERE id = ${existenteId}`; return existenteId }
-      const [n] = await v2`INSERT INTO ${v2(tabela)} ${v2(valores, ks)} RETURNING id`;
+      const nomes: string[] = [], exprs: string[] = [], params: any[] = [];
+      for (const [k, v] of Object.entries({ ...row, ...troca })) {
+        if (k === 'id' || !cols.has(k)) continue;
+        const tipo = cols.get(k)!;
+        const json = tipo === 'json' || tipo === 'jsonb';
+        params.push(v === null || v === undefined ? null : json ? JSON.stringify(v) : v instanceof Date ? v.toISOString() : v);
+        nomes.push(`"${k}"`);
+        exprs.push(json ? `$${params.length}::text::${tipo}` : v instanceof Date ? `$${params.length}::text::${tipo === 'date' ? 'date' : 'timestamp'}` : `$${params.length}`);
+      }
+      if (existenteId) {
+        await v2.unsafe(`UPDATE "${tabela}" SET ${nomes.map((n, i) => `${n} = ${exprs[i]}`).join(', ')} WHERE id = ${Number(existenteId)}`, params);
+        return existenteId;
+      }
+      const [n] = await v2.unsafe(`INSERT INTO "${tabela}" (${nomes.join(', ')}) VALUES (${exprs.join(', ')}) RETURNING id`, params);
       return Number(n.id);
     };
 
@@ -127,7 +138,7 @@ async function importar() {
     // 6) conta: campos personalizados, mínimo de peças e grupos de campos (abas do card)
     const campos2: any[] = Array.isArray(acc2.contact_custom_fields) ? acc2.contact_custom_fields : [];
     const novos = (Array.isArray(dados.acc.contact_custom_fields) ? dados.acc.contact_custom_fields : []).filter((f: any) => !campos2.some(x => x.key === f.key));
-    await v2`UPDATE accounts SET contact_custom_fields = ${v2.json([...campos2, ...novos])}, min_pecas_ativa = ${dados.acc.min_pecas_ativa ?? 25} WHERE id = ${A}`;
+    await v2`UPDATE accounts SET contact_custom_fields = ${JSON.stringify([...campos2, ...novos])}::text::jsonb, min_pecas_ativa = ${dados.acc.min_pecas_ativa ?? 25} WHERE id = ${A}`;
     rel.campos_personalizados_novos = novos.length;
     for (const g of dados.grupos) {
       const ja = Number((await v2`SELECT id FROM contact_field_groups WHERE account_id = ${A} AND lower(name) = lower(${g.name}) LIMIT 1`)[0]?.id || 0);

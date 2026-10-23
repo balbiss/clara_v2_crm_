@@ -59,24 +59,24 @@ export function blankStep(type: string): any {
 // --- modelos ("Criar um bot") -------------------------------------------------------------------
 export const TEMPLATES: { name: string; description: string; preview: string; color: string; trigger: any; definition: any }[] = [
   {
-    name: 'Bot de boas-vindas', description: 'Cumprimenta quem chama no WhatsApp e direciona pelo menu.', preview: 'No que posso te ajudar? 👋', color: '#dcfce7',
+    name: 'Bot de boas-vindas', description: 'Cumprimenta quem chama no WhatsApp e direciona pelo menu.', preview: 'No que posso te ajudar?', color: '#dcfce7',
     trigger: { event: 'conversation_started' },
     definition: { start: 'm1', steps: {
-      m1: { id: 'm1', type: 'message', text: 'Oi, {{contact.first_name}}! 👋 Bem-vinda à Clara Ferreira. No que posso te ajudar?', buttons: [{ label: 'Quero revender', next: 'r' }, { label: 'Já sou revendedora', next: 'j' }, { label: 'Outro assunto', next: 'o' }], on_other: 'o', no_answer: { minutes: 30, next: 'fim' } },
-      r: { id: 'r', type: 'message', text: 'Que legal! Já vou te passar para uma consultora. 💎', next: 'rr' },
+      m1: { id: 'm1', type: 'message', text: 'Oi, {{contact.first_name}}! Bem-vinda à Clara Ferreira. No que posso te ajudar?', buttons: [{ label: 'Quero revender', next: 'r' }, { label: 'Já sou revendedora', next: 'j' }, { label: 'Outro assunto', next: 'o' }], on_other: 'o', no_answer: { minutes: 30, next: 'fim' } },
+      r: { id: 'r', type: 'message', text: 'Que legal! Já vou te passar para uma consultora.', next: 'rr' },
       rr: { id: 'rr', type: 'action', action: 'change_owner', config: { mode: 'round_robin', user_ids: [] }, next: 'fim' },
-      j: { id: 'j', type: 'message', text: 'Oba! Já aviso a sua consultora. 😉', next: 'fim' },
-      o: { id: 'o', type: 'message', text: 'Certo! Uma pessoa da equipe já vai te responder. 🙂', next: 'fim' },
+      j: { id: 'j', type: 'message', text: 'Oba! Já aviso a sua consultora.', next: 'fim' },
+      o: { id: 'o', type: 'message', text: 'Certo! Uma pessoa da equipe já vai te responder.', next: 'fim' },
       fim: { id: 'fim', type: 'stop' },
     } },
   },
   {
-    name: 'Confirme agendamentos', description: 'Lembra o acerto do dia seguinte com os botões Confirmado / Reagendar.', preview: 'Você ainda vem amanhã? ✅ ❌', color: '#fce7f3',
+    name: 'Confirme agendamentos', description: 'Lembra o acerto do dia seguinte com os botões Confirmado / Reagendar.', preview: 'Você ainda vem amanhã? Confirmado / Reagendar', color: '#fce7f3',
     trigger: { event: 'manual' },
     definition: { start: 'c', steps: {
       c: { id: 'c', type: 'condition', branches: [{ logic: 'and', rules: [{ field: 'data_agendamento', op: 'empty' }], next: 'fim' }], else_next: 'm' },
-      m: { id: 'm', type: 'message', text: 'Oii! Passando para lembrar do nosso horário agendado para amanhã: {{lead.data_agendamento}} 💎', buttons: [{ label: 'Confirmado', next: 'ok' }, { label: 'Reagendar', next: 'rg' }], on_other: 'fim', no_answer: { minutes: 60, next: 'fim' } },
-      ok: { id: 'ok', type: 'message', text: 'Perfeito, te esperamos! 💖', next: 'fim' },
+      m: { id: 'm', type: 'message', text: 'Oii! Passando para lembrar do nosso horário agendado para amanhã: {{lead.data_agendamento}}', buttons: [{ label: 'Confirmado', next: 'ok' }, { label: 'Reagendar', next: 'rg' }], on_other: 'fim', no_answer: { minutes: 60, next: 'fim' } },
+      ok: { id: 'ok', type: 'message', text: 'Perfeito, te esperamos!', next: 'fim' },
       rg: { id: 'rg', type: 'action', action: 'add_task', config: { titulo: 'Reagendar o acerto', tipo: 'manual_agendamento', deadline: 'now' }, next: 'rg2' },
       rg2: { id: 'rg2', type: 'message', text: 'Tudo bem! A sua consultora vai combinar um novo horário com você.', next: 'fim' },
       fim: { id: 'fim', type: 'stop' },
@@ -94,7 +94,7 @@ export const TEMPLATES: { name: string; description: string; preview: string; co
     name: 'Encerrar por falta de interação', description: 'Avisa e fecha a conversa se o cliente não responder em 30 min.', preview: 'Atendimento encerrado por falta de interação', color: '#fef3c7',
     trigger: { event: 'manual' },
     definition: { start: 'm', steps: {
-      m: { id: 'm', type: 'message', text: 'Esse atendimento foi encerrado automaticamente por falta de interação. Se quiser retomar, clique no botão abaixo. 💫', buttons: [{ label: 'Retomar Atendimento', next: 'fim' }], on_other: 'fim', no_answer: { minutes: 30, next: 'close' } },
+      m: { id: 'm', type: 'message', text: 'Esse atendimento foi encerrado automaticamente por falta de interação. Se quiser retomar, clique no botão abaixo.', buttons: [{ label: 'Retomar Atendimento', next: 'fim' }], on_other: 'fim', no_answer: { minutes: 30, next: 'close' } },
       close: { id: 'close', type: 'action', action: 'conversation_status', config: { status: 'closed' }, next: 'fim' },
       fim: { id: 'fim', type: 'stop' },
     } },

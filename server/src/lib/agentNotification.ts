@@ -32,10 +32,10 @@ function buildMessage(agent: UserRow, contact: typeof contacts.$inferSelect, byL
   const name = contact.name || `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || 'Lead';
   const crmUrl = process.env.FRONTEND_URL || 'http://localhost:5183';
   const dept = agent.department || 'corretor';
-  const lines = [dept === 'corretor' ? '🔔 *Novo lead atribuído para você!*' : '🔔 *Nova solicitação atribuída para você!*', '', `👤 *Nome:* ${name}`];
-  if (contact.intention) lines.push(`🏠 *Interesse:* ${contact.intention}`);
-  if (contact.source) lines.push(`📍 *Origem:* ${contact.source}`);
-  if (contact.temperature && dept === 'corretor') lines.push(`🌡️ *Temperatura:* ${contact.temperature[0].toUpperCase()}${contact.temperature.slice(1)}`);
-  lines.push(`⚙️ _${byLabel}_`, '', '📲 Acesse o CRM para atender:', `${crmUrl}/conversas`, '', '⚠️ _Atenda pelo sistema para registrar o histórico._');
+  const lines = [dept === 'corretor' ? '*Nova revendedora atribuída para você!*' : '*Nova solicitação atribuída para você!*', '', `*Nome:* ${name}`];
+  if (contact.intention) lines.push(`*Interesse:* ${contact.intention}`);
+  if (contact.source) lines.push(`*Origem:* ${contact.source}`);
+  if (contact.temperature && dept === 'corretor') lines.push(`*Temperatura:* ${contact.temperature[0].toUpperCase()}${contact.temperature.slice(1)}`);
+  lines.push(`_${byLabel}_`, '', 'Acesse o CRM para atender:', `${crmUrl}/conversas`, '', '_Atenda pelo sistema para registrar o histórico._');
   return lines.join('\n');
 }

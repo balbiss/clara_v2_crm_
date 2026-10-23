@@ -2,6 +2,7 @@ import { Router } from 'express';
 import postgres from 'postgres';
 import { sql as v2 } from '../db/client.js';
 import { requireAuth, requireOwner } from '../middleware/auth.js';
+import { deleteContactCascade } from '../lib/wahaIngestion.js';
 
 // Traz as revendedoras da v1 (em produção) pra v2, com a mesma carteira: usuários da equipe
 // (mesmo e-mail e mesma senha), times de vendas e quem vê cada time, etiquetas, revendedoras com
@@ -113,6 +114,16 @@ async function importar() {
       if (!ja && c.id_jueri) ja = Number((await v2`SELECT id FROM contacts WHERE account_id = ${A} AND id_jueri = ${c.id_jueri} LIMIT 1`)[0]?.id || 0);
       if (!ja && c.jid) ja = Number((await v2`SELECT id FROM contacts WHERE account_id = ${A} AND jid = ${c.jid} LIMIT 1`)[0]?.id || 0);
       if (!ja && c.phone) ja = Number((await v2`SELECT id FROM contacts WHERE account_id = ${A} AND phone = ${c.phone} LIMIT 1`)[0]?.id || 0);
+      // a sincronização do Jueri da v2 pode ter criado a mesma pessoa (mesmo ID do Jueri ou mesmo jid):
+      // junta no cadastro que veio da v1 — conversas vão junto, o repetido é apagado
+      if (ja) for (const [col, val] of [['id_jueri', c.id_jueri], ['jid', c.jid]] as const) {
+        if (!val) continue;
+        const outro = Number((await v2.unsafe(`SELECT id FROM contacts WHERE account_id = $1 AND ${col} = $2 AND id <> $3 LIMIT 1`, [A, val, ja]))[0]?.id || 0);
+        if (!outro) continue;
+        await v2`UPDATE conversations SET contact_id = ${ja} WHERE contact_id = ${outro}`;
+        await deleteContactCascade(outro);
+        conta('repetidas_juntadas');
+      }
       const id = await copiar('contacts', c, { account_id: A, user_id: U(c.user_id) }, ja || null);
       await guardar('contacts', Number(c.id), id); conta(ja ? 'revendedoras_atualizadas' : 'revendedoras_novas');
     }
@@ -131,7 +142,7 @@ async function importar() {
     }
     for (const p of dados.pedidos) {
       const cid = C(p.contact_id); if (!cid) continue;
-      const ja = m('pedidos').get(Number(p.id)) ?? 0;
+      const ja = m('pedidos').get(Number(p.id)) ?? Number((p.jueri_pedido_id ? (await v2`SELECT id FROM pedidos WHERE jueri_pedido_id = ${String(p.jueri_pedido_id)} LIMIT 1`)[0]?.id : 0) || 0);
       const id = await copiar('pedidos', p, { account_id: A, contact_id: cid }, ja || null);
       await guardar('pedidos', Number(p.id), id); conta('pedidos');
     }

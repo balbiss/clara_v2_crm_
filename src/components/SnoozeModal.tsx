@@ -8,9 +8,9 @@ const nextMondayAt = (h: number) => { const d = new Date(); d.setDate(d.getDate(
 const quickOptions = [
   { label: 'Em 30 minutos', icon: '⏱️', fn: () => addMinutes(30) },
   { label: 'Em 2 horas', icon: '⏰', fn: () => addMinutes(120) },
-  { label: 'Amanhã às 9h', icon: '🌅', fn: () => nextDayAt(9) },
-  { label: 'Amanhã às 14h', icon: '☀️', fn: () => nextDayAt(14) },
-  { label: 'Segunda às 8h', icon: '📅', fn: () => nextMondayAt(8) },
+  { label: 'Amanhã às 9h', icon: '', fn: () => nextDayAt(9) },
+  { label: 'Amanhã às 14h', icon: '', fn: () => nextDayAt(14) },
+  { label: 'Segunda às 8h', icon: '', fn: () => nextMondayAt(8) },
 ]
 
 export default function SnoozeModal({ onConfirm, onClose }: { conversationId: number; onConfirm: (iso: string) => void; onClose: () => void }) {

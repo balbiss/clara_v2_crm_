@@ -105,7 +105,7 @@ export default function Inicio() {
       <div className="k-inicio-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)', gap: 16, alignItems: 'start' }}>
         <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
           <Bloco titulo="Tarefas de hoje" icone={<CheckCircle2 size={18} />} extra={<span style={{ fontSize: 13, color: K.muted }}>{d.tarefas.hoje} hoje{d.tarefas.atrasadas ? <> · <b style={{ color: '#c0392b' }}>{d.tarefas.atrasadas} atrasadas</b></> : null}</span>}>
-            {!d.tarefas.lista.length && <Vazio>Nenhuma tarefa pra hoje. 🎉</Vazio>}
+            {!d.tarefas.lista.length && <Vazio>Nenhuma tarefa pra hoje.</Vazio>}
             {d.tarefas.lista.map((t: any) => {
               const atrasada = !!t.vencimento && new Date(t.vencimento) < new Date(`${d.hoje}T00:00:00-03:00`)
               return (
@@ -122,7 +122,7 @@ export default function Inicio() {
           </Bloco>
 
           <Bloco titulo="Esperando resposta" icone={<MessageCircle size={18} />} extra={<span style={{ fontSize: 13, color: d.esperando.total ? '#c0392b' : K.muted }}>{d.esperando.total} conversa(s)</span>}>
-            {!d.esperando.lista.length && <Vazio>Ninguém esperando resposta. 👏</Vazio>}
+            {!d.esperando.lista.length && <Vazio>Ninguém esperando resposta.</Vazio>}
             {d.esperando.lista.map((c: any) => (
               <button key={c.conversation_id} data-testid="esperando" onClick={() => navigate(`/conversas?abrir=${c.conversation_id}`)} style={{ ...linha, width: '100%', border: 'none', borderTop: `1px solid ${K.line}`, background: 'none', cursor: 'pointer', fontFamily: K.font, textAlign: 'left' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -169,7 +169,7 @@ export default function Inicio() {
           {d.usuario.time && d.novidades && (
             <Bloco titulo="Novidades do Jueri hoje" icone={<Sparkles size={18} />}>
               {!d.novidades.marcos.length && !d.novidades.cadastros.length && <Vazio>Nada novo hoje ainda.</Vazio>}
-              {d.novidades.cadastros.map((c: any, i: number) => <div key={'c' + i} style={linha}><span style={{ flex: 1 }}>🆕 {c.texto}</span><span style={{ fontSize: 12.5, color: K.muted }}>{hora(c.em)}</span></div>)}
+              {d.novidades.cadastros.map((c: any, i: number) => <div key={'c' + i} style={linha}><span style={{ flex: 1 }}>{c.texto}</span><span style={{ fontSize: 12.5, color: K.muted }}>{hora(c.em)}</span></div>)}
               {d.novidades.marcos.map((m: any, i: number) => (
                 <div key={'m' + i} data-testid="novidade" style={linha}>
                   <button onClick={() => navigate(`/contatos/${m.contact_id}`)} style={{ ...link, flex: 1, minWidth: 0 }}>{m.nome}</button>

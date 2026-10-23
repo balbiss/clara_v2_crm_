@@ -81,7 +81,7 @@ export default function RevendedorasAtivas() {
   const nivelOptions = useMemo(() => {
     const presentes = new Set<string>(actives.map((c: any) => nivelLimpo(c.nivel)).filter(Boolean))
     const ord = NIVEL_ORDEM.filter(n => presentes.has(n)), outros = [...presentes].filter(n => !NIVEL_ORDEM.includes(n))
-    return [{ value: 'all', label: 'Todos os níveis' }, ...[...ord, ...outros].map(n => ({ value: n, label: `${(NIVEL_META as any)[n]?.emoji || '•'} ${n}` }))]
+    return [{ value: 'all', label: 'Todos os níveis' }, ...[...ord, ...outros].map(n => ({ value: n, label: n }))]
   }, [actives])
 
   const byResp = (list: any[]) => (!isFull || resp === 'all') ? list : resp === 'none' ? list.filter(c => !c.user_id) : list.filter(c => String(c.user_id) === resp)

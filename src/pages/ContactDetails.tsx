@@ -204,7 +204,7 @@ export default function ContactDetails() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <h1 style={{ ...serif, fontSize: 25, margin: 0, lineHeight: 1.15 }}>{name}</h1>
               {blocked ? <Badge tone="red">Bloqueado</Badge> : <Badge tone={statusTone(contact.status)}>{statusLabel(contact.status)}</Badge>}
-              {nv && <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, color: nv.color, background: nv.bg }}>{nv.emoji} {nv.nome}</span>}
+              {nv && <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, color: nv.color, background: nv.bg }}>{nv.nome}</span>}
             </div>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 6, fontSize: 12.5, color: 'var(--muted)' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Phone size={12} />{fmtPhone(contact.phone) || 'Sem telefone'}</span>

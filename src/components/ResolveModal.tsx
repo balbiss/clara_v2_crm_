@@ -5,8 +5,8 @@ import { Modal, btn, inputStyle, labelStyle } from './ui'
 // Encerrar atendimento (opções do funil herdadas da v1 como estão)
 const kanbanOptions = [
   { value: '', label: 'Não mover no funil', icon: '—' },
-  { value: 'proposal', label: 'Proposta feita', icon: '📋' },
-  { value: 'won', label: 'Negócio fechado', icon: '🏆' },
+  { value: 'proposal', label: 'Proposta feita', icon: '' },
+  { value: 'won', label: 'Negócio fechado', icon: '' },
 ]
 
 export default function ResolveModal({ onConfirm, onClose }: {
@@ -14,7 +14,7 @@ export default function ResolveModal({ onConfirm, onClose }: {
 }) {
   const [stage, setStage] = useState('')
   const [send, setSend] = useState(false)
-  const [text, setText] = useState('Obrigado pelo seu contato! Encerramos seu atendimento por agora. Se precisar de algo mais, é só nos chamar. 😊')
+  const [text, setText] = useState('Obrigado pelo seu contato! Encerramos seu atendimento por agora. Se precisar de algo mais, é só nos chamar.')
   return (
     <Modal title="Encerrar atendimento" subtitle="A IA é pausada. Se a revendedora mandar mensagem, a conversa reabre sozinha." onClose={onClose}
       footer={<>

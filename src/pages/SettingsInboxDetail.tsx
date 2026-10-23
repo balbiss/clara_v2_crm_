@@ -217,7 +217,7 @@ export default function SettingsInboxDetail() {
                   {field('Máximo de tentativas', <input type="number" min={1} max={10} value={inbox.followup_max_attempts ?? ''} onChange={e => set({ followup_max_attempts: e.target.value })} placeholder="3" style={inputStyle} />, 'Depois disso o contato é marcado como frio.')}
                 </div>
                 {toggleList(<Toggle on={!!inbox.followup_send_closing_message} onChange={v => set({ followup_send_closing_message: v })} title="Mensagem de encerramento">Enviar uma última mensagem avisando que o atendimento será encerrado por falta de resposta.</Toggle>)}
-                {inbox.followup_send_closing_message && <textarea value={inbox.followup_closing_message || ''} onChange={e => set({ followup_closing_message: e.target.value })} rows={4} placeholder="Ex.: Como não tivemos retorno, estou encerrando seu atendimento por aqui. Se precisar, é só chamar! 😊" style={{ ...inputStyle, resize: 'vertical', marginTop: 12 }} />}
+                {inbox.followup_send_closing_message && <textarea value={inbox.followup_closing_message || ''} onChange={e => set({ followup_closing_message: e.target.value })} rows={4} placeholder="Ex.: Como não tivemos retorno, estou encerrando seu atendimento por aqui. Se precisar, é só chamar!" style={{ ...inputStyle, resize: 'vertical', marginTop: 12 }} />}
               </div>
             )}
           </Panel>

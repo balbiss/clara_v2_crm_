@@ -121,7 +121,7 @@ export function buildSystemPrompt(agent: Agent, actions: AgentAction[], knowledg
     p.role?.trim() || `Você é ${agent.name}, atendente virtual da empresa.`,
     `Tom de voz: ${TONES[p.tone || 'friendly'] || TONES.friendly}. Tamanho das respostas: ${LENGTHS[p.length || 'medium'] || LENGTHS.medium} (pode ajustar se a situação pedir).`,
     p.language && p.language !== 'auto' ? `Responda sempre em ${p.language}.` : 'Responda no idioma do cliente (padrão: português do Brasil).',
-    'Você conversa pelo WhatsApp: mensagens curtas, sem markdown, no máximo 1 emoji quando combinar. Nunca invente preço, prazo, política ou dado que não esteja nas informações abaixo.',
+    'Você conversa pelo WhatsApp: mensagens curtas, sem markdown e SEM emojis. Nunca invente preço, prazo, política ou dado que não esteja nas informações abaixo.',
     `Agora (São Paulo): ${spNow().toISOString().slice(0, 16).replace('T', ' ')}.`,
   ];
   if (p.guidelines?.length) lines.push('', 'Diretrizes:', ...p.guidelines.filter(Boolean).map(g => `- ${g}`));
@@ -196,7 +196,7 @@ export async function runAgentTurn(agent: Agent, history: ChatMsg[], opts: { act
   }
   if (exact) res.reply = exact;
   if (silence) res.reply = null;
-  if (res.transferred && !res.reply) res.reply = settings.transfer_message || 'Vou te passar para uma pessoa da nossa equipe, só um instante! 😊';
+  if (res.transferred && !res.reply) res.reply = settings.transfer_message || 'Vou te passar para uma pessoa da nossa equipe, só um instante!';
   return res;
 }
 
@@ -303,7 +303,7 @@ async function transfer(agent: Agent, session: typeof aiAgentSessions.$inferSele
   await db.update(conversations).set({ userId: target, status: 0, unreadCount: sql`COALESCE(${conversations.unreadCount}, 0) + 1`, updatedAt: new Date() }).where(eq(conversations.id, conv.id));
   const tag = await findOrCreateTag(conv.accountId, 'com_atendente', '#3b82f6');
   await addConversationTag(conv.id, tag.id);
-  await createMessage({ accountId: conv.accountId, conversationId: conv.id, senderType: 'User', senderId: null, text: `🤖 ${agent.name} transferiu a conversa para a equipe. Motivo: ${reason || '—'}`, isPrivate: true, status: messageStatusValue('sent') });
+  await createMessage({ accountId: conv.accountId, conversationId: conv.id, senderType: 'User', senderId: null, text: `${agent.name} transferiu a conversa para a equipe. Motivo: ${reason || '—'}`, isPrivate: true, status: messageStatusValue('sent') });
   await db.insert(notifications).values({ accountId: conv.accountId, title: `Agente de IA transferiu · ${c?.name || 'lead'}`, message: reason.slice(0, 250) || 'Conversa transferida para a equipe.', link: '/conversas' }).catch(() => {});
   broadcastConversations(conv.accountId, { event: 'conversation_updated', conversation: { id: conv.id, status: 'open', assignee_id: target } });
   broadcastConversations(conv.accountId, { event: 'conversation_tags_updated', conversation_id: conv.id, tags: await conversationTagsOf(conv.id) });

@@ -267,7 +267,7 @@ function Config({ channels, setChannels, s, setS, opts }: any) {
           <label style={lbl}>Transferir para<select aria-label="Transferir para" value={s.transfer_user_id || ''} onChange={e => setS({ ...s, transfer_user_id: e.target.value ? Number(e.target.value) : null })} style={kInput}><option value="">Responsável do lead</option>{opts.users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
           <label style={lbl}>Limite de respostas por conversa<input aria-label="Limite de respostas" type="number" min={0} value={s.max_replies || 0} onChange={e => setS({ ...s, max_replies: Number(e.target.value) })} style={kInput} /><span style={{ fontSize: 12.5 }}>0 = sem limite. Ao chegar no limite, transfere.</span></label>
         </div>
-        <label style={lbl}>Mensagem ao transferir<input aria-label="Mensagem ao transferir" value={s.transfer_message || ''} onChange={e => setS({ ...s, transfer_message: e.target.value })} placeholder="Vou te passar para uma pessoa da nossa equipe, só um instante! 😊" style={kInput} /></label>
+        <label style={lbl}>Mensagem ao transferir<input aria-label="Mensagem ao transferir" value={s.transfer_message || ''} onChange={e => setS({ ...s, transfer_message: e.target.value })} placeholder="Vou te passar para uma pessoa da nossa equipe, só um instante!" style={kInput} /></label>
       </div>
     </div>
   )
@@ -292,7 +292,7 @@ function Painel({ id }: { id: number }) {
         <div style={box}><b>Uso de tokens por tipo de mensagem</b>
           {[['Texto', d.tokens_text], ['Voz', d.tokens_voice], ['Modo de teste', d.tokens_test]].map(([l, n]) => <div key={l as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${K.line}` }}><span>{l}</span><b>{Number(n).toLocaleString('pt-BR')}</b></div>)}
         </div>
-        <div style={box}><b>Últimas lacunas de conhecimento</b>{d.lacunas.length ? d.lacunas.map((g: any, i: number) => <div key={i} style={{ padding: '6px 0', borderBottom: `1px solid ${K.line}`, fontSize: 14 }}>{g.pergunta}</div>) : <p style={{ color: K.muted }}>Nenhuma. 🎉</p>}</div>
+        <div style={box}><b>Últimas lacunas de conhecimento</b>{d.lacunas.length ? d.lacunas.map((g: any, i: number) => <div key={i} style={{ padding: '6px 0', borderBottom: `1px solid ${K.line}`, fontSize: 14 }}>{g.pergunta}</div>) : <p style={{ color: K.muted }}>Nenhuma.</p>}</div>
       </div>
     </div>
   )

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
 import Swal from 'sweetalert2'
-import { Sparkles, Bell, CalendarDays, ChevronDown, ChevronRight, Copy, LogOut, Palette, Columns3, FileText, HelpCircle, Home, Menu, MessageSquare, PanelLeft, PieChart, Settings, Workflow, X } from 'lucide-react'
+import { AlertTriangle, Sparkles, Bell, CalendarDays, ChevronDown, ChevronRight, Copy, LogOut, Palette, Columns3, FileText, HelpCircle, Home, Menu, MessageSquare, PanelLeft, PieChart, Settings, Workflow, X } from 'lucide-react'
 import api from '../api'
 import { brand } from '../config/brand'
 import { usePushNotifications } from '../composables/usePushNotifications'
@@ -218,7 +218,7 @@ export function AppShell() {
     const { contact_name, conversation_id, assigned_by } = e.detail
     const origem = assigned_by === 'rodizio' ? 'via rodízio automático' : 'pelo gestor'
     Swal.fire({
-      toast: true, position: 'top-end', icon: 'info', title: '📋 Novo lead atribuído a você!',
+      toast: true, position: 'top-end', icon: 'info', title: 'Novo lead atribuído a você!',
       html: `<strong>${contact_name}</strong><br><small style="color:#6b7280">${origem}</small>`,
       showConfirmButton: true, confirmButtonText: 'Ver conversa', confirmButtonColor: '#123C87', showCloseButton: true, timer: 12000, timerProgressBar: true,
       didOpen: () => {
@@ -409,7 +409,7 @@ export function AppShell() {
           {disconnected && (
             // aviso no rosa do menu (combina com o resto); o alerta fica no ícone
             <div className="k-alert-bar" style={{ ...banner(SB.bg, SB.strong), borderBottom: menuTheme === 'light' ? `1px solid ${SB.line}` : 'none', flexWrap: 'wrap' }}>
-              <span style={{ flex: '1 1 260px', display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ color: menuTheme === 'light' ? '#f5b83d' : '#a14a00', fontSize: 15 }}>⚠</span>O WhatsApp "{disconnected.name}" está desconectado. As mensagens não estão sendo enviadas nem recebidas.</span>
+              <span style={{ flex: '1 1 260px', display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={15} color={menuTheme === 'light' ? '#c98a00' : '#a14a00'} style={{ flex: 'none' }} />O WhatsApp "{disconnected.name}" está desconectado. As mensagens não estão sendo enviadas nem recebidas.</span>
               {role === 'diretoria' && <button onClick={() => navigate('/settings/inboxes')} style={{ padding: '6px 14px', border: 'none', borderRadius: 3, background: '#8e2a46', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Reconectar</button>}
               <button title="Fechar aviso" onClick={() => setDismissed(prev => new Set(prev).add(disconnected.id))} style={{ border: 'none', background: 'none', color: SB.muted, cursor: 'pointer', display: 'flex' }}><X size={15} /></button>
             </div>

@@ -37,7 +37,7 @@ export default function PromptGeneratorModal({ inboxId, isOpen, onClose, onGener
       {ta('1. Identidade e tom de voz', 'identity', 'Ex.: Somos a Clara Ferreira Acessórios, revenda consignada de joias. A IA se chama Ana, com tom amigável e acolhedor.')}
       {ta('2. Institucional (regras e diferenciais)', 'institutional', 'Ex.: Atendemos seg a sex das 9h às 18h. A régua de acompanhamento é no 3º, 10º e 20º dia.')}
       {ta('3. Perguntas frequentes', 'faq', 'Ex.: Posso trocar peças da maleta? Sim, em até 30 dias.')}
-      {ta('4. Mensagem de saudação (primeiro contato)', 'greeting_message', 'Ex.: Olá! 👋 Sou a Ana, assistente da Clara Ferreira Acessórios. Como posso ajudar?', 'Enviada exatamente assim no primeiro contato. Em branco: a IA cria uma saudação natural.')}
+      {ta('4. Mensagem de saudação (primeiro contato)', 'greeting_message', 'Ex.: Olá! Sou a Ana, assistente da Clara Ferreira Acessórios. Como posso ajudar?', 'Enviada exatamente assim no primeiro contato. Em branco: a IA cria uma saudação natural.')}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }} data-modal-grid>
         <div>
           <span style={labelStyle}>5. Modo de atuação</span>

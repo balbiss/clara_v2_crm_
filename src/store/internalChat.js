@@ -5,9 +5,9 @@ import { getSocket } from '../lib/realtime'
 
 const previewFor = (msg) => {
   if (msg.text) return msg.text
-  if (msg.attachment_type?.startsWith('image/')) return '📷 Foto'
-  if (msg.attachment_type?.startsWith('audio/')) return '🎤 Áudio'
-  if (msg.attachment_type) return `📎 ${msg.attachment_name || 'Documento'}`
+  if (msg.attachment_type?.startsWith('image/')) return 'Foto'
+  if (msg.attachment_type?.startsWith('audio/')) return 'Áudio'
+  if (msg.attachment_type) return msg.attachment_name || 'Documento'
   return ''
 }
 

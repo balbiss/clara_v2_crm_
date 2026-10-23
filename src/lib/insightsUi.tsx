@@ -46,7 +46,7 @@ export function PeriodBar({ value, onChange, agents, dark, allowRobot }: { value
   return (
     <div className="k-period-bar" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', justifyContent: dark ? 'center' : 'flex-start' }}>
       <div style={pill} role="group" aria-label="Período">
-        {PERIODS.map(([id, label]) => <button key={id} aria-pressed={value.period === id} onClick={() => onChange({ ...value, period: id })} style={item(value.period === id)}>{id === 'custom' ? '📅 ' : ''}{label}</button>)}
+        {PERIODS.map(([id, label]) => <button key={id} aria-pressed={value.period === id} onClick={() => onChange({ ...value, period: id })} style={item(value.period === id)}>{label}</button>)}
       </div>
       {value.period === 'custom' && (
         <span style={{ display: 'flex', gap: 6, alignItems: 'center', color: dark ? '#fff' : K.text }}>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Copy, Plus, Trash2, X } from 'lucide-react'
+import { Copy, Plus, Trash2, Users, X } from 'lucide-react'
 import api from '../api'
 import { toast, confirmBox } from './ui2'
 import { useContactFields, reloadContactFields } from '../composables/useContactFields'
@@ -141,7 +141,7 @@ export default function FieldSetup({ onClose, onChanged, inline }: { onClose: ()
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '32px 0 12px' }}>
-            <span style={{ width: 40, height: 40, borderRadius: '50%', background: '#e3e5e8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a7adb2', fontSize: 18 }}>👥</span>
+            <span style={{ width: 40, height: 40, borderRadius: '50%', background: '#e3e5e8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a7adb2', fontSize: 18 }}><Users size={18} /></span>
             <b style={{ fontSize: 18, fontWeight: 700, color: '#8a9196' }}>Campo do contato</b>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

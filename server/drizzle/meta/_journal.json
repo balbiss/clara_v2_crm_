@@ -50,6 +50,13 @@
       "when": 1792710870945,
       "tag": "0006_jueri_webhook",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792715115435,
+      "tag": "0007_import_v1",
+      "breakpoints": true
     }
   ]
 }

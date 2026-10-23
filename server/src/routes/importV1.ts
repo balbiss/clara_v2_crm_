@@ -59,7 +59,7 @@ async function importar() {
       if (!cols2.has(tabela)) cols2.set(tabela, await colunas(v2, tabela));
       const cols = cols2.get(tabela)!;
       const valores: Record<string, any> = {};
-      for (const [k, v] of Object.entries({ ...row, ...troca })) if (k !== 'id' && cols.has(k)) valores[k] = (v !== null && typeof v === 'object' && !(v instanceof Date) && !Array.isArray(v)) ? v2.json(v as any) : Array.isArray(v) && (k === "field_keys" || k.endsWith("_attributes")) ? v2.json(v as any) : v;
+      for (const [k, v] of Object.entries({ ...row, ...troca })) if (k !== 'id' && cols.has(k)) valores[k] = v instanceof Date ? v.toISOString() : (v !== null && typeof v === 'object' && !Array.isArray(v)) ? v2.json(v as any) : Array.isArray(v) && (k === "field_keys" || k.endsWith("_attributes")) ? v2.json(v as any) : v;
       const ks = Object.keys(valores);
       if (existenteId) { await v2`UPDATE ${v2(tabela)} SET ${v2(valores, ks)} WHERE id = ${existenteId}`; return existenteId }
       const [n] = await v2`INSERT INTO ${v2(tabela)} ${v2(valores, ks)} RETURNING id`;
@@ -109,7 +109,7 @@ async function importar() {
     // 5) telefones extras, etiquetas das revendedoras, pedidos do Jueri
     for (const p of dados.phones) {
       const cid = C(p.contact_id); if (!cid) continue;
-      await v2`INSERT INTO reseller_phones (contact_id, phone, label, created_at, updated_at) VALUES (${cid}, ${p.phone}, ${p.label}, ${p.created_at}, ${p.updated_at}) ON CONFLICT (contact_id, phone) DO UPDATE SET label = EXCLUDED.label`;
+      await v2`INSERT INTO reseller_phones (contact_id, phone, label, created_at, updated_at) VALUES (${cid}, ${p.phone}, ${p.label}, now(), now()) ON CONFLICT (contact_id, phone) DO UPDATE SET label = EXCLUDED.label`;
       conta('telefones_extras');
     }
     for (const ct of dados.ctags) {

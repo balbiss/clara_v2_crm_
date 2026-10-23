@@ -15,7 +15,7 @@ import { attach, blobFor, blobUrl, downloadBlob } from '../lib/storage.js';
 import { broadcastConversations } from '../lib/realtime.js';
 import { accountUsersMap, avatarUrl } from '../lib/users.js';
 import { notifyAssignment } from '../lib/agentNotification.js';
-import { chatCompletion, transcribeAudio, transcriptionApiKey } from '../lib/openai.js';
+import { chatCompletion, openaiApiKey, transcribeAudio, transcriptionApiKey } from '../lib/openai.js';
 import { deleteConversationCascade } from '../lib/wahaIngestion.js';
 import { hhmm, iso8601 } from '../lib/serialize.js';
 
@@ -262,21 +262,22 @@ conversationsRouter.post('/conversations/:id/generate_summary', async (req, res)
   const conv = await loadVisible(req, res);
   if (!conv) return;
   const recent = (await db.select().from(messages).where(eq(messages.conversationId, conv.id)).orderBy(desc(messages.createdAt), desc(messages.id)).limit(30)).reverse();
-  const history = recent.map(m => `${m.senderType === 'Contact' ? 'Cliente' : 'Corretor/IA'}: ${m.text || '[Mídia]'}`).join('\n');
-  // mesmo prompt da v1 (herdado da VisitaIA)
-  const system = `Você é um assistente de imobiliária. Seu objetivo é ler o histórico da conversa abaixo e gerar um resumo curto, direto e objetivo do atendimento.
-Destaque as principais informações como:
-- O que o cliente busca (imóvel/perfil)
-- Faixa de valor
-- Região de interesse
-- Próximos passos combinados
+  if (!(await openaiApiKey())) return res.status(422).json({ error: 'Resumo precisa da chave da OpenAI. Cadastre em Agente de IA › Chave da OpenAI.' });
+  const history = recent.map(m => `${m.senderType === 'Contact' ? 'Revendedora' : 'Equipe/IA'}: ${m.text && !m.text.startsWith('📎') ? m.text : m.transcription || '[Mídia]'}`).join('\n');
+  const system = `Você é assistente da Clara Ferreira Acessórios (semijoias vendidas por revendedoras com maleta consignada). Leia o histórico da conversa abaixo e gere um resumo curto, direto e objetivo do atendimento.
+Destaque, quando aparecer:
+- O que a revendedora/cliente quer ou perguntou
+- Situação da maleta, acerto, pedido ou pagamento
+- Dúvidas ou problemas em aberto
+- Próximos passos combinados (datas, agendamentos)
 Não crie informações que não estejam no texto. Retorne apenas o resumo.
 `;
   try {
     const summary = await chatCompletion('gpt-4o-mini', [{ role: 'system', content: system }, { role: 'user', content: `Histórico:\n${history}` }], 0.3);
     res.json({ summary });
-  } catch {
-    res.status(422).json({ error: 'Erro ao gerar resumo.' });
+  } catch (e) {
+    const msg = String((e as Error).message || '');
+    res.status(422).json({ error: /401/.test(msg) ? 'A chave da OpenAI foi recusada — confira em Agente de IA › Chave da OpenAI.' : /429/.test(msg) ? 'A OpenAI recusou por limite ou falta de crédito na conta.' : 'Erro ao gerar resumo. Tente de novo.' });
   }
 });
 

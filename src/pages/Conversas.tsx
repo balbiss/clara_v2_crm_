@@ -477,7 +477,7 @@ export default function Conversas() {
       s.newMessageText = response.data.summary
     } catch (error) {
       console.error('Error generating summary:', error)
-      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Erro ao gerar resumo da conversa.', showConfirmButton: false, timer: 3500 })
+      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: (error as Any)?.response?.data?.error || 'Erro ao gerar resumo da conversa.', showConfirmButton: false, timer: 5000 })
     } finally {
       s.isGeneratingSummary = false
     }

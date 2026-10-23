@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useSnapshot } from 'valtio'
 import { ChevronLeft, FileText, Mic, Paperclip, Search, Send, Square, X } from 'lucide-react'
+import api from '../api'
 import { internalChatStore } from '../store/internalChat'
 import { toast } from '../components/ui2'
 import { K } from '../lib/kommo'
@@ -44,6 +45,22 @@ export default function TeamChat() {
   const me = snap.currentUser?.id
 
   useEffect(() => { internalChatStore.fetchThreads(); internalChatStore.setupWebSocket() }, [])
+  // rede de segurança do tempo real: se um evento se perder (reconexão do socket), a cada 15 s
+  // confere a lista e a conversa aberta com o servidor, sem mostrar "Carregando…"
+  useEffect(() => {
+    const t = setInterval(async () => {
+      const id = internalChatStore.activeUserId
+      await internalChatStore.fetchThreads()
+      if (id) {
+        try {
+          const { data } = await api.get('/internal_messages', { params: { with: id } })
+          if (internalChatStore.activeUserId === id && data.length !== (internalChatStore.messagesByUser[id] || []).length) internalChatStore.messagesByUser[id] = data
+          const th = (internalChatStore.threads as any[]).find(x => x.id === id); if (th) th.unread_count = 0
+        } catch { /* tenta de novo no próximo ciclo */ }
+      }
+    }, 15000)
+    return () => clearInterval(t)
+  }, [])
   useEffect(() => { fim.current?.scrollIntoView({ block: 'end' }) }, [snap.activeMessages.length, snap.activeUserId])
 
   const lista = useMemo(() => {

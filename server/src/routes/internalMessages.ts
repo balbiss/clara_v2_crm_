@@ -22,7 +22,7 @@ function preview(m: Msg, att?: Blob | null) {
   if (m.text) return m.text;
   if (!att) return null;
   const t = att.contentType || '';
-  return t.startsWith('image/') ? '📷 Foto' : t.startsWith('audio/') ? '🎤 Áudio' : `📎 ${att.filename}`;
+  return t.startsWith('image/') ? 'Foto' : t.startsWith('audio/') ? 'Áudio' : att.filename;
 }
 
 async function colleague(req: Request, res: Response, id: unknown) {

@@ -14,6 +14,7 @@ const Funis = lazy(() => import('./pages/Funis'))
 const SalesbotList = lazy(() => import('./pages/SalesbotList'))
 const Gerencial = lazy(() => import('./pages/insights/Gerencial'))
 const Inicio = lazy(() => import('./pages/Inicio'))
+const TeamChat = lazy(() => import('./pages/TeamChat'))
 const AgentesIA = lazy(() => import('./pages/AgentesIA'))
 const AgenteIAEditor = lazy(() => import('./pages/AgenteIAEditor'))
 const Relatorios = lazy(() => import('./pages/insights/Relatorios'))
@@ -84,7 +85,7 @@ function App() {
             <Route path="conversas" element={g(<Conversas />)} />
             <Route path="conversas/inbox/:inboxId" element={g(<Conversas />)} />
             <Route path="conversas/:filter" element={g(<Conversas />)} />
-            <Route path="chat-equipe" element={g(emMigracao('Chat da Equipe'))} />
+            <Route path="chat-equipe" element={g(<TeamChat />)} />
             <Route path="contatos" element={g(<Contacts />)} />
             <Route path="contatos/:id" element={g(<ContactDetails />)} />
             <Route path="pipelines/todos-leads" element={g(emMigracao('Todos os leads'), { fullPortfolio: true })} />

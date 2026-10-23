@@ -291,3 +291,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #c8506a
   .k-inicio { padding: 16px !important; }
   .k-inicio-grid { grid-template-columns: minmax(0, 1fr) !important; }
 }
+
+/* Chat da Equipe no celular: lista OU conversa */
+@media (max-width: 760px) {
+  .k-teamchat-lista { width: 100% !important; }
+  .k-teamchat-conversa { display: none !important; }
+  .k-teamchat-chat .k-teamchat-lista { display: none !important; }
+  .k-teamchat-chat .k-teamchat-conversa { display: flex !important; }
+  .k-teamchat-voltar { display: flex !important; }
+}

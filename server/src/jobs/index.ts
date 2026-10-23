@@ -6,6 +6,7 @@ import { autoCloseConversations } from '../routes/settings.js';
 import { tickSalesbot } from '../lib/salesbot.js';
 import { tickAiAgents } from '../lib/aiAgent.js';
 import { rodarSyncJueri } from '../lib/jueriSync.js';
+import { avancarRegua } from './regua.js';
 
 // Substitui o config/recurring.yml do Solid Queue da v1. Cada tarefa roda num intervalo fixo,
 // sem sobrepor execuções. JOBS_DISABLED=true desliga tudo (útil em teste).
@@ -17,6 +18,8 @@ const tasks: Task[] = [
   { name: 'pipeline_triggers', everyMs: 60 * 1000, run: () => tickPipelineTriggers() },
   { name: 'salesbot', everyMs: 30 * 1000, run: tickSalesbot },
   { name: 'ai_agents_no_reply', everyMs: 60 * 1000, run: () => tickAiAgents() },
+  // régua da maleta (3º/10º/20º dia, atrasada, suspensa) — ReguaAutoAdvanceJob da v1
+  { name: 'regua_auto_advance', everyMs: 60 * 60 * 1000, run: () => avancarRegua() },
   // Jueri: completo de hora em hora (a v1 também sincroniza — não dobrar a carga no limite da API) e cadastro a cada 15 min
   { name: 'jueri_sync', everyMs: 60 * 60 * 1000, run: () => rodarSyncJueri('completo') },
   { name: 'jueri_cadastro', everyMs: 15 * 60 * 1000, run: () => rodarSyncJueri('cadastro') },
@@ -38,5 +41,6 @@ export function startJobs() {
   }
   // primeira carga do Jueri logo depois de subir (o intervalo normal é de 1 h)
   setTimeout(() => { void rodarSyncJueri('completo') }, 3 * 60 * 1000);
+  setTimeout(() => { void avancarRegua().catch(e => console.error('[Régua]', e.message)) }, 60 * 1000);
   console.log('Jobs: ' + tasks.map(t => t.name).join(', '));
 }

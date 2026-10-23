@@ -72,6 +72,7 @@ export default function Inicio() {
   const navigate = useNavigate()
   const [d, setD] = useState<any>(null)
   const [concluindo, setConcluindo] = useState<number | null>(null)
+  const [todosAcertos, setTodosAcertos] = useState(false)
   const load = () => api.get('/inicio').then(r => setD(r.data)).catch(() => {})
   useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t) }, [])
   const concluir = async (id: number) => {
@@ -155,13 +156,14 @@ export default function Inicio() {
         <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
           <Bloco titulo="Acertos da semana" icone={<CalendarClock size={18} />} extra={<span style={{ fontSize: 13, color: K.muted }}>{d.acertos.length}</span>}>
             {!d.acertos.length && <Vazio>Nenhum acerto previsto nos próximos 7 dias.</Vazio>}
-            {d.acertos.map((a: any) => (
+            {(todosAcertos ? d.acertos : d.acertos.slice(0, 10)).map((a: any) => (
               <div key={a.id} data-testid="acerto" style={linha}>
                 <span style={{ flex: 'none', width: 46, fontWeight: 700, color: a.data === d.hoje ? '#c0392b' : VINHO }}>{a.data === d.hoje ? 'Hoje' : ddmm(a.data)}</span>
                 <button onClick={() => navigate(`/contatos/${a.id}`)} style={{ ...link, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.nome || a.phone}</button>
                 <span style={{ flex: 'none', fontSize: 13, color: K.muted }}>{a.pecas} peças</span>
               </div>
             ))}
+            {d.acertos.length > 10 && <button onClick={() => setTodosAcertos(v => !v)} style={{ ...link, marginTop: 8, fontSize: 13.5 }}>{todosAcertos ? 'Mostrar menos' : `Ver todos (${d.acertos.length})`}</button>}
           </Bloco>
 
           {d.usuario.time && d.novidades && (

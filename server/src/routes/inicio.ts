@@ -44,7 +44,7 @@ inicioRouter.get('/inicio', requireAuth, async (req, res) => {
   const acertos = await db.select({ id: contacts.id, nome: contacts.name, phone: contacts.phone, data: sql<string>`to_char(MIN(${pedidos.dataAcerto}), 'YYYY-MM-DD')`, pecas: contacts.pecasAbertasAtual })
     .from(pedidos).innerJoin(contacts, eq(contacts.id, pedidos.contactId))
     .where(and(visC, eq(pedidos.statusId, 1), sql`${pedidos.dataBaixa} IS NULL`, gte(pedidos.dataAcerto, hoje), lte(pedidos.dataAcerto, maisDias(hoje, 7))))
-    .groupBy(contacts.id, contacts.name, contacts.phone, contacts.pecasAbertasAtual).orderBy(sql`MIN(${pedidos.dataAcerto})`).limit(30);
+    .groupBy(contacts.id, contacts.name, contacts.phone, contacts.pecasAbertasAtual).orderBy(sql`MIN(${pedidos.dataAcerto})`).limit(300);
 
   // 4) conversas abertas cuja última mensagem é da revendedora (esperando resposta)
   // sem apelido nas tabelas: o filtro de carteira (visibleConversationsWhere) usa "conversations"/"contacts"

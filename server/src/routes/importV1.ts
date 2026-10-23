@@ -40,6 +40,7 @@ async function importar() {
         phones: await tx`SELECT p.* FROM reseller_phones p JOIN contacts c ON c.id = p.contact_id WHERE c.account_id = ${acc.id}`,
         ctags: await tx`SELECT ct.* FROM contact_tags ct JOIN contacts c ON c.id = ct.contact_id WHERE c.account_id = ${acc.id}`,
         pedidos: await tx`SELECT * FROM pedidos WHERE account_id = ${acc.id}`,
+        tarefas: await tx`SELECT * FROM tarefas WHERE account_id = ${acc.id} AND status = 'pendente'`,
         grupos: await tx`SELECT * FROM contact_field_groups WHERE account_id = ${acc.id}`.catch(() => []),
       };
     });
@@ -133,6 +134,15 @@ async function importar() {
       const ja = m('pedidos').get(Number(p.id)) ?? 0;
       const id = await copiar('pedidos', p, { account_id: A, contact_id: cid }, ja || null);
       await guardar('pedidos', Number(p.id), id); conta('pedidos');
+    }
+
+    // 5b) tarefas pendentes (com o mesmo responsável); a régua só cria 1 pendente por tipo, então repetida é ignorada
+    for (const t of dados.tarefas) {
+      const cid = C(t.contact_id); if (!cid) continue;
+      if (m('tarefas').has(Number(t.id))) { conta('tarefas_ja_vieram'); continue }
+      const ja = Number((await v2`SELECT id FROM tarefas WHERE contact_id = ${cid} AND tipo = ${t.tipo} AND status = 'pendente' LIMIT 1`)[0]?.id || 0);
+      const id = await copiar('tarefas', t, { account_id: A, contact_id: cid, user_id: U(t.user_id), concluida_por_id: U(t.concluida_por_id) }, ja || null);
+      await guardar('tarefas', Number(t.id), id); conta('tarefas_pendentes');
     }
 
     // 6) conta: campos personalizados, mínimo de peças e grupos de campos (abas do card)

@@ -14,7 +14,7 @@ const acc = (req: Request) => req.user!.accountId!;
 const nf = (res: Response, message: string) => res.status(404).json({ error: 'not_found', message });
 
 /** Consultor só vê tarefas da própria carteira (+ times); gerência/financeiro/view_all vê tudo. */
-async function visibleTarefasWhere(u: User): Promise<SQL> {
+export async function visibleTarefasWhere(u: User): Promise<SQL> {
   const base = eq(tarefas.accountId, u.accountId!);
   if (isFullPortfolio(u) || isFinance(u) || hasPermission(u, 'view_all_contacts')) return base;
   const liderIds = await accessibleJueriLiderIds(u.id);

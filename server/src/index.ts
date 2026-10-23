@@ -28,6 +28,7 @@ import { insightsRouter } from './routes/insights.js';
 import { aiAgentsRouter } from './routes/aiAgents.js';
 import { jueriRouter } from './routes/jueri.js';
 import { importV1Router } from './routes/importV1.js';
+import { inicioRouter } from './routes/inicio.js';
 import './lib/aiAgent.js';
 import { startJobs } from './jobs/index.js';
 
@@ -55,6 +56,7 @@ app.use(insightsRouter);
 app.use(aiAgentsRouter);
 app.use(jueriRouter);
 app.use(importV1Router);
+app.use(inicioRouter);
 app.use(contactsRouter);
 app.use(salesTeamsRouter);
 app.use(internalMessagesRouter);

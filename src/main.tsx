@@ -13,6 +13,7 @@ const Kanban = lazy(() => import('./pages/Kanban'))
 const Funis = lazy(() => import('./pages/Funis'))
 const SalesbotList = lazy(() => import('./pages/SalesbotList'))
 const Gerencial = lazy(() => import('./pages/insights/Gerencial'))
+const Inicio = lazy(() => import('./pages/Inicio'))
 const AgentesIA = lazy(() => import('./pages/AgentesIA'))
 const AgenteIAEditor = lazy(() => import('./pages/AgenteIAEditor'))
 const Relatorios = lazy(() => import('./pages/insights/Relatorios'))
@@ -70,7 +71,7 @@ function App() {
           <Route path="/users/password/edit" element={emMigracao('Redefinir senha')} />
           <Route path="/" element={g(<AppShell />)}>
             <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={g(emMigracao('Início'))} />
+            <Route path="dashboard" element={g(<Inicio />)} />
             <Route path="carteira" element={g(<RevendedorasAtivas />)} />
             <Route path="inativas" element={g(<RevendedorasInativas />)} />
             <Route path="atacado" element={g(<AtacadoView />)} />

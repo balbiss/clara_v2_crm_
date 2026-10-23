@@ -285,3 +285,9 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #c8506a
   .k-ai-body { flex-direction: column; }
   .k-ai-test { width: 100% !important; border-left: none !important; border-top: 1px solid #e3e5e8; min-height: 420px; }
 }
+
+/* Início ("Meu dia") no celular */
+@media (max-width: 900px) {
+  .k-inicio { padding: 16px !important; }
+  .k-inicio-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}

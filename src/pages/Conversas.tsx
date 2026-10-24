@@ -515,7 +515,8 @@ export default function Conversas() {
       api.get('/message_templates').then(({ data }) => { s.messageTemplates = data }).catch(e => console.error('Erro ao buscar modelos de mensagem:', e))
       if (params.inboxId) conversationsStore.setSidebarInboxId(params.inboxId)
       else conversationsStore.setSidebarFilter(params.filter || 'all')
-      if (query.get('abrir')) { conversationsStore.setActiveConversation(Number(query.get('abrir'))); s.mobileView = 'chat' }
+      // conversa fora das 100 carregadas (ex.: atalho do Chat da Equipe) é buscada antes de abrir
+      if (query.get('abrir')) await openSearchResult(Number(query.get('abrir')))
       conversationsStore.setupWebSocket()
       scrollToBottom()
       fetchAllTags()

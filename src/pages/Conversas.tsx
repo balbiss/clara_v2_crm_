@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useSnapshot } from 'valtio'
+import { ref, useSnapshot } from 'valtio'
 import Swal from 'sweetalert2'
 import EmojiPicker, { EmojiStyle } from 'emoji-picker-react'
 import {
@@ -564,7 +564,9 @@ export default function Conversas() {
 
   // --- anexo / envio -----------------------------------------------------------------------------
   const setSelectedFile = (file: File) => {
-    s.selectedFile = file
+    // ref(): o File não pode ser "embrulhado" pelo valtio — ler file.name pelo proxy dá
+    // "Illegal invocation" e derruba a tela inteira (tela branca ao anexar imagem)
+    s.selectedFile = ref(file)
     s.selectedFilePreview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
   }
   const handlePaste = (event: React.ClipboardEvent) => {

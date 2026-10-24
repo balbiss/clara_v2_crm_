@@ -142,7 +142,8 @@ export class JueriSync {
       const atual = await this.snapshot(c.id);
       const acima = atual.pecas > this.minPecas;
       if (c.desconsiderado || STATUS_OVERRIDE_PERMANENTE.includes(c.status || '')) return res;
-      if (acima && INACTIVE_STATUSES.includes(c.status || '')) await this.reativar(c, null, res);
+      const novoPedido = !!p?.data_criacao && !!c.statusChangedAt && +new Date(String(p.data_criacao).replace(' ', 'T')) > +c.statusChangedAt;
+      if (acima && INACTIVE_STATUSES.includes(c.status || '') && (c.status !== 'suspensa_atraso' || novoPedido)) await this.reativar(c, null, res);
       else if (!acima && ACTIVE_STATUSES.includes(c.status || '')) await this.semMaleta(c, antes, atual.pecas, res);
       else if (acima && ACTIVE_STATUSES.includes(c.status || '')) await this.reiniciarSeNovo(c, null);
       res.atualizados++;
@@ -177,7 +178,12 @@ export class JueriSync {
   private async transicionar(id: string, lista: any[], c: Contact | null, res: Resultado) {
     if (!c) { const r = await jueri(`/revendedor/${id}`); await this.criarRevendedora(id, r, lista, res); return }
     if (c.desconsiderado || STATUS_OVERRIDE_PERMANENTE.includes(c.status || '')) { res.atualizados++; return }
-    if (INACTIVE_STATUSES.includes(c.status || '')) { await this.reativar(c, inicioCiclo(lista), res); return }
+    if (INACTIVE_STATUSES.includes(c.status || '')) {
+      // suspensa por atraso só volta com maleta NOVA (pedido aberto depois da suspensão); a mesma maleta
+      // atrasada não reativa — senão a régua suspende de novo na hora seguinte e vira um vai-e-volta
+      if (c.status === 'suspensa_atraso' && !(c.statusChangedAt && +inicioCiclo(lista) > +c.statusChangedAt)) { res.atualizados++; return }
+      await this.reativar(c, inicioCiclo(lista), res); return
+    }
     await this.reiniciarSeNovo(c, inicioCiclo(lista));
     res.atualizados++;
   }

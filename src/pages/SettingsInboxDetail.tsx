@@ -22,7 +22,7 @@ const hint: React.CSSProperties = { fontSize: 12, color: 'var(--muted)', lineHei
 
 /** +55 (11) 90962-4290 */
 // mesma paleta do servidor (lib/conversations INBOX_COLORS)
-const CORES_CAIXA = ['#2e7d32', '#1565c0', '#ef6c00', '#6a1b9a', '#00838f', '#ad1457', '#5d4037', '#c62828']
+const CORES_CAIXA = ['#8e2a46', '#b5546d', '#6d3b5e', '#a07f45', '#5f7d6a', '#4f6d8a', '#9a6a8f', '#7a5548']
 
 export const fmtPhone = (p?: string | null) => {
   const d = (p || '').replace(/\D/g, '')

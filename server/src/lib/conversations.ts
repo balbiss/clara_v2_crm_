@@ -18,8 +18,9 @@ export const convStatusValue = (s: string) => {
 };
 
 /** Caixas que o usuário tem liberadas (InboxMember). */
-// Cor de cada caixa quando o dono não escolheu (bem diferentes entre si, legíveis com texto branco)
-export const INBOX_COLORS = ['#2e7d32', '#1565c0', '#ef6c00', '#6a1b9a', '#00838f', '#ad1457', '#5d4037', '#c62828'];
+// Cor de cada caixa quando o dono não escolheu: tons da marca Clara (vinho, rosa, ameixa, dourado,
+// sálvia...), diferentes entre si e legíveis com texto branco
+export const INBOX_COLORS = ['#8e2a46', '#b5546d', '#6d3b5e', '#a07f45', '#5f7d6a', '#4f6d8a', '#9a6a8f', '#7a5548'];
 /** Identificação visual da caixa: apelido curto + cor (pra ninguém mandar pelo número errado). */
 export function inboxBadge(i: { id: number; name: string | null; color?: string | null; shortName?: string | null }) {
   return { short: (i.shortName || i.name || 'WhatsApp').trim(), color: i.color || INBOX_COLORS[i.id % INBOX_COLORS.length] };

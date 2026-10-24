@@ -58,6 +58,13 @@ export default function SettingsInboxDetail() {
     api.get('/round_robin_groups').then(({ data }) => setGroups(data)).catch(e => console.error(e))
     if (!inboxesStore.isLoadedOnce) inboxesStore.fetchInboxes()
   }, [id, navigate])
+  // acompanha a conexão e a importação das conversas enquanto a tela está aberta
+  useEffect(() => {
+    const n = Number(id)
+    inboxesStore.checkStatus(n)
+    const t = setInterval(() => inboxesStore.checkStatus(n), 10000)
+    return () => clearInterval(t)
+  }, [id])
 
   const save = async () => {
     if (inbox.followup_enabled && Number(inbox.followup_wait_time_minutes) < 10) return toast('warning', 'O tempo mínimo do follow-up é 10 minutos.')
@@ -101,6 +108,8 @@ export default function SettingsInboxDetail() {
   const field = (label: React.ReactNode, node: React.ReactNode, h?: React.ReactNode) => <label style={{ display: 'block', minWidth: 0 }}><span style={labelStyle}>{label}</span>{node}{h && <p style={hint}>{h}</p>}</label>
   const saveBtn = (label: string) => <button onClick={save} disabled={saving} style={btn('primary')}>{saving ? 'Salvando…' : label}</button>
   const connected = inboxes.inboxes.find((i: any) => i.id === inbox.id)?.connected
+  // importação das conversas antigas do WhatsApp (automática ao conectar a 1ª vez)
+  const hist = inboxes.inboxes.find((i: any) => i.id === inbox.id)?.history
   const memberCount = members.filter(m => m.is_member).length
 
   return (
@@ -115,6 +124,8 @@ export default function SettingsInboxDetail() {
             <span>{fmtPhone(inbox.phone_number) || 'Sem número'}</span>
             <Badge tone={connected === true ? 'green' : connected === false ? 'red' : 'muted'}>{connected === true ? 'Conectado' : connected === false ? 'Desconectado' : 'Verificando…'}</Badge>
             {inbox.restrict_by_portfolio && <Badge tone="blue">Por carteira</Badge>}
+            {hist?.status === 'importando' && <Badge tone="muted">Puxando conversas do WhatsApp: {hist.chats} de {hist.total}</Badge>}
+            {hist?.status === 'concluido' && <Badge tone="green">{hist.total} conversas do WhatsApp importadas</Badge>}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 20, fontSize: 11.5, color: 'var(--muted)' }}>

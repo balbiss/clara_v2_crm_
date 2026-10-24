@@ -8,6 +8,7 @@ import { assignedInboxes } from '../lib/conversations.js';
 import { messagingService } from '../lib/waha.js';
 import { railsJson } from '../lib/serialize.js';
 import { chatCompletion } from '../lib/openai.js';
+import { historyProgress } from '../jobs/wahaHistorySync.js';
 
 export const inboxesRouter = Router();
 inboxesRouter.use('/inboxes', requireAuth);
@@ -119,7 +120,7 @@ inboxesRouter.get('/inboxes/:id/qr_code', requireOwner, async (req, res) => {
 
 inboxesRouter.get('/inboxes/:id/status', async (req, res) => {
   const i = await loadInbox(req, res);
-  if (i) res.json({ connected: await messagingService(i).connected() });
+  if (i) res.json({ connected: await messagingService(i).connected(), history: historyProgress(i.id), history_imported_at: i.historyImportedAt });
 });
 
 // desloga o WhatsApp mas mantém a caixa e todo o histórico

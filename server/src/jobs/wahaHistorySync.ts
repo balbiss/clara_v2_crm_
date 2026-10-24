@@ -1,7 +1,8 @@
-import { eq, max } from 'drizzle-orm';
+import { and, eq, isNull, max } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { inboxes, messages, conversations } from '../db/schema.js';
 import { WahaService } from '../lib/waha.js';
+import { cache } from '../lib/cache.js';
 import { alreadyImported, handleMessage, type WahaPayload } from '../lib/wahaIngestion.js';
 
 // WahaHistorySyncJob da v1: importa do WhatsApp o que não chegou pelo webhook (queda, deslogue,
@@ -26,6 +27,7 @@ export async function syncInboxHistory(inboxId: number | null = null, sinceEpoch
 
 async function syncInbox(inbox: typeof inboxes.$inferSelect, since: number) {
   const service = new WahaService(inbox);
+  if (cache.exist(`waha_full_history_lock_${inbox.id}`)) return 0; // importação completa em andamento
   if (!service.configured || !(await service.connected())) return 0;
   let imported = 0;
   for (const chat of await service.fetchRecentChats()) {
@@ -41,8 +43,8 @@ async function syncInbox(inbox: typeof inboxes.$inferSelect, since: number) {
   return imported;
 }
 
-async function syncChat(inbox: typeof inboxes.$inferSelect, service: WahaService, chatId: string, since: number) {
-  const msgs = (await service.fetchChatMessages(chatId, since)) as WahaPayload[];
+async function syncChat(inbox: typeof inboxes.$inferSelect, service: WahaService, chatId: string, since: number, limit = 100, mediaSince = since) {
+  const msgs = (await service.fetchChatMessages(chatId, since, limit)) as WahaPayload[];
   let missing: WahaPayload[] = [];
   for (const m of msgs) {
     if (Number(m.timestamp) < since) continue;
@@ -52,8 +54,8 @@ async function syncChat(inbox: typeof inboxes.$inferSelect, service: WahaService
   }
   if (!missing.length) return 0;
   // só pede pra WAHA baixar mídia quando realmente falta alguma mensagem com anexo
-  if (missing.some(m => m.hasMedia)) {
-    const withMedia = new Map(((await service.fetchChatMessages(chatId, since, 100, true)) as WahaPayload[]).map(m => [m.id, m]));
+  if (missing.some(m => m.hasMedia && Number(m.timestamp) >= mediaSince)) {
+    const withMedia = new Map(((await service.fetchChatMessages(chatId, mediaSince, 100, true)) as WahaPayload[]).map(m => [m.id, m]));
     missing = missing.map(m => withMedia.get(m.id) ?? m);
   }
   let n = 0;
@@ -62,4 +64,53 @@ async function syncChat(inbox: typeof inboxes.$inferSelect, service: WahaService
     catch (e) { console.error(`[WahaHistorySync] mensagem ${p.id}:`, (e as Error).message); }
   }
   return n;
+}
+
+// --- importação completa (uma vez por caixa, ao conectar) -----------------------------------------
+// Puxa TODAS as conversas particulares do WhatsApp pro CRM (grupos ficam de fora, como no Kommo):
+// até FULL_MSGS mensagens mais recentes de cada conversa; arquivos só dos últimos FULL_MEDIA_DAYS
+// dias (o resto fica como "arquivo não baixado", pra não encher o armazenamento). Mensagem antiga
+// nunca dispara robô, IA nem gatilho. Progresso em cache (inbox:ID:history) pra tela da caixa.
+const FULL_CHATS = 5000;
+const FULL_MSGS = 300;
+const FULL_MEDIA_DAYS = 30;
+
+export const historyProgress = (inboxId: number) => cache.read(`inbox:${inboxId}:history`) as { status: string; chats: number; total: number; mensagens: number } | null;
+
+export async function importFullHistory(inboxId: number) {
+  const lock = `waha_full_history_lock_${inboxId}`;
+  if (cache.exist(lock)) return;
+  cache.write(lock, true, 6 * 3600);
+  const key = `inbox:${inboxId}:history`;
+  try {
+    const [inbox] = await db.select().from(inboxes).where(eq(inboxes.id, inboxId));
+    if (!inbox || inbox.provider !== 'waha') return;
+    const service = new WahaService(inbox);
+    if (!service.configured || !(await service.connected())) return;
+    const chats = (await service.fetchRecentChats(FULL_CHATS)).map(c => {
+      const idObj = c.id as { _serialized?: string } | string | undefined;
+      return (typeof idObj === 'object' ? idObj?._serialized : idObj) ?? '';
+    }).filter(id => id && id !== 'status@broadcast' && !id.endsWith('@g.us') && !id.endsWith('@newsletter') && !id.endsWith('@broadcast'));
+    const mediaSince = nowS() - FULL_MEDIA_DAYS * 86400;
+    let mensagens = 0;
+    cache.write(key, { status: 'importando', chats: 0, total: chats.length, mensagens }, 24 * 3600);
+    console.log(`[WahaHistorico] inbox ${inbox.id} (${inbox.name}): importando ${chats.length} conversas`);
+    for (const [i, chatId] of chats.entries()) {
+      try { mensagens += await syncChat(inbox, service, chatId, 0, FULL_MSGS, mediaSince); }
+      catch (e) { console.error(`[WahaHistorico] inbox ${inbox.id} chat ${chatId}:`, (e as Error).message); }
+      cache.write(key, { status: 'importando', chats: i + 1, total: chats.length, mensagens }, 24 * 3600);
+    }
+    await db.update(inboxes).set({ historyImportedAt: new Date() }).where(eq(inboxes.id, inbox.id));
+    cache.write(key, { status: 'concluido', chats: chats.length, total: chats.length, mensagens }, 7 * 24 * 3600);
+    console.log(`[WahaHistorico] inbox ${inbox.id}: ${chats.length} conversas, ${mensagens} mensagens importadas`);
+  } finally {
+    cache.delete(lock);
+  }
+}
+
+/** Caixas WhatsApp conectadas que ainda não tiveram a importação completa (ex.: conectadas antes disso existir). */
+export async function importPendingHistories() {
+  for (const inbox of await db.select().from(inboxes).where(and(eq(inboxes.provider, 'waha'), isNull(inboxes.historyImportedAt)))) {
+    await importFullHistory(inbox.id).catch(e => console.error('[WahaHistorico]', (e as Error).message));
+  }
 }

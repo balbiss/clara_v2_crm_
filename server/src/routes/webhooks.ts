@@ -5,7 +5,7 @@ import { inboxes } from '../db/schema.js';
 import { handleMessage, type WahaPayload } from '../lib/wahaIngestion.js';
 import { cache } from '../lib/cache.js';
 import { broadcastConversations } from '../lib/realtime.js';
-import { historySinceFor, syncInboxHistory } from '../jobs/wahaHistorySync.js';
+import { historySinceFor, importFullHistory, syncInboxHistory } from '../jobs/wahaHistorySync.js';
 
 // Webhooks::WahaController da v1. A caixa vem por ?inbox_id= (não pelo telefone).
 // Na v2, se WAHA_WEBHOOK_SECRET estiver definido, exige ?secret= igual (a v1 não tinha trava).
@@ -39,6 +39,7 @@ function handleSessionStatus(inbox: typeof inboxes.$inferSelect, payload: Record
   const lock = `waha_history_sync_lock_${inbox.id}`;
   if (open && !cache.exist(lock)) {
     cache.write(lock, true, 10 * 60);
+    if (!inbox.historyImportedAt) { setTimeout(() => void importFullHistory(inbox.id).catch(e => console.error('[WahaHistorico]', e.message)), 30 * 1000); return; }
     void historySinceFor(inbox).then(since => {
       setTimeout(() => syncInboxHistory(inbox.id, since).catch(e => console.error('[WahaHistorySync]', e.message)), 60 * 1000);
       setTimeout(() => syncInboxHistory(inbox.id, since).catch(e => console.error('[WahaHistorySync]', e.message)), 5 * 60 * 1000);

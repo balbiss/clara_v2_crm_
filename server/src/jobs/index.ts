@@ -1,6 +1,6 @@
 import { sendDueScheduledMessages } from './scheduledMessages.js';
 import { reopenExpiredSnoozes } from './snoozed.js';
-import { syncInboxHistory } from './wahaHistorySync.js';
+import { importPendingHistories, syncInboxHistory } from './wahaHistorySync.js';
 import { tickPipelineTriggers } from '../lib/pipelines.js';
 import { autoCloseConversations } from '../routes/settings.js';
 import { tickSalesbot } from '../lib/salesbot.js';
@@ -44,6 +44,7 @@ export function startJobs() {
   // primeira carga do Jueri logo depois de subir (o intervalo normal é de 1 h)
   setTimeout(() => { void rodarSyncJueri('completo') }, 3 * 60 * 1000);
   setTimeout(() => { void renovarFotosPerfil().catch(e => console.error('[Fotos]', e.message)) }, 90 * 1000);
+  setTimeout(() => { void importPendingHistories().catch(e => console.error('[WahaHistorico]', e.message)) }, 2 * 60 * 1000);
   setTimeout(() => { void avancarRegua().catch(e => console.error('[Régua]', e.message)) }, 60 * 1000);
   console.log('Jobs: ' + tasks.map(t => t.name).join(', '));
 }

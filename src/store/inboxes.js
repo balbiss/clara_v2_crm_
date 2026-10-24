@@ -42,7 +42,7 @@ export const inboxesStore = proxy({
     try {
       const response = await api.get(`/inboxes/${id}/status`)
       const inbox = this.inboxes.find(i => i.id === id)
-      if (inbox) inbox.connected = response.data.connected
+      if (inbox) { inbox.connected = response.data.connected; inbox.history = response.data.history; inbox.history_imported_at = response.data.history_imported_at }
     } catch {
       const inbox = this.inboxes.find(i => i.id === id)
       if (inbox) inbox.connected = false

@@ -300,3 +300,9 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #c8506a
   .k-teamchat-chat .k-teamchat-conversa { display: flex !important; }
   .k-teamchat-voltar { display: flex !important; }
 }
+
+/* App sempre claro: com o Windows/navegador em modo escuro, campos e listas de opções vinham
+   pintados de escuro e o texto ficava ilegível (campo de mensagem, select de etapa). */
+:root { color-scheme: light; }
+select option, select optgroup { background: #fff; color: #313942; }
+textarea, input, select { color-scheme: light; }

@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { conversations, contacts, inboxes, messages, scheduledMessages, conversationTags, tags, accounts, users } from '../db/schema.js';
-import { requireAuth, isOwner, visibleContactsWhere, type User } from '../middleware/auth.js';
+import { requireAuth, isOwner, isFullPortfolio, visibleContactsWhere, type User } from '../middleware/auth.js';
 import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, type Conversation } from '../lib/conversations.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
 import { createMessage, messageStatusValue, messagePayload } from '../lib/messages.js';
@@ -33,12 +33,6 @@ async function loadVisible(req: Request, res: Response, key = 'id'): Promise<Con
   return conv;
 }
 
-/** Conversa da conta (sem regra de carteira) — mesmo escopo que a v1 usa em messages/agendadas/etiquetas. */
-async function loadAccountConversation(req: Request, res: Response, key = 'conversation_id'): Promise<Conversation | null> {
-  const [conv] = await db.select().from(conversations).where(and(eq(conversations.accountId, req.user!.accountId!), eq(conversations.id, id(req, key)))).limit(1);
-  if (!conv) { notFound(res); return null; }
-  return conv;
-}
 
 // GET /conversations — 100 mais recentes visíveis (só a última mensagem de cada; ver formatConversations)
 conversationsRouter.get('/conversations', async (req, res) => {
@@ -228,7 +222,9 @@ async function handleResolveSideEffects(req: Request, conversation: Conversation
 }
 
 // DELETE /conversations/:id — apaga só a conversa e as mensagens (a revendedora fica)
+// Kommo: consultor não exclui (perfil sem "Excluir") — só gerência/diretoria
 conversationsRouter.delete('/conversations/:id', async (req, res) => {
+  if (!isFullPortfolio(req.user!)) return res.status(403).json({ error: 'forbidden', message: 'Só gerência e diretoria podem excluir conversas.' });
   const conv = await loadVisible(req, res);
   if (!conv) return;
   await deleteConversationCascade(conv.id);
@@ -318,7 +314,7 @@ function signedText(inbox: typeof inboxes.$inferSelect, u: User, text: string) {
 
 conversationsRouter.post('/conversations/:conversation_id/messages', upload.single('attachment'), async (req, res) => {
   const u = req.user!;
-  const conv = await loadAccountConversation(req, res);
+  const conv = await loadVisible(req, res, 'conversation_id');
   if (!conv) return;
   const isPrivate = String(req.body.is_private) === 'true';
 
@@ -370,7 +366,7 @@ conversationsRouter.post('/conversations/:conversation_id/messages', upload.sing
 
 // Botão "T": transcreve o áudio sob demanda e guarda em messages.transcription
 conversationsRouter.post('/conversations/:conversation_id/messages/:id/transcribe', async (req, res) => {
-  const conv = await loadAccountConversation(req, res);
+  const conv = await loadVisible(req, res, 'conversation_id');
   if (!conv) return;
   const [message] = await db.select().from(messages).where(and(eq(messages.conversationId, conv.id), eq(messages.id, id(req))));
   if (!message) return res.status(404).json({ error: 'Mensagem não encontrada.' });
@@ -399,14 +395,14 @@ async function formatScheduled(m: typeof scheduledMessages.$inferSelect) {
 }
 
 conversationsRouter.get('/conversations/:conversation_id/scheduled_messages', async (req, res) => {
-  const conv = await loadAccountConversation(req, res);
+  const conv = await loadVisible(req, res, 'conversation_id');
   if (!conv) return;
   const rows = await db.select().from(scheduledMessages).where(and(eq(scheduledMessages.conversationId, conv.id), eq(scheduledMessages.status, 'pending'))).orderBy(asc(scheduledMessages.sendAt));
   res.json(await Promise.all(rows.map(formatScheduled)));
 });
 
 conversationsRouter.post('/conversations/:conversation_id/scheduled_messages', upload.single('attachment'), async (req, res) => {
-  const conv = await loadAccountConversation(req, res);
+  const conv = await loadVisible(req, res, 'conversation_id');
   if (!conv) return;
   const sendAt = req.body.send_at ? new Date(String(req.body.send_at)) : null;
   if (!sendAt || isNaN(sendAt.getTime())) return res.status(422).json({ errors: ['Send at inválido'] });
@@ -417,7 +413,7 @@ conversationsRouter.post('/conversations/:conversation_id/scheduled_messages', u
 });
 
 conversationsRouter.delete('/conversations/:conversation_id/scheduled_messages/:id', async (req, res) => {
-  const conv = await loadAccountConversation(req, res);
+  const conv = await loadVisible(req, res, 'conversation_id');
   if (!conv) return;
   const [m] = await db.update(scheduledMessages).set({ status: 'cancelled', updatedAt: new Date() })
     .where(and(eq(scheduledMessages.conversationId, conv.id), eq(scheduledMessages.id, id(req)))).returning();
@@ -428,13 +424,13 @@ conversationsRouter.delete('/conversations/:conversation_id/scheduled_messages/:
 // --- etiquetas da conversa -------------------------------------------------------------------
 
 conversationsRouter.get('/conversations/:conversation_id/tags', async (req, res) => {
-  const conv = await loadAccountConversation(req, res);
+  const conv = await loadVisible(req, res, 'conversation_id');
   if (conv) res.json(await conversationTagsOf(conv.id));
 });
 
 conversationsRouter.post('/conversations/:conversation_id/tags', async (req, res) => {
   const u = req.user!;
-  const conv = await loadAccountConversation(req, res);
+  const conv = await loadVisible(req, res, 'conversation_id');
   if (!conv) return;
   const name = String(req.body.name ?? '').trim().toLowerCase().replace(/\s+/g, '_');
   if (!name) return res.status(422).json({ error: 'Nome obrigatório' });
@@ -453,7 +449,7 @@ conversationsRouter.post('/conversations/:conversation_id/tags', async (req, res
 });
 
 conversationsRouter.delete('/conversations/:conversation_id/tags/:id', async (req, res) => {
-  const conv = await loadAccountConversation(req, res);
+  const conv = await loadVisible(req, res, 'conversation_id');
   if (!conv) return;
   const atuais = await conversationTagsOf(conv.id);
   const tag = atuais.find(t => t.id === id(req));

@@ -261,8 +261,8 @@ pipelinesRouter.post('/pipelines/:id/pipeline_cards', async (req, res) => {
     const c = await createContact({ accountId: acc(req), name: name || null, phone: v.phone ? String(v.phone) : null, userId: req.user!.id } as any);
     contactId = c.id;
   } else {
-    const [c] = await db.select({ id: contacts.id }).from(contacts).where(and(eq(contacts.id, contactId), eq(contacts.accountId, acc(req))));
-    if (!c) return res.status(422).json({ message: 'Contato não encontrado.' });
+    const [c] = await db.select({ id: contacts.id, userId: contacts.userId }).from(contacts).where(and(eq(contacts.id, contactId), eq(contacts.accountId, acc(req))));
+    if (!c || (!seesAll(req.user!) && c.userId !== req.user!.id)) return res.status(422).json({ message: 'Contato não encontrado.' });
   }
   const [dup] = await db.select({ id: pipelineCards.id }).from(pipelineCards).where(and(eq(pipelineCards.pipelineId, p.id), eq(pipelineCards.contactId, contactId)));
   if (dup) return res.status(422).json({ message: 'Esse contato já está neste funil.' });
@@ -273,8 +273,16 @@ pipelinesRouter.post('/pipelines/:id/pipeline_cards', async (req, res) => {
   res.status(201).json((await serializeCards([card]))[0]);
 });
 
+/** Card que o usuário pode mexer: consultor só nos leads da própria carteira (igual à lista). */
+async function visibleCard(req: Request, id: number) {
+  const card = await ownCard(req, id);
+  if (!card || seesAll(req.user!)) return card;
+  const [c] = await db.select({ id: contacts.id }).from(contacts).where(and(eq(contacts.id, card.contactId), eq(contacts.userId, req.user!.id)));
+  return c ? card : null;
+}
+
 pipelinesRouter.put('/pipeline_cards/:id', async (req, res) => {
-  const card = await ownCard(req, Number(req.params.id));
+  const card = await visibleCard(req, Number(req.params.id));
   if (!card) return nf(res);
   const v = req.body.pipeline_card ?? req.body;
   let cur = card;
@@ -302,7 +310,9 @@ pipelinesRouter.put('/pipeline_cards/:id', async (req, res) => {
   res.json(fresh ? (await serializeCards([fresh]))[0] : null);
 });
 
+// Kommo: consultor não exclui lead (perfil sem "Excluir") — só gerência/diretoria
 pipelinesRouter.delete('/pipeline_cards/:id', async (req, res) => {
+  if (!isFullPortfolio(req.user!)) return res.status(403).json({ error: 'forbidden', message: 'Só gerência e diretoria podem excluir leads.' });
   const card = await ownCard(req, Number(req.params.id));
   if (!card) return nf(res);
   await db.delete(pipelineCards).where(eq(pipelineCards.id, card.id));

@@ -99,6 +99,13 @@
       "when": 1792970000000,
       "tag": "0013_nome_contato_whatsapp",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792980000000,
+      "tag": "0014_nome_loja_importados",
+      "breakpoints": true
     }
   ]
 }

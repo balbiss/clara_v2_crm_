@@ -9,6 +9,7 @@ import { messagingService } from '../lib/waha.js';
 import { railsJson } from '../lib/serialize.js';
 import { chatCompletion } from '../lib/openai.js';
 import { historyProgress } from '../jobs/wahaHistorySync.js';
+import { deleteContactCascade, deleteConversationCascade } from '../lib/wahaIngestion.js';
 
 export const inboxesRouter = Router();
 inboxesRouter.use('/inboxes', requireAuth);
@@ -138,6 +139,22 @@ inboxesRouter.delete('/inboxes/:id', requireOwner, async (req, res) => {
   const [{ n: convCount }] = await db.select({ n: count() }).from(conversations).where(eq(conversations.inboxId, i.id));
   const [{ n: contactCount }] = await db.select({ n: countDistinct(conversations.contactId) }).from(conversations).where(eq(conversations.inboxId, i.id));
   await messagingService(i).deleteConnection().catch(() => {});
+  if (req.query.apagar_conversas === '1') {
+    // apaga as conversas e mensagens da caixa; o contato só sai junto se veio apenas desta caixa e
+    // não é revendedora (sem Jueri, sem status da régua) nem tem funil, tarefa ou outra conversa
+    const convs = await db.select({ id: conversations.id, contactId: conversations.contactId }).from(conversations).where(eq(conversations.inboxId, i.id));
+    for (const cv of convs) await deleteConversationCascade(cv.id);
+    let contatos = 0;
+    for (const contactId of [...new Set(convs.map(c => c.contactId))]) {
+      const [livre] = await db.execute(sql`SELECT 1 AS ok FROM contacts c WHERE c.id = ${contactId} AND c.id_jueri IS NULL AND c.status IS NULL
+        AND NOT EXISTS (SELECT 1 FROM conversations x WHERE x.contact_id = c.id)
+        AND NOT EXISTS (SELECT 1 FROM pipeline_cards p WHERE p.contact_id = c.id)
+        AND NOT EXISTS (SELECT 1 FROM tarefas t WHERE t.contact_id = c.id)`) as unknown as { ok: number }[];
+      if (livre) { await deleteContactCascade(contactId); contatos++; }
+    }
+    res.setHeader('X-Deleted-Conversations', String(convs.length));
+    res.setHeader('X-Deleted-Contacts', String(contatos));
+  }
   await db.update(conversations).set({ inboxId: null }).where(eq(conversations.inboxId, i.id));
   await db.execute(sql`UPDATE flows SET inbox_id = NULL WHERE inbox_id = ${i.id}`);
   await db.delete(inboxMembers).where(eq(inboxMembers.inboxId, i.id));

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
 import { RefreshCw, LogOut, Settings2, Trash2, Plus } from 'lucide-react'
+import Swal from 'sweetalert2'
 import api from '../api'
 import { inboxesStore } from '../store/inboxes'
 import { btn, inputStyle } from '../components/ui'
@@ -20,8 +21,20 @@ export default function SettingsInboxes() {
   useEffect(() => { inboxesStore.fetchInboxes() }, [])
 
   const remove = async (i: any) => {
-    if (!(await confirmBox('Apagar a caixa?', 'A caixa é removida e a sessão do WhatsApp encerrada. As conversas e o histórico continuam guardados (só deixam de pertencer a esta caixa).', 'Sim, apagar'))) return
-    try { await api.delete(`/inboxes/${i.id}`); inboxesStore.removeInbox(i.id) } catch { toast('error', 'Não foi possível apagar a caixa de entrada.') }
+    // o dono escolhe: guardar as conversas (padrão) ou apagar tudo junto com a caixa
+    const r = await Swal.fire({
+      title: 'Apagar a caixa?', icon: 'warning',
+      text: 'A caixa é removida e a sessão do WhatsApp encerrada. Sem marcar a opção abaixo, as conversas e o histórico continuam guardados (só deixam de pertencer a esta caixa).',
+      input: 'checkbox', inputValue: 0, inputPlaceholder: 'Apagar também todas as conversas e mensagens desta caixa (não dá pra desfazer)',
+      showCancelButton: true, confirmButtonText: 'Sim, apagar', cancelButtonText: 'Cancelar', confirmButtonColor: '#F86161',
+    })
+    if (!r.isConfirmed) return
+    const apagarConversas = r.value === 1
+    try {
+      const res = await api.delete(`/inboxes/${i.id}`, { params: apagarConversas ? { apagar_conversas: 1 } : {} })
+      inboxesStore.removeInbox(i.id)
+      if (apagarConversas) toast('success', `Caixa apagada com ${res.headers['x-deleted-conversations'] || 0} conversas.`)
+    } catch { toast('error', 'Não foi possível apagar a caixa de entrada.') }
   }
   const disconnect = async (i: any) => {
     if (!(await confirmBox('Desconectar?', `O WhatsApp "${i.name}" vai sair, como se você deslogasse pelo celular. A caixa e o histórico continuam intactos — dá pra reconectar depois.`, 'Sim, desconectar'))) return

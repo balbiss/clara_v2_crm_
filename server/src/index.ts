@@ -38,7 +38,7 @@ process.on('unhandledRejection', err => console.error('Erro não tratado (servid
 
 const app = express();
 // exposedHeaders: o front lê o token do header Authorization da resposta do login (igual à v1).
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5183', exposedHeaders: ['Authorization'] }));
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5183', exposedHeaders: ['Authorization', 'X-Deleted-Conversations', 'X-Deleted-Contacts'] }));
 // guarda o corpo bruto: o webhook do Jueri confere a assinatura (HMAC) em cima dele
 app.use(express.json({ limit: '25mb', verify: (req, _res, buf) => { (req as { rawBody?: Buffer }).rawBody = buf } }));
 

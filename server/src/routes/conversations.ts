@@ -7,7 +7,7 @@ import { conversations, contacts, inboxes, messages, scheduledMessages, conversa
 import { requireAuth, isOwner, isFullPortfolio, visibleContactsWhere, type User } from '../middleware/auth.js';
 import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, type Conversation } from '../lib/conversations.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
-import { createMessage, messageStatusValue, messagePayload } from '../lib/messages.js';
+import { createMessage, messageStatusValue, messagePayload, rebroadcast } from '../lib/messages.js';
 import { triggerOnConversationClosed } from '../lib/salesbot.js';
 import { messagingService } from '../lib/waha.js';
 import { cache } from '../lib/cache.js';
@@ -353,16 +353,23 @@ conversationsRouter.post('/conversations/:conversation_id/messages', upload.sing
 
   const [inbox] = conv.inboxId ? await db.select().from(inboxes).where(eq(inboxes.id, conv.inboxId)) : [];
   if (!isPrivate && inbox && WHATSAPP_PROVIDERS.includes(inbox.provider ?? '')) {
-    try {
-      const [contact] = await db.select().from(contacts).where(eq(contacts.id, conv.contactId));
-      const recipient = channelIdentifier(contact);
-      // flag anti-eco ANTES de enviar: o eco (fromMe) do webhook pode chegar antes da resposta
-      if (contact.jid) cache.write(`sending_from_crm_${inbox.id}_${contact.jid}`, true, 20);
-      const externalId = recipient ? await messagingService(inbox).sendMessage(recipient, signedText(inbox, u, message.text ?? ''), file) : null;
-      if (externalId) await db.update(messages).set({ sourceId: externalId }).where(eq(messages.id, message.id));
-    } catch (e) {
-      console.error('Failed to send message via waha:', (e as Error).message);
-    }
+    // envio em segundo plano: a tela não fica esperando o WhatsApp (com a caixa lenta/caída o campo
+    // ficava travado com o texto); se falhar, a mensagem vira "Não enviada" na conversa
+    const msgId = message.id;
+    void (async () => {
+      let externalId: string | null = null;
+      try {
+        const [contact] = await db.select().from(contacts).where(eq(contacts.id, conv.contactId));
+        const recipient = channelIdentifier(contact);
+        // flag anti-eco ANTES de enviar: o eco (fromMe) do webhook pode chegar antes da resposta
+        if (contact.jid) cache.write(`sending_from_crm_${inbox.id}_${contact.jid}`, true, 20);
+        externalId = recipient ? await messagingService(inbox).sendMessage(recipient, signedText(inbox, u, message.text ?? ''), file) : null;
+      } catch (e) {
+        console.error('Failed to send message via waha:', (e as Error).message);
+      }
+      await db.update(messages).set(externalId ? { sourceId: externalId } : { status: messageStatusValue('failed') }).where(eq(messages.id, msgId));
+      if (!externalId) await rebroadcast(msgId);
+    })();
   }
 
   res.status(201).json({ success: true, message: {

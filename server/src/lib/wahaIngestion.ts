@@ -126,7 +126,8 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
       try {
         contact = await createContact({
           accountId, phone: contactPhoneFormatted, jid: chatId, source: 'WhatsApp',
-          name: resolvedName || (isObj(payload._data) ? payload._data.notifyName || null : null) || contactPhoneFormatted,
+          // notifyName é o nome de quem MANDOU: em mensagem nossa (fromMe) é o nome do próprio WhatsApp da loja
+          name: resolvedName || (!fromMe && isObj(payload._data) ? payload._data.notifyName || null : null) || contactPhoneFormatted,
         });
       } catch {
         // 2 webhooks do mesmo chat em paralelo: quem perdeu a corrida busca de novo
@@ -137,6 +138,12 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
   if (!contact) return null;
 
   if (contact.status === 'blocked') return null;
+
+  // contato que ficou só com o telefone como nome ganha o nome do WhatsApp quando o cliente escreve
+  const nomeWhats = !fromMe && !isGroup && isObj(payload._data) ? String(payload._data.notifyName || '').trim() : '';
+  if (nomeWhats && !contact.idJueri && (!contact.name || contact.name === contactPhoneFormatted || contact.name === contact.phone)) {
+    contact = await updateContact(contact, { name: nomeWhats });
+  }
 
   contact = await setJidIfFree(contact, chatId);
 

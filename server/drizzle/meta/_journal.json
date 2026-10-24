@@ -92,6 +92,13 @@
       "when": 1792960000000,
       "tag": "0012_caixa_cor_apelido",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792970000000,
+      "tag": "0013_nome_contato_whatsapp",
+      "breakpoints": true
     }
   ]
 }

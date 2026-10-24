@@ -596,7 +596,6 @@ export default function Conversas() {
   const handleSendMessage = async () => {
     if (sending.current || !(s.newMessageText.trim() || s.selectedFile)) return
     sending.current = true
-    // só limpa o campo depois que o backend confirmar (senão a falha passava despercebida)
     try {
       if (mode === 'chat' && marcados.length) {
         if (s.selectedFile) { Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Pra marcar um colega, mande só texto (sem anexo).', showConfirmButton: false, timer: 3500 }); return }
@@ -607,8 +606,11 @@ export default function Conversas() {
         return
       }
       const arquivo = s.selectedFile ? await prepareImage(s.selectedFile) : null
-      await conversationsStore.sendMessage(s.newMessageText, s.isPrivateMessage, arquivo)
+      // limpa o campo na hora (como no WhatsApp); se o servidor recusar, o texto volta pro campo
+      const texto = s.newMessageText
       s.newMessageText = ''
+      try { await conversationsStore.sendMessage(texto, s.isPrivateMessage, arquivo) }
+      catch (e) { if (!s.newMessageText) s.newMessageText = texto; throw e }
       clearSelectedFile()
       scrollToBottom()
     } catch (error) {
@@ -1258,7 +1260,9 @@ export default function Conversas() {
                           {!out && <ChatAvatar nome={conv.contact.name || ''} foto={conv.contact.avatar_url} size={34} />}
                           <div style={{ maxWidth: '74%', padding: '8px 12px', borderRadius: 6, fontSize: 14.5, lineHeight: 1.45, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', outline: hit ? '2px solid #f0a33a' : undefined, ...(out ? { background: '#f0d0d7', color: '#4a2430' } : { background: '#f1f2f4', color: K.text }) }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, opacity: 1, color: out ? '#85525f' : K.muted, marginBottom: 3 }}>
-                              {head}{out && <><CheckCheck size={13} /> Entregue</>}
+                              {head}{out && (msg.status === 'failed'
+                                ? <b style={{ color: '#c62828' }}>Não enviada — confira a conexão do número e mande de novo</b>
+                                : <><CheckCheck size={13} /> {msg.status === 'read' ? 'Lida' : msg.status === 'delivered' ? 'Entregue' : 'Enviada'}</>)}
                             </span>
                             {msg.attachmentUrl && (
                               msg.attachmentType?.startsWith('image/') ? (

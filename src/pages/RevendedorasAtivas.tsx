@@ -77,7 +77,7 @@ export default function RevendedorasAtivas() {
   }, [tt])
 
   const activeKeys = Object.keys(ACTIVE_STATUS_LABELS)
-  const actives = useMemo(() => store.contacts.filter((c: any) => activeKeys.includes(c.status || 'revendedor_ativo')), [store.contacts]) // eslint-disable-line react-hooks/exhaustive-deps
+  const actives = useMemo(() => store.contacts.filter((c: any) => activeKeys.includes(c.status || (c.id_jueri ? 'revendedor_ativo' : ''))), [store.contacts]) // eslint-disable-line react-hooks/exhaustive-deps
   const nivelOptions = useMemo(() => {
     const presentes = new Set<string>(actives.map((c: any) => nivelLimpo(c.nivel)).filter(Boolean))
     const ord = NIVEL_ORDEM.filter(n => presentes.has(n)), outros = [...presentes].filter(n => !NIVEL_ORDEM.includes(n))
@@ -88,7 +88,7 @@ export default function RevendedorasAtivas() {
   const bySearch = (list: any[]) => { const s = q.trim().toLowerCase(); return s ? list.filter(c => (c.name || `${c.first_name || ''} ${c.last_name || ''}`).toLowerCase().includes(s) || (c.phone || '').includes(s)) : list }
   const filtered = useMemo(() => {
     let l = actives
-    if (stage !== 'all') l = l.filter((c: any) => (c.status || 'revendedor_ativo') === stage)
+    if (stage !== 'all') l = l.filter((c: any) => (c.status || (c.id_jueri ? 'revendedor_ativo' : '')) === stage)
     if (nivel !== 'all') l = l.filter((c: any) => nivelLimpo(c.nivel) === nivel)
     return [...bySearch(byResp(l))].sort((a, b) => (daysInCycle(b) ?? 0) - (daysInCycle(a) ?? 0))
   }, [actives, stage, nivel, q, resp, isFull]) // eslint-disable-line react-hooks/exhaustive-deps

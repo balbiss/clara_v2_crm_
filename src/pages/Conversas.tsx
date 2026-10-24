@@ -802,13 +802,22 @@ export default function Conversas() {
   const [pipes, setPipes] = useState<Any[]>([])
   useEffect(() => { if (contactId) api.get('/pipeline_cards', { params: { contact_id: contactId } }).then(r => setCards(r.data)).catch(() => setCards([])) }, [contactId])
   useEffect(() => { api.get('/pipelines').then(r => setPipes(r.data)).catch(() => {}) }, [])
-  const card = cards[0]
+  // o card do Consignado (funil de sistema) é a própria régua — aqui vale o card dos outros funis
+  const card = cards.find(c => !pipes.find(p => p.id === c.pipeline_id)?.system)
   const cardPipe = card && pipes.find(p => p.id === card.pipeline_id)
-  const regua = !!conv?.contact?.id_jueri || !card
   const reguaKeys = [...Object.keys(ACTIVE_STATUS_LABELS), ...Object.keys(INACTIVE_STATUS_LABELS)]
+  // revendedora = tem cadastro no Jueri ou status da régua (igual à v1); contato comum do WhatsApp não
+  const regua = !!conv?.contact?.id_jueri || reguaKeys.includes(conv?.contact?.status)
+  const semFunil = !regua && !card
+  const addToFunnel = async (stageId: number) => {
+    const p = pipes.find(x => x.pipeline_stages.some((st: Any) => st.id === stageId))
+    if (!p || !contactId) return
+    try { const { data } = await api.post(`/pipelines/${p.id}/pipeline_cards`, { contact_id: contactId, pipeline_stage_id: stageId }); setCards(cs => [...cs, data]) }
+    catch (e: Any) { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Erro ao colocar no funil.', showConfirmButton: false, timer: 3000 }) }
+  }
   const stageIdx = regua ? reguaKeys.indexOf(conv?.contact?.status || 'revendedor_ativo') : (cardPipe?.pipeline_stages || []).findIndex((x: Any) => x.id === card?.pipeline_stage_id)
   const stageTotal = regua ? Object.keys(ACTIVE_STATUS_LABELS).length : (cardPipe?.pipeline_stages || []).length
-  const stageDays = regua ? daysInStage(conv?.contact) : card ? Math.floor((Date.now() - new Date(card.stage_entered_at).getTime()) / 86_400_000) : null
+  const stageDays = semFunil ? null : regua ? daysInStage(conv?.contact) : card ? Math.floor((Date.now() - new Date(card.stage_entered_at).getTime()) / 86_400_000) : null
   const moveCard = async (stageId: number) => {
     try { const { data } = await api.put(`/pipeline_cards/${card.id}`, { pipeline_stage_id: stageId }); setCards(cs => cs.map(c => (c.id === data.id ? data : c))); loadTasks() }
     catch (e: Any) { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Erro ao mudar etapa.', showConfirmButton: false, timer: 3000 }) }
@@ -1053,13 +1062,18 @@ export default function Conversas() {
               </div>
               {/* funil › etapa (dias) + barra de progresso */}
               <div style={{ margin: '14px 0 0 26px' }}>
-                <div style={{ fontSize: 13, color: inkMuted }}>{regua ? 'Consignado' : cardPipe?.name}</div>
+                <div style={{ fontSize: 13, color: inkMuted }}>{regua ? 'Consignado' : semFunil ? 'Contato (não é revendedora)' : cardPipe?.name}</div>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <span style={{ fontSize: 15, fontWeight: 700, textTransform: 'uppercase' }}>{regua ? statusLabel(conv.contact.status) : cardPipe?.pipeline_stages.find((x: Any) => x.id === card?.pipeline_stage_id)?.name}</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, textTransform: 'uppercase' }}>{regua ? statusLabel(conv.contact.status) : semFunil ? 'Sem funil' : cardPipe?.pipeline_stages.find((x: Any) => x.id === card?.pipeline_stage_id)?.name}</span>
                   {stageDays != null && <span style={{ fontSize: 14, color: inkMuted, marginLeft: 6 }}>({stageDays} dias)</span>}
                   <span style={{ flex: 1 }} />
                   <ChevronDown size={16} color={inkMuted} />
-                  {regua ? (
+                  {semFunil ? (
+                    <select aria-label="Colocar em um funil" value="" onChange={e => addToFunnel(Number(e.target.value))} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}>
+                      <option value="">Colocar em um funil…</option>
+                      {pipes.filter(p => !p.system).map(p => <optgroup key={p.id} label={p.name}>{p.pipeline_stages.filter((x: Any) => x.kind === 'normal').map((x: Any) => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>)}
+                    </select>
+                  ) : regua ? (
                     <select aria-label="Etapa" value={conv.contact.status || 'revendedor_ativo'} disabled={v.isChangingStatus} onChange={e => changeContactStatus(e.target.value)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}>
                       {statusOptions.map(grp => <optgroup key={grp.group} label={grp.group}>{Object.entries(grp.options).map(([key, label]) => <option key={key} value={key}>{label as string}</option>)}</optgroup>)}
                     </select>

@@ -41,7 +41,7 @@ export default function Contacts() {
     let l: any[] = store.contacts
     const s = q.trim().toLowerCase()
     if (s) l = l.filter(c => contactName(c).toLowerCase().includes(s) || (c.phone || '').includes(s) || (c.email || '').toLowerCase().includes(s))
-    if (statuses.length) l = l.filter(c => statuses.includes(c.status || 'revendedor_ativo'))
+    if (statuses.length) l = l.filter(c => statuses.includes(c.status || (c.id_jueri ? 'revendedor_ativo' : '')))
     if (temps.length) l = l.filter(c => temps.includes(c.temperature))
     return [...l].sort((a, b) => sort === 'name_asc' ? contactName(a).localeCompare(contactName(b)) : sort === 'name_desc' ? contactName(b).localeCompare(contactName(a))
       : sort === 'oldest' ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime() : new Date(b.created_at).getTime() - new Date(a.created_at).getTime())

@@ -25,7 +25,8 @@ const COLUMNS: Col[] = [
   { id: 'atrasada', name: 'Atrasada', color: '#B42318' },
 ]
 const IDS = COLUMNS.map(c => c.id)
-const statusOf = (c: any) => c.status || 'revendedor_ativo'
+// sem status só é revendedora ativa se tiver cadastro no Jueri; contato comum do WhatsApp fica fora da régua
+const statusOf = (c: any) => c.status || (c.id_jueri ? 'revendedor_ativo' : '')
 
 function MoveMenu({ current, onPick }: { current: string; onPick: (id: string) => void }) {
   const [open, setOpen] = useState(false)

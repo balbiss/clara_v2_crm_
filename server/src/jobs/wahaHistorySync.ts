@@ -96,6 +96,12 @@ export async function importFullHistory(inboxId: number) {
     cache.write(key, { status: 'importando', chats: 0, total: chats.length, mensagens }, 24 * 3600);
     console.log(`[WahaHistorico] inbox ${inbox.id} (${inbox.name}): importando ${chats.length} conversas`);
     for (const [i, chatId] of chats.entries()) {
+      // WhatsApp caiu no meio: para sem marcar como feito — ao reconectar recomeça (o que já veio não duplica)
+      if (i % 15 === 14 && !(await service.connected())) {
+        cache.write(key, { status: 'pausado', chats: i, total: chats.length, mensagens }, 24 * 3600);
+        console.log(`[WahaHistorico] inbox ${inbox.id}: WhatsApp desconectou, importação pausada em ${i}/${chats.length}`);
+        return;
+      }
       try { mensagens += await syncChat(inbox, service, chatId, 0, FULL_MSGS, mediaSince); }
       catch (e) { console.error(`[WahaHistorico] inbox ${inbox.id} chat ${chatId}:`, (e as Error).message); }
       cache.write(key, { status: 'importando', chats: i + 1, total: chats.length, mensagens }, 24 * 3600);

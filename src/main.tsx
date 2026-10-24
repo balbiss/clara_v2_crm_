@@ -118,7 +118,7 @@ function App() {
               <Route path="settings/modelos-mensagem" element={g(<MessageTemplates />, { criticalConfig: true })} />
             </Route>
             <Route path="funil" element={g(<Kanban />)} />
-            <Route path="funil/automatize" element={g(emMigracao('Automação da régua'), { criticalConfig: true })} />
+            <Route path="funil/automatize" element={<Navigate to="/pipelines/consignado/automatize" replace />} />
             <Route path="relatorios" element={g(<Relatorios />, { fullPortfolio: true })} />
             <Route path="manual" element={g(emMigracao('Manual'))} />
           </Route>

@@ -62,12 +62,14 @@ export default function Funis() {
   const [perda, setPerda] = useState<{ cardId: number } | null>(null)
   const menuRef = useClickOutside<HTMLDivElement>(() => setMenu(false), menu)
 
-  const pipe = pipes.find(p => p.slug === slug) || pipes[0]
+  // Consignado é funil de sistema (etapas = status da régua) — a tela dele é /funil
+  const funis = pipes.filter(p => !p.system)
+  const pipe = funis.find(p => p.slug === slug) || funis[0]
   const stages = (pipe?.pipeline_stages || []).filter((s: any) => s.kind === 'normal')
   const won = pipe?.pipeline_stages.find((s: any) => s.kind === 'won')
   const lost = pipe?.pipeline_stages.find((s: any) => s.kind === 'lost')
 
-  const loadPipes = async () => { const { data } = await api.get('/pipelines'); setPipes(data); return data }
+  const loadPipes = async () => { const { data } = await api.get('/pipelines'); setPipes(data); return data.filter((p: any) => !p.system) }
   const loadCards = async (p = pipe) => { if (!p) return; const { data } = await api.get(`/pipelines/${p.id}/pipeline_cards`); setCards(data) }
   useEffect(() => { loadPipes().then(d => { if (!slug && d[0]) navigate(`/pipelines/${d[0].slug}`, { replace: true }) }).finally(() => setLoading(false)) }, [])
   useEffect(() => { if (pipe) { setCards([]); loadCards(pipe) } }, [pipe?.id])
@@ -115,7 +117,7 @@ export default function Funis() {
           </button>
           {menu && (
             <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 50, background: '#fff', border: `1px solid ${K.line}`, borderRadius: 3, minWidth: 220, boxShadow: '0 4px 16px rgba(0,0,0,.12)', padding: '6px 0' }}>
-              {pipes.map(p => (
+              {funis.map(p => (
                 <button key={p.id} onClick={() => { setMenu(false); navigate(`/pipelines/${p.slug}`) }} style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', background: p.id === pipe.id ? '#f0f4fa' : 'none', padding: '8px 16px', fontFamily: K.font, fontSize: 14, color: K.text, cursor: 'pointer' }}>{p.name}</button>
               ))}
               <div style={{ borderTop: `1px solid ${K.line}`, margin: '6px 0' }} />

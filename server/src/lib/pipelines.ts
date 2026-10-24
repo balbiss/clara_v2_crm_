@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { contacts, contactTags, notes, pipelineCards, pipelineStages, pipelineTriggerRuns, pipelineTriggers, pipelines, tags, tarefas, users } from '../db/schema.js';
 import { cache } from './cache.js';
-import { updateContact } from './contacts.js';
+import { setReguaTriggerRunner, updateContact } from './contacts.js';
 import { MANUAL_TIPOS, PRIORIDADES, isUniqueViolation } from './tarefas.js';
 import { logEvent } from './events.js';
 
@@ -27,7 +27,9 @@ export const EVENTS = ['enter', 'client_reply', 'schedule', 'date_field'] as con
 const aiHooks: { start: (contactId: number, agentId: number | null) => Promise<unknown>; stop: (contactId: number, agentId: number | null) => Promise<unknown> } = { start: async () => {}, stop: async () => {} };
 export function setAiAgentHooks(h: typeof aiHooks) { Object.assign(aiHooks, h); }
 
-export const ACTION_TYPES = ['move_stage', 'copy_lead', 'change_owner', 'create_note', 'create_task', 'complete_tasks', 'set_field', 'add_tags', 'remove_tags', 'ai_start', 'ai_stop', 'send_webhook', 'start_flow'] as const;
+export const ACTION_TYPES = ['move_stage', 'copy_lead', 'change_owner', 'create_note', 'create_task', 'complete_tasks', 'set_field', 'add_tags', 'remove_tags', 'ai_start', 'ai_stop', 'send_webhook', 'start_flow', 'advance_field'] as const;
+// funil de sistema do Consignado: etapas = status da régua (pipeline_stages.status_key)
+export const CONSIGNADO_SLUG = 'consignado';
 
 export type Condition = { field: string; op: 'eq' | 'neq' | 'empty' | 'not_empty' | 'contains' | 'has_tag' | 'no_tag'; value?: string };
 export type Schedule = { kind?: 'daily' | 'weekly' | 'once'; time?: string; weekday?: number; at?: string };
@@ -43,6 +45,7 @@ export function validateTrigger(t: { actionType?: string; event?: string; config
     case 'create_note': if (!String(c.content || '').trim()) return 'Escreva o texto da nota.'; break;
     case 'create_task': if (!String(c.titulo || '').trim()) return 'Escreva o título da tarefa.'; break;
     case 'set_field': if (!c.field_key) return 'Escolha o campo.'; break;
+    case 'advance_field': if (!c.field_key || !Array.isArray(c.steps) || c.steps.length < 2) return 'Escolha o campo e a sequência de valores.'; break;
     case 'add_tags': case 'remove_tags': if (!Array.isArray(c.tag_ids) || !c.tag_ids.length) return 'Escolha pelo menos uma etiqueta.'; break;
     case 'send_webhook': if (!/^https?:\/\//.test(String(c.url || ''))) return 'Informe uma URL http(s).'; break;
     case 'start_flow': if (!c.flow_id) return 'Escolha o robô.'; break;
@@ -141,6 +144,11 @@ export async function moveCard(card: Card, stageId: number, chainDepth = 0, pipe
   }).where(eq(pipelineCards.id, card.id)).returning();
   await db.update(pipelineTriggerRuns).set({ status: 'cancelled', updatedAt: new Date() })
     .where(and(eq(pipelineTriggerRuns.pipelineCardId, card.id), eq(pipelineTriggerRuns.status, 'pending')));
+  if (stage?.statusKey) {
+    // etapa do Consignado: o status da revendedora vai junto (a régua vê o card já na etapa e não move de novo)
+    const contact = await loadContact(card.contactId);
+    if (contact && contact.status !== stage.statusKey) await updateContact(contact, { status: stage.statusKey });
+  }
   await runEnterTriggers(moved, chainDepth);
   return moved;
 }
@@ -273,6 +281,18 @@ async function runAction(t: Trigger, card: Card, contact: Contact, chainDepth: n
       void logEvent({ accountId, contactId: contact.id, objectType: 'lead', objectId: card.id, objectName: contact.name, eventType: 'field_changed', before, after: value, meta: { field: key } });
       return;
     }
+    case 'advance_field': {
+      // Kommo "Onboarding sobe": 1º mês → 2º mês → 3º mês → Veterano (vazio vai pro 1º; no último, fica)
+      const key = String(c.field_key);
+      const steps = (c.steps as unknown[]).map(String);
+      const before = attrs(contact)[key] == null ? '' : String(attrs(contact)[key]);
+      const i = steps.indexOf(before);
+      const value = i < 0 ? steps[0] : steps[Math.min(i + 1, steps.length - 1)];
+      if (value === before) return;
+      await updateContact(contact, { customAttributes: { ...attrs(contact), [key]: value } });
+      void logEvent({ accountId, contactId: contact.id, objectType: 'lead', objectId: card.id, objectName: contact.name, eventType: 'field_changed', before, after: value, meta: { field: key } });
+      return;
+    }
     case 'add_tags': {
       const ids = (await db.select({ id: tags.id }).from(tags).where(and(eq(tags.accountId, accountId), inArray(tags.id, (c.tag_ids as any[]).map(Number))))).map(r => r.id);
       for (const tagId of ids) await db.insert(contactTags).values({ contactId: contact.id, tagId }).onConflictDoNothing();
@@ -307,6 +327,23 @@ async function runAction(t: Trigger, card: Card, contact: Contact, chainDepth: n
       return;
   }
 }
+
+/** Funil Consignado acompanha a régua: toda troca de contact.status põe o card do contato na etapa
+ *  daquele status (criando o card se ainda não existe) e roda os gatilhos da etapa, como no Kommo. */
+export async function syncConsignadoCard(contact: Contact) {
+  if (!contact.status) return;
+  const [stage] = await db.select({ id: pipelineStages.id, pipelineId: pipelineStages.pipelineId }).from(pipelineStages)
+    .innerJoin(pipelines, eq(pipelines.id, pipelineStages.pipelineId))
+    .where(and(eq(pipelines.accountId, contact.accountId), eq(pipelines.slug, CONSIGNADO_SLUG), eq(pipelineStages.statusKey, contact.status)));
+  if (!stage) return;
+  const [card] = await db.select().from(pipelineCards).where(and(eq(pipelineCards.pipelineId, stage.pipelineId), eq(pipelineCards.contactId, contact.id)));
+  if (card) { if (card.pipelineStageId !== stage.id) await moveCard(card, stage.id); return; }
+  const [novo] = await db.insert(pipelineCards).values({ pipelineId: stage.pipelineId, pipelineStageId: stage.id, contactId: contact.id }).onConflictDoNothing().returning();
+  if (!novo) return;
+  void logEvent({ accountId: contact.accountId, contactId: contact.id, objectType: 'lead', objectId: novo.id, objectName: contact.name || contact.phone || '', eventType: 'lead_created', after: (await stageLabel(stage.id)).label });
+  await runEnterTriggers(novo);
+}
+setReguaTriggerRunner(syncConsignadoCard);
 
 /** Início do dia em Brasília daqui a `plus` dias. */
 function startOfDaySP(plus: number) {

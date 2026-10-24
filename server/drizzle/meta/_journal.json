@@ -64,6 +64,13 @@
       "when": 1792845198207,
       "tag": "0008_chats_equipe",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792930000000,
+      "tag": "0009_funil_consignado",
+      "breakpoints": true
     }
   ]
 }

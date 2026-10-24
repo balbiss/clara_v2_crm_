@@ -51,6 +51,7 @@ export const ACTIONS: { id: string; label: string }[] = [
   { id: 'create_task', label: 'Adicionar uma tarefa' },
   { id: 'complete_tasks', label: 'Concluir tarefas' },
   { id: 'set_field', label: 'Alterar campo' },
+  { id: 'advance_field', label: 'Avançar campo (próximo valor)' },
   { id: 'add_tags', label: 'Adicionar tags' },
   { id: 'remove_tags', label: 'Excluir tags' },
   { id: 'change_owner', label: 'Alterar usuário responsável' },
@@ -103,6 +104,7 @@ export function whatText(t: any, ctx: Ctx): string {
     case 'create_task': return `Adicionar uma tarefa: ${TIPOS_TAREFA[c.tipo] || 'Acompanhamento'} — ${c.titulo}`
     case 'complete_tasks': return 'Tarefas concluídas: Todos'
     case 'set_field': return `Alterar campo: ${ctx.fieldLabel(c.field_key)}: ${c.value || '(limpar)'}`
+    case 'advance_field': return `Avançar campo: ${ctx.fieldLabel(c.field_key)} (${(c.steps || []).join(' → ')})`
     case 'add_tags': return `Adicionar tags: ${(c.tag_ids || []).map((id: number) => ctx.tagName(id)).join(', ')}`
     case 'remove_tags': return `Excluir tags: ${(c.tag_ids || []).map((id: number) => ctx.tagName(id)).join(', ')}`
     case 'change_owner': return `Alterar responsável: ${ctx.userName(Number(c.user_id))}`

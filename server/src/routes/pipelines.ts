@@ -104,6 +104,7 @@ const stageValues = (v: any) => ({
 pipelinesRouter.post('/pipelines/:id/pipeline_stages', requireOwner, async (req, res) => {
   const p = await ownPipeline(req, Number(req.params.id));
   if (!p) return nf(res);
+  if (p.system) return res.status(422).json({ message: 'As etapas do Consignado são os status da revendedora — não dá pra criar ou apagar.' });
   const v = req.body.pipeline_stage ?? req.body;
   if (!String(v.name || '').trim()) return res.status(422).json({ message: 'Dê um nome pra etapa.' });
   const [{ m }] = await db.select({ m: sql<number>`max(${pipelineStages.position}) filter (where ${pipelineStages.kind} = 'normal')` }).from(pipelineStages).where(eq(pipelineStages.pipelineId, p.id));
@@ -132,6 +133,7 @@ pipelinesRouter.delete('/pipeline_stages/:id', requireOwner, async (req, res) =>
   const s = await ownStage(req, Number(req.params.id));
   if (!s) return nf(res);
   if (s.kind !== 'normal') return res.status(422).json({ error: 'As etapas de venda ganha/perdida não podem ser apagadas.' });
+  if (s.statusKey) return res.status(422).json({ error: 'As etapas do Consignado são os status da revendedora — não dá pra apagar.' });
   const [fallback] = await db.select().from(pipelineStages).where(and(eq(pipelineStages.pipelineId, s.pipelineId), eq(pipelineStages.kind, 'normal'), sql`${pipelineStages.id} <> ${s.id}`)).orderBy(asc(pipelineStages.position)).limit(1);
   if (!fallback) return res.status(422).json({ error: 'O funil precisa de pelo menos uma etapa.' });
   await db.update(pipelineCards).set({ pipelineStageId: fallback.id, stageEnteredAt: new Date() }).where(eq(pipelineCards.pipelineStageId, s.id));
@@ -247,6 +249,7 @@ pipelinesRouter.get('/pipeline_cards', async (req, res) => {
 pipelinesRouter.post('/pipelines/:id/pipeline_cards', async (req, res) => {
   const p = await ownPipeline(req, Number(req.params.id));
   if (!p) return nf(res);
+  if (p.system) return res.status(422).json({ message: 'No Consignado a revendedora entra pelo status (régua), não por lead novo.' });
   const v = req.body.pipeline_card ?? req.body;
   const stages = await db.select().from(pipelineStages).where(eq(pipelineStages.pipelineId, p.id)).orderBy(asc(pipelineStages.position));
   const stage = stages.find(s => s.id === Number(v.pipeline_stage_id)) ?? stages.find(s => s.kind === 'normal');

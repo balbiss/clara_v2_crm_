@@ -518,6 +518,8 @@ export const pipelineStages = pgTable('pipeline_stages', {
   // 0001_funis_kommo
   description: text('description'),
   kind: varchar('kind').default('normal').notNull(),
+  // 0009_funil_consignado: etapa do funil Consignado = este status da régua
+  statusKey: varchar('status_key'),
 }, (t) => [
   index('index_pipeline_stages_on_pipeline_id').on(t.pipelineId),
 ]);

@@ -37,4 +37,6 @@ if (!algumFunil) {
     execFileSync('npx', ['tsx', `scripts/${s}`], { stdio: 'inherit' });
   }
 }
+// funil Consignado (régua): cria se faltar e acerta os cards com o status — idempotente, roda sempre
+execFileSync('npx', ['tsx', 'scripts/seed-consignado.ts'], { stdio: 'inherit' });
 process.exit(0);

@@ -43,6 +43,8 @@ export default function FunilAutomatize() {
   }
 
   if (!pipe) return <p style={{ fontFamily: K.font, padding: 20, color: K.muted }}>Carregando…</p>
+  // Consignado: etapas fixas (status da régua) e a tela do funil é a régua
+  const voltar = pipe.system ? '/funil' : `/pipelines/${pipe.slug}`
 
   const addStage = async () => {
     const name = window.prompt('Nome da nova etapa:')
@@ -64,12 +66,14 @@ export default function FunilAutomatize() {
   return (
     <div className="k-fullbleed" style={{ fontFamily: K.font, color: K.text, margin: -24, minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column' }}>
       <div className="k-topbar" style={{ minHeight: 64, borderBottom: `1px solid ${K.line}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 20px', flex: 'none', flexWrap: 'wrap' }}>
-        <button onClick={() => navigate(`/pipelines/${pipe.slug}`)} title="Voltar ao funil" style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex' }}><ChevronLeft size={22} color={K.muted} /></button>
+        <button onClick={() => navigate(voltar)} title="Voltar ao funil" style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex' }}><ChevronLeft size={22} color={K.muted} /></button>
         <button onClick={renamePipe} title="Renomear funil" style={{ border: 'none', background: 'none', cursor: 'pointer', fontFamily: K.font, fontSize: 16, fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase', color: K.text }}>{pipe.name}</button>
         <span style={{ flex: 1 }} />
-        <button onClick={deletePipe} style={kBtn('flat', { color: K.muted, textTransform: 'none', fontWeight: 400 })}><Trash2 size={15} /> Excluir funil</button>
-        <button onClick={addStage} style={kBtn('ghost')}><Plus size={15} /> Etapa</button>
-        <button onClick={() => navigate(`/pipelines/${pipe.slug}`)} style={kBtn('blue')}>Sair</button>
+        {pipe.system ? <span style={{ fontSize: 13, color: K.muted }}>As etapas são os status da revendedora — a régua move o card sozinha.</span> : <>
+          <button onClick={deletePipe} style={kBtn('flat', { color: K.muted, textTransform: 'none', fontWeight: 400 })}><Trash2 size={15} /> Excluir funil</button>
+          <button onClick={addStage} style={kBtn('ghost')}><Plus size={15} /> Etapa</button>
+        </>}
+        <button onClick={() => navigate(voltar)} style={kBtn('blue')}>Sair</button>
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '0 0 40px' }}>
@@ -91,7 +95,7 @@ export default function FunilAutomatize() {
                     {(t.conditions || []).length > 0 && <div style={{ color: '#7c5cc4', fontSize: 12, marginBottom: 3 }}>{t.conditions.map((k: any) => condText(k, ctx)).join(' e ')}</div>}
                     <div style={{ color: K.muted }}>{whenText(t, ctx)}</div>
                     <div style={{ marginTop: 3, color: K.text }}>{whatText(t, ctx)}</div>
-                    {!t.active && t.action_type === 'start_flow' && <div style={{ fontSize: 11.5, color: K.orange, marginTop: 4 }}>Desligado — o robô ainda não foi recriado</div>}
+                    {!t.active && t.action_type === 'start_flow' && <div style={{ fontSize: 11.5, color: K.orange, marginTop: 4 }}>{t.config?.flow_id ? 'Desligado — ligue quando quiser que o robô mande a mensagem' : 'Desligado — o robô ainda não foi recriado'}</div>}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7 }}>
                       <Switch on={t.active} onChange={() => toggle(t)} />
                       <span style={{ flex: 1 }} />
@@ -224,6 +228,10 @@ function TriggerForm({ pipes, pipe, stage, trigger, tags, agents, flows, fields,
           <input value={cfg.titulo || ''} onChange={e => set('titulo', e.target.value)} placeholder="Título da tarefa" style={kInput} />
           <textarea value={cfg.descricao || ''} onChange={e => set('descricao', e.target.value)} placeholder="Descrição (opcional) — uma orientação por linha" rows={3} style={{ ...kInput, height: 'auto', padding: 10 }} />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ fontSize: 14, color: K.muted }}>Prazo:</span><input type="number" min={0} value={cfg.prazo_horas || 0} onChange={e => set('prazo_horas', Number(e.target.value))} style={{ ...kInput, width: 90 }} /><span style={{ fontSize: 14, color: K.muted }}>horas</span></div>
+        </>)}
+        {action === 'advance_field' && (<>
+          {sel(cfg.field_key || '', v => set('field_key', v), [['', 'Escolha o campo…'], ...fields.map((f: any) => [f.key, f.label])])}
+          <textarea value={(cfg.steps || []).join('\n')} onChange={e => set('steps', e.target.value.split('\n').map(x => x.trim()).filter(Boolean))} rows={4} placeholder={'Sequência, um valor por linha (ex.: 1º mês, 2º mês, 3º mês, Veterano)'} style={{ ...kInput, height: 'auto', padding: 10 }} />
         </>)}
         {action === 'set_field' && (<>
           {sel(cfg.field_key || '', v => set('field_key', v), [['', 'Escolha o campo…'], ...fields.map((f: any) => [f.key, f.label])])}

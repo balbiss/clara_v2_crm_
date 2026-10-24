@@ -61,7 +61,7 @@ export async function createMessage(attrs: NewMessage, opts: { historical?: bool
 
   if (historical) {
     await db.update(conversations).set({ lastActivityAt: m.createdAt })
-      .where(sql`${conversations.id} = ${m.conversationId} AND (${conversations.lastActivityAt} IS NULL OR ${conversations.lastActivityAt} < ${m.createdAt})`);
+      .where(sql`${conversations.id} = ${m.conversationId} AND (${conversations.lastActivityAt} IS NULL OR ${conversations.lastActivityAt} < ${m.createdAt.toISOString()})`);
   } else {
     await db.update(conversations).set({ lastActivityAt: new Date() }).where(eq(conversations.id, m.conversationId));
   }

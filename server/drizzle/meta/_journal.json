@@ -78,6 +78,13 @@
       "when": 1792940000000,
       "tag": "0010_historico_whatsapp",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792950000000,
+      "tag": "0011_refazer_historico",
+      "breakpoints": true
     }
   ]
 }

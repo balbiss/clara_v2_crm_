@@ -597,6 +597,14 @@ export default function Conversas() {
     sending.current = true
     // só limpa o campo depois que o backend confirmar (senão a falha passava despercebida)
     try {
+      if (mode === 'chat' && marcados.length) {
+        if (s.selectedFile) { Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Pra marcar um colega, mande só texto (sem anexo).', showConfirmButton: false, timer: 3500 }); return }
+        await api.post('/team_chats/mention', { conversation_id: conv.id, user_ids: marcados.map(m => m.id), text: s.newMessageText })
+        s.newMessageText = ''
+        setMarcados([])
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Enviado pro Chats da equipe (o cliente não vê).', showConfirmButton: false, timer: 2500 })
+        return
+      }
       const arquivo = s.selectedFile ? await prepareImage(s.selectedFile) : null
       await conversationsStore.sendMessage(s.newMessageText, s.isPrivateMessage, arquivo)
       s.newMessageText = ''
@@ -809,6 +817,12 @@ export default function Conversas() {
   // composer: Bate-papo / Nota / Tarefa (o "Bate-papo ▾" do Kommo)
   const [mode, setMode] = useState<'chat' | 'nota' | 'tarefa'>('chat')
   const [modeOpen, setModeOpen] = useState(false)
+  // marcar colega na conversa (Kommo: clicar no nome do cliente e escolher o colega) — vai pro Chats da equipe
+  const [marcados, setMarcados] = useState<Any[]>([])
+  const [pessoaOpen, setPessoaOpen] = useState(false)
+  const [colegasMencao, setColegasMencao] = useState<Any[]>([])
+  useEffect(() => { if (pessoaOpen && !colegasMencao.length) api.get('/agents').then(r => setColegasMencao((r.data || []).filter((a: Any) => (a.status || 'active') === 'active' && a.id !== me.id))).catch(() => {}) }, [pessoaOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setMarcados([]); setPessoaOpen(false) }, [conv?.id])
   const [taskForm, setTaskForm] = useState({ tipo: 'manual_acompanhamento', vencimento: '', titulo: '' })
   useEffect(() => { s.isPrivateMessage = mode === 'nota' }, [mode])
   const createTask = async () => {
@@ -1289,7 +1303,15 @@ export default function Conversas() {
               <div style={{ margin: '0 clamp(8px, 2vw, 22px) 14px', background: '#fff', border: `1px solid ${mode === 'nota' ? '#f1e0a0' : K.line}`, borderRadius: 3, padding: '10px 14px', position: 'relative', flex: 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, marginBottom: 6, position: 'relative', flexWrap: 'wrap' }}>
                   <button onClick={e => { stop(e); setModeOpen(o => !o) }} style={{ border: 'none', background: 'none', padding: 0, color: K.link, fontFamily: K.font, fontSize: 14, textDecoration: 'underline dotted', cursor: 'pointer' }}>{mode === 'chat' ? 'Bate-papo' : mode === 'nota' ? 'Nota' : 'Tarefa'}</button>
-                  {mode === 'chat' && <>com <span style={{ color: K.link }}>{conv.contact.name}</span>{conv.inbox_name && <span style={{ color: K.muted }}> · pelo {conv.inbox_name}</span>}:</>}
+                  {mode === 'chat' && <>com <button title="Marcar um colega" onClick={e => { stop(e); setPessoaOpen(o => !o) }} style={{ border: 'none', background: 'none', padding: 0, color: K.link, fontFamily: K.font, fontSize: 14, textDecoration: 'underline dotted', cursor: 'pointer' }}>{marcados.length ? marcados.map(m => '@' + (m.first_name || m.name || '')).join(', ') : conv.contact.name}</button>
+                    {marcados.length ? <span style={{ color: K.muted }}> (só a equipe vê) <button title="Voltar a falar com o cliente" onClick={() => setMarcados([])} style={{ border: 'none', background: 'none', padding: 0, color: K.muted, cursor: 'pointer' }}><X size={13} /></button></span> : conv.inbox_name && <span style={{ color: K.muted }}> · pelo {conv.inbox_name}</span>}:</>}
+                  {pessoaOpen && (
+                    <div role="menu" aria-label="Com quem falar" style={{ ...menuK, bottom: '100%', left: 80, maxHeight: 280, overflowY: 'auto', minWidth: 220 }} onClick={stop}>
+                      <button onClick={() => { setMarcados([]); setPessoaOpen(false) }} style={{ ...menuItemK, fontWeight: marcados.length ? 400 : 700 }}>{conv.contact.name} (cliente)</button>
+                      <div style={{ fontSize: 11.5, color: K.muted, padding: '6px 12px 2px', textTransform: 'uppercase', letterSpacing: '.04em' }}>Marcar colega</div>
+                      {colegasMencao.map((a: Any) => { const on = marcados.some(m => m.id === a.id); return <button key={a.id} role="menuitemcheckbox" aria-checked={on} onClick={() => setMarcados(on ? marcados.filter(m => m.id !== a.id) : [...marcados, a])} style={{ ...menuItemK, fontWeight: on ? 700 : 400 }}>{on ? '✓ ' : ''}@{a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim()}</button> })}
+                    </div>
+                  )}
                   {modeOpen && (
                     <div style={{ ...menuK, bottom: '100%', left: 0 }} onClick={stop}>
                       <button onClick={() => { setMode('chat'); setModeOpen(false) }} style={menuItemK}>Bate-papo</button>

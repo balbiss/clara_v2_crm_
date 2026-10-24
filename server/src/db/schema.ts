@@ -844,3 +844,43 @@ export const jueriWebhookEvents = pgTable('jueri_webhook_events', {
 }, (t) => [
   index('idx_jueri_webhook_events_account_created').on(t.accountId, t.createdAt),
 ]);
+
+// --- 0008_chats_equipe ---------------------------------------------------------------------------
+export const teamChats = pgTable('team_chats', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  accountId: bigint('account_id', { mode: 'number' }).notNull().references((): AnyPgColumn => accounts.id),
+  kind: varchar('kind').default('direct').notNull(),
+  name: varchar('name'),
+  directKey: varchar('direct_key'),
+  contactId: bigint('contact_id', { mode: 'number' }).references((): AnyPgColumn => contacts.id, { onDelete: 'set null' }),
+  conversationId: bigint('conversation_id', { mode: 'number' }).references((): AnyPgColumn => conversations.id, { onDelete: 'set null' }),
+  createdById: bigint('created_by_id', { mode: 'number' }).references((): AnyPgColumn => users.id, { onDelete: 'set null' }),
+  lastMessageAt: timestamp('last_message_at', { precision: 6, mode: 'date' }),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+});
+
+export const teamChatMembers = pgTable('team_chat_members', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  chatId: bigint('chat_id', { mode: 'number' }).notNull().references((): AnyPgColumn => teamChats.id, { onDelete: 'cascade' }),
+  userId: bigint('user_id', { mode: 'number' }).notNull().references((): AnyPgColumn => users.id, { onDelete: 'cascade' }),
+  lastReadAt: timestamp('last_read_at', { precision: 6, mode: 'date' }),
+  starred: boolean('starred').default(false).notNull(),
+  muted: boolean('muted').default(false).notNull(),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('idx_team_chat_members_chat_user').on(t.chatId, t.userId),
+  index('idx_team_chat_members_user').on(t.userId),
+]);
+
+export const teamChatMessages = pgTable('team_chat_messages', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  chatId: bigint('chat_id', { mode: 'number' }).notNull().references((): AnyPgColumn => teamChats.id, { onDelete: 'cascade' }),
+  senderId: bigint('sender_id', { mode: 'number' }).references((): AnyPgColumn => users.id, { onDelete: 'set null' }),
+  kind: varchar('kind').default('text').notNull(),
+  text: text('text'),
+  oldInternalId: bigint('old_internal_id', { mode: 'number' }),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_team_chat_messages_chat_created').on(t.chatId, t.createdAt),
+]);

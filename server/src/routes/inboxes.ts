@@ -4,7 +4,7 @@ import { and, asc, count, countDistinct, eq, ne, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { inboxes, inboxMembers, users, conversations } from '../db/schema.js';
 import { requireAuth, requireOwner, isFullPortfolio, isFinance } from '../middleware/auth.js';
-import { assignedInboxes } from '../lib/conversations.js';
+import { assignedInboxes, inboxBadge } from '../lib/conversations.js';
 import { messagingService } from '../lib/waha.js';
 import { railsJson } from '../lib/serialize.js';
 import { chatCompletion } from '../lib/openai.js';
@@ -16,7 +16,7 @@ inboxesRouter.use('/inboxes', requireAuth);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
 
 type Inbox = typeof inboxes.$inferSelect;
-const toJson = (i: Inbox) => railsJson(i);
+const toJson = (i: Inbox) => { const b = inboxBadge(i); return { ...railsJson(i), badge_short: b.short, badge_color: b.color }; };
 
 export function webhookUrlFor(inbox: Inbox) {
   const host = (process.env.PUBLIC_URL || 'http://localhost:3011').replace(/\/$/, '');
@@ -38,6 +38,7 @@ const PERMITTED: Record<string, keyof typeof inboxes.$inferInsert> = {
   followup_max_attempts: 'followupMaxAttempts', followup_wait_time_minutes: 'followupWaitTimeMinutes',
   followup_send_closing_message: 'followupSendClosingMessage', followup_closing_message: 'followupClosingMessage',
   round_robin_group_id: 'roundRobinGroupId', restrict_by_portfolio: 'restrictByPortfolio', sign_messages: 'signMessages', working_hours: 'workingHours',
+  color: 'color', short_name: 'shortName',
 };
 const BOOL = new Set(['aiEnabled', 'workingHoursEnabled', 'followupEnabled', 'followupSendClosingMessage', 'restrictByPortfolio', 'signMessages']);
 const NUM = new Set(['aiTemperature', 'followupMaxAttempts', 'followupWaitTimeMinutes', 'roundRobinGroupId']);

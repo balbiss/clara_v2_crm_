@@ -1,11 +1,11 @@
 import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
 import crypto from 'node:crypto';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { conversations, contacts, inboxes, messages, scheduledMessages, conversationTags, tags, accounts, users } from '../db/schema.js';
 import { requireAuth, isOwner, isFullPortfolio, visibleContactsWhere, type User } from '../middleware/auth.js';
-import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, type Conversation } from '../lib/conversations.js';
+import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, type Conversation } from '../lib/conversations.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
 import { createMessage, messageStatusValue, messagePayload } from '../lib/messages.js';
 import { triggerOnConversationClosed } from '../lib/salesbot.js';
@@ -127,7 +127,15 @@ conversationsRouter.get('/conversations/search', async (req, res) => {
 
 conversationsRouter.get('/conversations/:id', async (req, res) => {
   const conv = await loadVisible(req, res);
-  if (conv) res.json(await formatConversation(conv, req.user!.accountId!));
+  if (!conv) return;
+  // a mesma cliente conversando por outro número da loja (que a pessoa também enxerga): avisa na tela
+  const outras = await db.select({ id: conversations.id, inboxId: conversations.inboxId, last: conversations.lastActivityAt, name: inboxes.name, phone: inboxes.phoneNumber, color: inboxes.color, shortName: inboxes.shortName })
+    .from(conversations).leftJoin(contacts, eq(contacts.id, conversations.contactId)).innerJoin(inboxes, eq(inboxes.id, conversations.inboxId))
+    .where(and(await visibleConversationsWhere(req.user!), eq(conversations.contactId, conv.contactId), ne(conversations.id, conv.id)));
+  res.json({
+    ...(await formatConversation(conv, req.user!.accountId!)),
+    other_conversations: outras.map(o => ({ conversation_id: o.id, inbox_id: o.inboxId, inbox_name: o.name, inbox_phone: o.phone, inbox_short: inboxBadge({ id: o.inboxId!, name: o.name, color: o.color, shortName: o.shortName }).short, inbox_color: inboxBadge({ id: o.inboxId!, name: o.name, color: o.color, shortName: o.shortName }).color, last_activity_at: o.last })),
+  });
 });
 
 conversationsRouter.post('/conversations/:id/mark_as_read', async (req, res) => {

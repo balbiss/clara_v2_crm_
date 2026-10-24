@@ -37,6 +37,7 @@ import ForwardMessageModal from '../components/ForwardMessageModal'
 import { serif, inputStyle, labelStyle, btn, Card, Field, PILL, Tag, Dropdown, MenuItem } from '../components/ui'
 import { ChatAvatar } from '../components/ChatAvatar'
 import { inboxesStore } from '../store/inboxes'
+import { fmtPhone } from './SettingsInboxDetail'
 
 // Porte de views/Conversas.vue (lógica da v1) no layout do Kommo: lista | card do lead | histórico.
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -742,6 +743,8 @@ export default function Conversas() {
   const minhas = store.sidebarFilteredConversations.filter((c: Any) => c.assignee_id === store.currentUser.id).length
   const naoAtribuidas = store.sidebarFilteredConversations.filter((c: Any) => !c.assignee).length
   const inboxes = useSnapshot(inboxesStore) as Any
+  // com mais de um número na conta, cada conversa mostra de qual número é (cor + apelido da caixa)
+  const variasCaixas = inboxes.inboxes.filter((i: Any) => ['waha', 'baileys'].includes(i.provider)).length > 1
   const tabs = [
     { id: 'all', label: 'Todas', n: store.sidebarFilteredConversations.length },
     { id: 'sem-resposta', label: 'Sem resposta', n: semResposta },
@@ -992,6 +995,7 @@ export default function Conversas() {
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <b style={{ flex: '0 1 auto', minWidth: 0, fontSize: 15, color: fg, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.contact.name}</b>
                           <span style={{ flex: 'none', fontSize: 11, fontWeight: 700, padding: '0 4px', borderRadius: 2, background: on ? 'rgba(255,255,255,.25)' : '#7dbb2d', color: '#fff' }}>{convNo(c)}</span>
+                          {variasCaixas && c.inbox_short && <span title={`Número: ${c.inbox_name}`} style={{ flex: '0 1 auto', minWidth: 0, maxWidth: 120, fontSize: 10.5, fontWeight: 700, padding: '1px 6px', borderRadius: 9, background: c.inbox_color, color: '#fff', border: on ? '1px solid rgba(255,255,255,.7)' : 'none', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.inbox_short}</span>}
                           <span style={{ flex: 1 }} />
                           <span style={{ fontSize: 13, color: on ? '#fff' : K.muted, whiteSpace: 'nowrap' }}>{listTime(c.last_activity_iso)}</span>
                         </span>
@@ -1218,10 +1222,19 @@ export default function Conversas() {
               )}
 
               <div ref={messagesContainerRef} className="chat-messages" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, padding: '18px clamp(10px, 2vw, 22px)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {(conv.other_conversations || []).length > 0 && (
+                  <div role="note" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: '#fff8e6', border: '1px solid #f1d27a', borderRadius: 3, padding: '8px 12px', fontSize: 13.5, color: K.text }}>
+                    <span style={{ flex: '1 1 220px' }}>Esta cliente também conversa por outro número da loja. Confira se está respondendo pelo número certo.</span>
+                    {conv.other_conversations.map((o: Any) => (
+                      <button key={o.conversation_id} onClick={() => openSearchResult(o.conversation_id)} style={{ border: `1px solid ${o.inbox_color}`, background: '#fff', color: o.inbox_color, borderRadius: 12, padding: '3px 10px', fontFamily: K.font, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase' }}>Abrir conversa pelo {o.inbox_short}</button>
+                    ))}
+                  </div>
+                )}
                 {/* bloco do WhatsApp: mensagens da conversa num cartão branco */}
                 <div style={{ background: '#fff', border: `1px solid ${K.line}`, borderRadius: 3, boxShadow: '0 3px 0 -1px #fff, 0 3px 0 0 #e3e5e8, 0 6px 0 -1px #fff, 0 6px 0 0 #e3e5e8', padding: '14px 18px 12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: '#5c6670', marginBottom: 12 }}>
-                    <span style={{ width: 14, height: 14, display: 'flex' }}><WhatsappIcon source="whatsapp" /></span>{conv.inbox_phone || conv.inbox_name || 'WhatsApp'}
+                    <span style={{ width: 14, height: 14, display: 'flex' }}><WhatsappIcon source="whatsapp" /></span>
+                    {conv.inbox_short ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ padding: '2px 8px', borderRadius: 10, background: conv.inbox_color, color: '#fff', fontSize: 12, textTransform: 'uppercase' }}>{conv.inbox_short}</span>{fmtPhone(conv.inbox_phone)}</span> : (conv.inbox_phone || conv.inbox_name || 'WhatsApp')}
                   </div>
                   {conv.messages.map((msg: Any) => {
                     const day = dayOf(msg.timestamp)
@@ -1313,12 +1326,18 @@ export default function Conversas() {
               )}
 
               <AiSessionsBar contactId={conv.contact.id} refreshKey={conv.messages?.length} />
+              {mode === 'chat' && !marcados.length && conv.inbox_short && (
+                <div aria-label="Número de envio" style={{ margin: '0 clamp(8px, 2vw, 22px) -1px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: conv.inbox_color, color: '#fff', borderRadius: '3px 3px 0 0', padding: '6px 14px', fontSize: 13.5, flex: 'none' }}>
+                  <span style={{ width: 14, height: 14, display: 'flex', background: '#fff', borderRadius: '50%', padding: 1 }}><WhatsappIcon source="whatsapp" /></span>
+                  <span>Enviando pelo número <b style={{ textTransform: 'uppercase' }}>{conv.inbox_short}</b>{conv.inbox_phone ? ` · ${fmtPhone(conv.inbox_phone)}` : ''}</span>
+                </div>
+              )}
               {/* composer: "Bate-papo ▾ com Nome:" */}
               <div style={{ margin: '0 clamp(8px, 2vw, 22px) 14px', background: '#fff', border: `1px solid ${mode === 'nota' ? '#f1e0a0' : K.line}`, borderRadius: 3, padding: '10px 14px', position: 'relative', flex: 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, marginBottom: 6, position: 'relative', flexWrap: 'wrap' }}>
                   <button onClick={e => { stop(e); setModeOpen(o => !o) }} style={{ border: 'none', background: 'none', padding: 0, color: K.link, fontFamily: K.font, fontSize: 14, textDecoration: 'underline dotted', cursor: 'pointer' }}>{mode === 'chat' ? 'Bate-papo' : mode === 'nota' ? 'Nota' : 'Tarefa'}</button>
                   {mode === 'chat' && <>com <button title="Marcar um colega" onClick={e => { stop(e); setPessoaOpen(o => !o) }} style={{ border: 'none', background: 'none', padding: 0, color: K.link, fontFamily: K.font, fontSize: 14, textDecoration: 'underline dotted', cursor: 'pointer' }}>{marcados.length ? marcados.map(m => '@' + (m.first_name || m.name || '')).join(', ') : conv.contact.name}</button>
-                    {marcados.length ? <span style={{ color: K.muted }}> (só a equipe vê) <button title="Voltar a falar com o cliente" onClick={() => setMarcados([])} style={{ border: 'none', background: 'none', padding: 0, color: K.muted, cursor: 'pointer' }}><X size={13} /></button></span> : conv.inbox_name && <span style={{ color: K.muted }}> · pelo {conv.inbox_name}</span>}:</>}
+                    {marcados.length ? <span style={{ color: K.muted }}> (só a equipe vê) <button title="Voltar a falar com o cliente" onClick={() => setMarcados([])} style={{ border: 'none', background: 'none', padding: 0, color: K.muted, cursor: 'pointer' }}><X size={13} /></button></span> : null}:</>}
                   {pessoaOpen && (
                     <div role="menu" aria-label="Com quem falar" style={{ ...menuK, bottom: '100%', left: 80, maxHeight: 280, overflowY: 'auto', minWidth: 220 }} onClick={stop}>
                       <button onClick={() => { setMarcados([]); setPessoaOpen(false) }} style={{ ...menuItemK, fontWeight: marcados.length ? 400 : 700 }}>{conv.contact.name} (cliente)</button>

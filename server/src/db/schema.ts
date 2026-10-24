@@ -340,6 +340,9 @@ export const inboxes = pgTable('inboxes', {
   restrictByPortfolio: boolean('restrict_by_portfolio').default(false).notNull(),
   // 0010_historico_whatsapp: quando a importação completa das conversas terminou
   historyImportedAt: timestamp('history_imported_at', { precision: 6, mode: 'date' }),
+  // 0012_caixa_cor_apelido: identificação visual da caixa (lib/conversations inboxBadge)
+  color: varchar('color'),
+  shortName: varchar('short_name'),
   signMessages: boolean('sign_messages').default(false).notNull(),
   roundRobinGroupId: bigint('round_robin_group_id', { mode: 'number' }).references((): AnyPgColumn => roundRobinGroups.id),
   updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),

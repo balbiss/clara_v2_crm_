@@ -21,6 +21,9 @@ const TABS = [
 const hint: React.CSSProperties = { fontSize: 12, color: 'var(--muted)', lineHeight: 1.55, margin: '4px 0 0' }
 
 /** +55 (11) 90962-4290 */
+// mesma paleta do servidor (lib/conversations INBOX_COLORS)
+const CORES_CAIXA = ['#2e7d32', '#1565c0', '#ef6c00', '#6a1b9a', '#00838f', '#ad1457', '#5d4037', '#c62828']
+
 export const fmtPhone = (p?: string | null) => {
   const d = (p || '').replace(/\D/g, '')
   const m = d.match(/^(55)(\d{2})(\d{4,5})(\d{4})$/)
@@ -71,7 +74,7 @@ export default function SettingsInboxDetail() {
     setSaving(true)
     try {
       await api.put(`/inboxes/${inbox.id}`, { inbox: {
-        name: inbox.name, bot_prompt: inbox.bot_prompt, ai_enabled: inbox.ai_enabled, ai_name: inbox.ai_name, ai_prompt: inbox.ai_prompt,
+        name: inbox.name, short_name: inbox.short_name || null, color: inbox.color || null, bot_prompt: inbox.bot_prompt, ai_enabled: inbox.ai_enabled, ai_name: inbox.ai_name, ai_prompt: inbox.ai_prompt,
         knowledge_base: inbox.knowledge_base, followup_enabled: inbox.followup_enabled, followup_max_attempts: inbox.followup_max_attempts,
         followup_wait_time_minutes: inbox.followup_wait_time_minutes, followup_send_closing_message: inbox.followup_send_closing_message,
         followup_closing_message: inbox.followup_closing_message, round_robin_group_id: inbox.round_robin_group_id,
@@ -152,6 +155,19 @@ export default function SettingsInboxDetail() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
                 {field('Nome da caixa de entrada', <input value={inbox.name || ''} onChange={e => set({ name: e.target.value })} style={inputStyle} />)}
                 {field('Provedor', <input value="WhatsApp (não oficial)" disabled style={{ ...inputStyle, color: 'var(--muted)', cursor: 'not-allowed' }} />)}
+                {field('Apelido curto', <input value={inbox.short_name || ''} maxLength={18} onChange={e => set({ short_name: e.target.value })} placeholder={inbox.badge_short || 'Ex.: EXPANSÃO'} style={inputStyle} />, 'Aparece em cada conversa e acima do campo de digitar, pra equipe saber por qual número está falando.')}
+                {field('Cor do número', (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', minHeight: 38 }}>
+                    {CORES_CAIXA.map(c => {
+                      const atual = (inbox.color || inbox.badge_color) === c
+                      return <button key={c} type="button" title={c} aria-label={`Cor ${c}`} aria-pressed={atual} onClick={() => set({ color: c })} style={{ width: 26, height: 26, borderRadius: '50%', background: c, border: atual ? '3px solid var(--ink)' : '2px solid #fff', boxShadow: '0 0 0 1px var(--line)', cursor: 'pointer' }} />
+                    })}
+                  </div>
+                ), 'Use cores bem diferentes pra cada número.')}
+              </div>
+              <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                Como a equipe vai ver:
+                <span style={{ padding: '2px 8px', borderRadius: 10, background: inbox.color || inbox.badge_color, color: '#fff', fontWeight: 700, fontSize: 11.5, textTransform: 'uppercase' }}>{(inbox.short_name || inbox.badge_short || inbox.name || '').trim()}</span>
               </div>
               {groups.length > 0 && <div style={{ marginTop: 14 }}>{field('Grupo de rodízio', (
                 <select value={inbox.round_robin_group_id ?? ''} onChange={e => set({ round_robin_group_id: e.target.value ? Number(e.target.value) : null })} style={inputStyle}>

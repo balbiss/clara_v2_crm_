@@ -18,6 +18,13 @@ export const convStatusValue = (s: string) => {
 };
 
 /** Caixas que o usuário tem liberadas (InboxMember). */
+// Cor de cada caixa quando o dono não escolheu (bem diferentes entre si, legíveis com texto branco)
+export const INBOX_COLORS = ['#2e7d32', '#1565c0', '#ef6c00', '#6a1b9a', '#00838f', '#ad1457', '#5d4037', '#c62828'];
+/** Identificação visual da caixa: apelido curto + cor (pra ninguém mandar pelo número errado). */
+export function inboxBadge(i: { id: number; name: string | null; color?: string | null; shortName?: string | null }) {
+  return { short: (i.shortName || i.name || 'WhatsApp').trim(), color: i.color || INBOX_COLORS[i.id % INBOX_COLORS.length] };
+}
+
 export async function assignedInboxes(userId: number) {
   return db.select({ id: inboxes.id, restrictByPortfolio: inboxes.restrictByPortfolio, provider: inboxes.provider, createdAt: inboxes.createdAt })
     .from(inboxMembers).innerJoin(inboxes, eq(inboxes.id, inboxMembers.inboxId))
@@ -72,7 +79,7 @@ export async function formatConversations(convs: Conversation[], accountId: numb
 
   const [contactRows, inboxRows, noteRows, pedidoRows, phoneRows, lifeRows, tagRows] = await Promise.all([
     db.select().from(contacts).where(inArray(contacts.id, contactIds)),
-    inboxIds.length ? db.select({ id: inboxes.id, name: inboxes.name, phoneNumber: inboxes.phoneNumber }).from(inboxes).where(inArray(inboxes.id, inboxIds)) : Promise.resolve([]),
+    inboxIds.length ? db.select({ id: inboxes.id, name: inboxes.name, phoneNumber: inboxes.phoneNumber, color: inboxes.color, shortName: inboxes.shortName }).from(inboxes).where(inArray(inboxes.id, inboxIds)) : Promise.resolve([]),
     db.select().from(notes).where(inArray(notes.contactId, contactIds)).orderBy(desc(notes.createdAt)),
     db.select().from(pedidos).where(inArray(pedidos.contactId, contactIds)),
     db.select().from(resellerPhones).where(inArray(resellerPhones.contactId, contactIds)),
@@ -136,6 +143,8 @@ export async function formatConversations(convs: Conversation[], accountId: numb
       inbox_id: conv.inboxId,
       inbox_name: inbox?.name ?? null,
       inbox_phone: inbox?.phoneNumber ?? null,
+      inbox_short: inbox ? inboxBadge(inbox).short : null,
+      inbox_color: inbox ? inboxBadge(inbox).color : null,
       source: conv.source || 'whatsapp',
       preview: last?.text ?? 'Nova Conversa',
       timestamp: hhmm(last?.createdAt ?? conv.createdAt),

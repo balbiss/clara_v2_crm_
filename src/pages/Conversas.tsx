@@ -83,7 +83,7 @@ const TAG_COLORS = ['#6b7280', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5
 // áudio/foto) e na lista vira "Áudio", "Foto", "Vídeo" ou "Arquivo".
 const isMediaPlaceholder = (t?: string | null) => !!t && t.startsWith('📎')
 const mediaLabel = (text?: string | null, type?: string | null) => {
-  if (!isMediaPlaceholder(text)) return text || ''
+  if (!isMediaPlaceholder(text) && (text || !type)) return text || ''
   const ct = type || ''
   return ct.startsWith('audio/') ? 'Áudio' : ct.startsWith('image/') ? 'Foto' : ct.startsWith('video/') ? 'Vídeo' : ct ? 'Arquivo' : String(text).replace(/^📎\s*/, '').replace('Anexo recebido', 'Arquivo')
 }

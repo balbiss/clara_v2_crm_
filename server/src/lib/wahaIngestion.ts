@@ -4,6 +4,7 @@ import { contacts, conversations, conversationTags, messages } from '../db/schem
 import { cache } from './cache.js';
 import { WahaService, type Inbox } from './waha.js';
 import { attach } from './storage.js';
+import { fotoPrecisaAtualizar, salvarFotoPerfil } from './avatars.js';
 import { createMessage, rebroadcast, messageStatusValue, type Message } from './messages.js';
 import { createContact, findByAnyPhone, setJidIfFree, updateContact, likeEscape, type Contact } from './contacts.js';
 import { broadcastConversations } from './realtime.js';
@@ -141,9 +142,10 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
 
   if (chatId.endsWith('@lid') && !historical) void autoCuraLid(inbox, contact, chatId, contactPhoneFormatted, accountId);
 
-  if (!contact.avatarUrl && !historical) {
+  // foto de perfil: baixa e guarda no CRM (o link do WhatsApp expira e a foto sumia da tela)
+  if (fotoPrecisaAtualizar(contact) && !historical) {
     const c = contact;
-    void service.fetchProfilePictureUrl(chatId).then(url => (url ? updateContact(c, { avatarUrl: url }) : null))
+    void service.fetchProfilePictureUrl(chatId).then(url => (url ? salvarFotoPerfil(c, url) : null))
       .catch(e => console.error('Failed to fetch profile picture (Waha):', e.message));
   }
 

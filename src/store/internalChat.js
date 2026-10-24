@@ -30,8 +30,9 @@ export const internalChatStore = proxy({
   isLoadingMessages: false,
   currentUser: (() => { try { return JSON.parse(localStorage.getItem('user')) || {} } catch { return {} } })(),
 
-  get activeChat() { return this.chats.find(c => c.id === this.activeChatId) || null },
-  get activeMessages() { return this.messagesByChat[this.activeChatId] || [] },
+  // activeChatId nulo = nenhuma aberta (colega sem conversa também tem id nulo — não confundir)
+  get activeChat() { return this.activeChatId == null ? null : this.chats.find(c => c.id === this.activeChatId) || null },
+  get activeMessages() { return this.activeChatId == null ? [] : this.messagesByChat[this.activeChatId] || [] },
   // contador do menu: não conta conversa silenciada (igual ao Kommo)
   get totalUnread() { return this.chats.reduce((s, c) => s + (c.muted ? 0 : c.unread_count || 0), 0) },
 

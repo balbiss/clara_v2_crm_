@@ -131,11 +131,13 @@ function App() {
 
 createRoot(document.getElementById('app')!).render(<StrictMode><App /></StrictMode>)
 
-// novo service worker assumiu (nova versão publicada): recarrega uma vez
+// novo service worker assumiu (nova versão publicada): recarrega uma vez. Na primeira visita
+// (ainda não havia service worker) não recarrega — senão a página piscava no meio do uso.
 if ('serviceWorker' in navigator) {
   let reloading = false
+  const tinhaVersao = !!navigator.serviceWorker.controller
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) return
+    if (reloading || !tinhaVersao) return
     reloading = true
     window.location.reload()
   })

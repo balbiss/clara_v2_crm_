@@ -244,9 +244,9 @@ export function AppShell() {
   // menu no formato do Kommo (lib/navKommo.ts): grupos com seta que abrem/fecham, badge vermelho,
   // item ativo em azul-claro. Configurações / Ajuda / Notificações ficam no rodapé, igual ao Kommo.
   // Consignado de sistema já está no menu como a régua (/funil) — não repete
-  const nav = kommoNavFor(role, pipelinesSnap.pipelines.filter((p: any) => !p.system))
+  const nav = kommoNavFor(role, pipelinesSnap.pipelines.filter((p: any) => !p.system), inboxesSnap.inboxes)
   const badgeFor = (b?: string) => (b === 'conversas' ? unreadConversas : b === 'equipe' ? chatSnap.totalUnread : 0)
-  const isActive = (path: string) => location.pathname === path || (path === '/conversas' && location.pathname.startsWith('/conversas')) || (path.startsWith('/pipelines/') && location.pathname.startsWith(path + '/'))
+  const isActive = (path: string) => location.pathname === path || (path === '/conversas' && location.pathname.startsWith('/conversas') && !location.pathname.startsWith('/conversas/inbox/')) || (path.startsWith('/pipelines/') && location.pathname.startsWith(path + '/'))
   const groupActive = (g: { path?: string; children?: { path: string }[] }) => (g.path ? isActive(g.path) : (g.children || []).some(c => isActive(c.path)))
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem('nav_open_groups') || '{}') } catch { return {} } })
   const toggleGroup = (id: string) => setOpenGroups(o => { const n = { ...o, [id]: !o[id] }; localStorage.setItem('nav_open_groups', JSON.stringify(n)); return n })
@@ -278,8 +278,11 @@ export function AppShell() {
           {showText && <><span style={{ flex: 1, color: active ? SB.active : undefined, fontWeight: active ? 700 : 400 }}>{g.label}</span>{!open && redBadge(total)}<ChevronDown size={16} color={SB.muted} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></>}
         </button>
         {showText && open && g.children.map(c => (
-          <button key={c.path} onClick={e => go(c.path, e)} style={{ ...row(isActive(c.path), mobile), padding: mobile ? '9px 12px 9px 46px' : '6px 12px 6px 46px', fontSize: 14 }}>
-            <span style={{ flex: 1 }}>{c.label}</span>{redBadge(badgeFor(c.badge))}
+          <button key={c.path} title={c.sub ? `Conversas do número ${c.label}${c.offline ? ' (desconectado)' : ''}` : undefined} onClick={e => go(c.path, e)} style={{ ...row(isActive(c.path), mobile), padding: c.sub ? (mobile ? '7px 12px 7px 58px' : '4px 12px 4px 58px') : (mobile ? '9px 12px 9px 46px' : '6px 12px 6px 46px'), fontSize: c.sub ? 13 : 14 }}>
+            {c.sub && <span style={{ width: 9, height: 9, borderRadius: '50%', background: c.color, flex: 'none', marginRight: 7 }} />}
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: c.sub ? 'uppercase' : undefined }}>{c.label}</span>
+            {c.offline && <span style={{ fontSize: 11, color: '#c62828', marginLeft: 6 }}>desconectado</span>}
+            {redBadge(badgeFor(c.badge))}
           </button>
         ))}
       </div>

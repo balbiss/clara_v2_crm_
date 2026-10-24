@@ -3,7 +3,8 @@ import { allowed, type NavRule } from './nav'
 // Menu lateral no formato do Kommo (a equipe da Clara já conhece): Início, Comunicações, Pipelines,
 // Calendário, Listas, Automações, Insights e, embaixo, Configurações / Ajuda / Notificações.
 // As telas e as travas de perfil são as mesmas da v1 (lib/nav.ts) — só o agrupamento muda.
-export type KNavLeaf = { path: string; label: string; rule: NavRule; badge?: 'conversas' | 'equipe' }
+// color/sub/offline: caixas de entrada (números de WhatsApp) listadas embaixo de Conversas, como na v1
+export type KNavLeaf = { path: string; label: string; rule: NavRule; badge?: 'conversas' | 'equipe'; color?: string; sub?: boolean; offline?: boolean }
 export type KNavGroup = { id: string; label: string; icon: string; path?: string; rule?: NavRule; badge?: 'conversas' | 'equipe'; children?: KNavLeaf[] }
 
 export const KOMMO_NAV: KNavGroup[] = [
@@ -48,11 +49,20 @@ export const KOMMO_SETTINGS: KNavLeaf[] = [
 ]
 
 /** Menu filtrado pelo perfil; grupos que ficam vazios somem. */
-export function kommoNavFor(role: string, pipelines: { slug: string; name: string }[]) {
+type NavInbox = { id: number; name: string; provider?: string; badge_short?: string; badge_color?: string; connected?: boolean }
+export function kommoNavFor(role: string, pipelines: { slug: string; name: string }[], inboxes: NavInbox[] = []) {
   return KOMMO_NAV.map(g => {
     if (!g.children) return allowed(g.rule || 'all', role) ? g : null
     let children = g.children.filter(c => allowed(c.rule, role))
     if (g.id === 'pipelines') children = [...children, ...pipelines.map(p => ({ path: `/pipelines/${p.slug}`, label: p.name, rule: 'all' as NavRule }))]
+    if (g.id === 'comunicacoes') {
+      // cada número de WhatsApp (só os que a pessoa acessa) logo abaixo de Conversas, com a cor da caixa
+      const caixas: KNavLeaf[] = inboxes.filter(i => ['waha', 'baileys'].includes(i.provider || '')).map(i => ({
+        path: `/conversas/inbox/${i.id}`, label: i.badge_short || i.name, rule: 'all' as NavRule, color: i.badge_color, sub: true, offline: i.connected === false,
+      }))
+      const at = children.findIndex(c => c.path === '/conversas') + 1
+      if (caixas.length) children = [...children.slice(0, at), ...caixas, ...children.slice(at)]
+    }
     return children.length ? { ...g, children } : null
   }).filter((g): g is KNavGroup => !!g)
 }

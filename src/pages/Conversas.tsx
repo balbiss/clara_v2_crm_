@@ -925,7 +925,7 @@ export default function Conversas() {
                 {(tabs.find(t => t.id === store.currentFilter) || tabs[0]).id === 'all' ? 'Conversas abertas' : tabs.find(t => t.id === store.currentFilter)?.label}
                 {store.advancedFilters.length > 0 && ` + ${store.advancedFilters.length} filtro(s)`}
               </button>
-              {params.inboxId && <span style={{ fontSize: 12.5, color: K.muted }}>{inboxes.inboxes.find((i: Any) => String(i.id) === String(params.inboxId))?.name}</span>}
+              {params.inboxId && (() => { const cx = inboxes.inboxes.find((i: Any) => String(i.id) === String(params.inboxId)); return cx ? <span title={cx.name} style={{ fontSize: 11.5, fontWeight: 700, padding: '1px 8px', borderRadius: 10, background: cx.badge_color, color: '#fff', textTransform: 'uppercase', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cx.badge_short || cx.name}</span> : null })()}
               <span style={{ flex: 1 }} />
               <span style={{ fontSize: 13, color: K.muted }}>Total: {store.filteredConversations.length}</span>
               <button title="Mais opções" onClick={e => { stop(e); setListMenu(m => !m) }} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', color: K.text }}><MoreHorizontal size={18} /></button>
@@ -937,12 +937,6 @@ export default function Conversas() {
                       <span style={{ flex: 1 }}>{t.id === 'all' ? 'Conversas abertas' : t.label}</span><span style={{ color: K.muted }}>{t.n}</span>
                     </button>
                   ))}
-                  {inboxes.inboxes.length > 1 && (<>
-                    <div style={{ borderTop: `1px solid ${K.line}`, margin: '6px 0' }} />
-                    <div style={{ padding: '4px 16px', fontSize: 11.5, fontWeight: 700, color: K.muted, textTransform: 'uppercase' }}>Canal</div>
-                    <button onClick={() => { navigate('/conversas'); setListMenu(false) }} style={{ ...menuItemK, background: !params.inboxId ? '#fcf0f3' : 'none' }}>Todos os canais</button>
-                    {inboxes.inboxes.map((i: Any) => <button key={i.id} onClick={() => { navigate(`/conversas/inbox/${i.id}`); setListMenu(false) }} style={{ ...menuItemK, background: String(params.inboxId) === String(i.id) ? '#fcf0f3' : 'none' }}>{i.name}{i.connected === false ? ' (desconectada)' : ''}</button>)}
-                  </>)}
                   <div style={{ borderTop: `1px solid ${K.line}`, margin: '6px 0' }} />
                   <button onClick={() => { setListMenu(false); s.isFilterPopoverOpen = true }} style={menuItemK}><Filter size={14} /> Filtro avançado</button>
                   <button onClick={() => { setListMenu(false); s.isSortPopoverOpen = true }} style={menuItemK}><ArrowDownUp size={14} /> Ordenar</button>

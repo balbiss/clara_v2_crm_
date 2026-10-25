@@ -75,9 +75,11 @@ export function renderTexto(texto: string, contact: Pick<typeof contacts.$inferS
   };
   return texto
     .replace(/\{([^{}|]*\|[^{}]*)\}/g, (_, opts: string) => { const o = opts.split('|'); return o[Math.floor(sorteio() * o.length)] ?? '' })
-    .replace(/\{([a-z0-9_]+)\}/gi, (_, k: string) => {
+    .replace(/\{([a-z0-9_]+)\}/gi, (orig: string, k: string) => {
       const key = k.toLowerCase();
       if (key in vars) return vars[key];
+      // o que não é campo nenhum fica como foi escrito (aparece na prévia e dá pra corrigir)
+      if (!(key in ca) && !(('cf_' + key) in ca)) return orig;
       const v = ca[key] ?? ca['cf_' + key];
       return v == null ? '' : (typeof v === 'string' ? fmtData(v) : String(v));
     })

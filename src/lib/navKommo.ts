@@ -12,6 +12,7 @@ export const KOMMO_NAV: KNavGroup[] = [
   { id: 'comunicacoes', label: 'Comunicações', icon: 'chat', badge: 'conversas', children: [
     { path: '/conversas', label: 'Conversas', rule: 'all', badge: 'conversas' },
     { path: '/chat-equipe', label: 'Chat da Equipe', rule: 'all', badge: 'equipe' },
+    { path: '/disparos', label: 'Disparos', rule: 'fullPortfolio' },
   ] },
   { id: 'pipelines', label: 'Pipelines', icon: 'pipeline', children: [
     { path: '/funil', label: 'Consignado', rule: 'all' },

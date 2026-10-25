@@ -34,6 +34,7 @@ export async function messagePayload(m: Message, attachment?: Blob | null) {
     agentName,
     agentAvatarUrl,
     isPrivate: m.isPrivate,
+    broadcast: !!m.broadcastId,
     attachmentUrl: att ? blobUrl(att) : null,
     attachmentType: att ? att.contentType : null,
   };

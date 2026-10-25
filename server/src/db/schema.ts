@@ -418,6 +418,8 @@ export const messages = pgTable('messages', {
   status: integer('status').default(0),
   text: text('text'),
   transcription: text('transcription'),
+  // 0015_disparos: mensagem enviada por um disparo em massa
+  broadcastId: bigint('broadcast_id', { mode: 'number' }),
   updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
 }, (t) => [
   index('index_messages_on_account_id').on(t.accountId),
@@ -890,4 +892,50 @@ export const teamChatMessages = pgTable('team_chat_messages', {
   createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
 }, (t) => [
   index('idx_team_chat_messages_chat_created').on(t.chatId, t.createdAt),
+]);
+
+// 0015_disparos — disparo em massa (lib/disparos.ts)
+export const broadcasts = pgTable('broadcasts', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  accountId: bigint('account_id', { mode: 'number' }).notNull().references((): AnyPgColumn => accounts.id),
+  inboxId: bigint('inbox_id', { mode: 'number' }).references((): AnyPgColumn => inboxes.id),
+  createdById: bigint('created_by_id', { mode: 'number' }).references((): AnyPgColumn => users.id),
+  name: varchar('name').notNull(),
+  filters: jsonb('filters').default({}).notNull(),
+  text: text('text'),
+  flowId: bigint('flow_id', { mode: 'number' }),
+  status: varchar('status').default('draft').notNull(),
+  pauseReason: varchar('pause_reason'),
+  scheduledAt: timestamp('scheduled_at', { precision: 6, mode: 'date' }),
+  startedAt: timestamp('started_at', { precision: 6, mode: 'date' }),
+  finishedAt: timestamp('finished_at', { precision: 6, mode: 'date' }),
+  nextSendAt: timestamp('next_send_at', { precision: 6, mode: 'date' }),
+  minIntervalSeconds: integer('min_interval_seconds').default(30).notNull(),
+  maxIntervalSeconds: integer('max_interval_seconds').default(90).notNull(),
+  dailyLimit: integer('daily_limit').default(200).notNull(),
+  startHour: integer('start_hour').default(8).notNull(),
+  endHour: integer('end_hour').default(20).notNull(),
+  cooldownDays: integer('cooldown_days').default(0).notNull(),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  index('index_broadcasts_on_account_id').on(t.accountId),
+  index('index_broadcasts_on_status').on(t.status),
+]);
+
+export const broadcastRecipients = pgTable('broadcast_recipients', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  broadcastId: bigint('broadcast_id', { mode: 'number' }).notNull().references((): AnyPgColumn => broadcasts.id),
+  contactId: bigint('contact_id', { mode: 'number' }).notNull().references((): AnyPgColumn => contacts.id),
+  status: varchar('status').default('pending').notNull(),
+  error: varchar('error'),
+  messageId: bigint('message_id', { mode: 'number' }),
+  sentAt: timestamp('sent_at', { precision: 6, mode: 'date' }),
+  repliedAt: timestamp('replied_at', { precision: 6, mode: 'date' }),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('index_broadcast_recipients_unique').on(t.broadcastId, t.contactId),
+  index('index_broadcast_recipients_on_contact_id').on(t.contactId),
+  index('index_broadcast_recipients_on_status').on(t.broadcastId, t.status),
 ]);

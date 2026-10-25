@@ -36,6 +36,9 @@ export function setAiResponder(fn: AiResponder) { aiResponder = fn; }
 // Agente de IA (lib/aiAgent): a caixa também atende com IA quando um agente ativo usa esse canal.
 let aiHandlesInbox: (inboxId: number) => Promise<boolean> = async () => false;
 export function setAiInboxCheck(fn: (inboxId: number) => Promise<boolean>) { aiHandlesInbox = fn; }
+// disparo em massa (lib/disparos registra): cliente respondeu / pediu pra sair
+let respostaDisparo: (contactId: number, conversationId: number, texto: string) => Promise<void> = async () => {};
+export function setBroadcastReplyHook(fn: typeof respostaDisparo) { respostaDisparo = fn; }
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -208,6 +211,8 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
     await db.update(messages).set({ text: '📎 Arquivo não suportado ou vazio', updatedAt: new Date() }).where(eq(messages.id, record.id));
   }
   if (!mediaInBackground) await rebroadcast(record.id);
+
+  if (!fromMe && !isGroup) void respostaDisparo(contact.id, conversation.id, text).catch(e => console.error('Resposta de disparo —', e.message));
 
   // Gatilhos 'quando o cliente responder' dos funis — em segundo plano, nunca atrasa o recebimento.
   if (!fromMe && !isGroup) void onClientReply(contact.id).catch(e => console.error('Gatilho client_reply falhou —', e.message));

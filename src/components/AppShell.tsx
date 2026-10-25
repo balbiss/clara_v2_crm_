@@ -246,7 +246,7 @@ export function AppShell() {
   // Consignado de sistema já está no menu como a régua (/funil) — não repete
   const nav = kommoNavFor(role, pipelinesSnap.pipelines.filter((p: any) => !p.system), inboxesSnap.inboxes)
   const badgeFor = (b?: string) => (b === 'conversas' ? unreadConversas : b === 'equipe' ? chatSnap.totalUnread : 0)
-  const isActive = (path: string) => location.pathname === path || (path === '/conversas' && location.pathname.startsWith('/conversas') && !location.pathname.startsWith('/conversas/inbox/')) || (path.startsWith('/pipelines/') && location.pathname.startsWith(path + '/'))
+  const isActive = (path: string) => location.pathname === path || (path === '/conversas' && location.pathname.startsWith('/conversas') && !location.pathname.startsWith('/conversas/inbox/')) || ((path.startsWith('/pipelines/') || path === '/disparos') && location.pathname.startsWith(path + '/'))
   const groupActive = (g: { path?: string; children?: { path: string }[] }) => (g.path ? isActive(g.path) : (g.children || []).some(c => isActive(c.path)))
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem('nav_open_groups') || '{}') } catch { return {} } })
   const toggleGroup = (id: string) => setOpenGroups(o => { const n = { ...o, [id]: !o[id] }; localStorage.setItem('nav_open_groups', JSON.stringify(n)); return n })

@@ -166,6 +166,7 @@ export async function formatConversations(convs: Conversation[], accountId: numb
           agentName: m.senderType === 'User' ? (agent?.firstName || 'Agente') : null,
           agentAvatarUrl: m.senderType === 'User' ? agent?.avatarUrl ?? null : null,
           isPrivate: m.isPrivate,
+          broadcast: !!m.broadcastId,
           attachmentUrl: att ? blobUrl(att) : null,
           attachmentType: att ? att.contentType : null,
           transcription: m.transcription,

@@ -1,0 +1,123 @@
+import { Router, type Request, type Response } from 'express';
+import multer from 'multer';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { db } from '../db/client.js';
+import { broadcastRecipients, broadcasts, contacts, flows, inboxes, users } from '../db/schema.js';
+import { requireAuth, requireFullPortfolio } from '../middleware/auth.js';
+import { attach, blobFor, blobUrl } from '../lib/storage.js';
+import { inboxBadge } from '../lib/conversations.js';
+import { audienceWhere, cleanFiltros, iniciarDisparo, mudarStatusDisparo, renderTexto } from '../lib/disparos.js';
+
+// Comunicações › Disparos (lib/disparos.ts). Só gerência e diretoria.
+export const disparosRouter = Router();
+disparosRouter.use('/broadcasts', requireAuth, requireFullPortfolio);
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 16 * 1024 * 1024 } });
+const acc = (req: Request) => req.user!.accountId!;
+const WHATSAPP = ['waha', 'baileys'];
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+const contagens = async (ids: number[]) => {
+  if (!ids.length) return new Map<number, Record<string, number>>();
+  const rows = await db.select({ b: broadcastRecipients.broadcastId, status: broadcastRecipients.status, n: sql<number>`count(*)::int`, resp: sql<number>`count(${broadcastRecipients.repliedAt})::int` })
+    .from(broadcastRecipients).where(inArray(broadcastRecipients.broadcastId, ids)).groupBy(broadcastRecipients.broadcastId, broadcastRecipients.status);
+  const m = new Map<number, Record<string, number>>();
+  for (const r of rows) {
+    const c = m.get(r.b) ?? { total: 0, pending: 0, sent: 0, failed: 0, skipped: 0, cancelled: 0, replied: 0 };
+    c.total += r.n; c[r.status === 'sending' ? 'pending' : r.status] = (c[r.status === 'sending' ? 'pending' : r.status] || 0) + r.n; c.replied += r.resp;
+    m.set(r.b, c);
+  }
+  return m;
+};
+
+async function toJson(b: typeof broadcasts.$inferSelect, counts?: Record<string, number>) {
+  const [inbox] = b.inboxId ? await db.select().from(inboxes).where(eq(inboxes.id, b.inboxId)) : [];
+  const [autor] = b.createdById ? await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, b.createdById)) : [];
+  const [flow] = b.flowId ? await db.select({ name: flows.name }).from(flows).where(eq(flows.id, b.flowId)) : [];
+  const blob = await blobFor('Broadcast', b.id, 'attachment');
+  return {
+    id: b.id, name: b.name, status: b.status, pause_reason: b.pauseReason, text: b.text, flow_id: b.flowId, flow_name: flow?.name ?? null,
+    filters: b.filters, scheduled_at: b.scheduledAt, started_at: b.startedAt, finished_at: b.finishedAt, next_send_at: b.nextSendAt, created_at: b.createdAt,
+    min_interval_seconds: b.minIntervalSeconds, max_interval_seconds: b.maxIntervalSeconds, daily_limit: b.dailyLimit, start_hour: b.startHour, end_hour: b.endHour, cooldown_days: b.cooldownDays,
+    inbox: inbox ? { id: inbox.id, name: inbox.name, phone_number: inbox.phoneNumber, ...inboxBadge(inbox) } : null,
+    created_by: autor ? `${autor.firstName ?? ''} ${autor.lastName ?? ''}`.trim() : null,
+    attachment: blob ? { url: blobUrl(blob), name: blob.filename, type: blob.contentType } : null,
+    counts: counts ?? (await contagens([b.id])).get(b.id) ?? { total: 0, pending: 0, sent: 0, failed: 0, skipped: 0, cancelled: 0, replied: 0 },
+  };
+}
+
+disparosRouter.get('/broadcasts', async (req, res) => {
+  const list = await db.select().from(broadcasts).where(eq(broadcasts.accountId, acc(req))).orderBy(desc(broadcasts.id)).limit(100);
+  const cm = await contagens(list.map(b => b.id));
+  res.json(await Promise.all(list.map(b => toJson(b, cm.get(b.id)))));
+});
+
+/** Quantas pessoas recebem + amostra + como a mensagem chega pra 1ª delas. */
+disparosRouter.post('/broadcasts/preview', async (req, res) => {
+  const f = cleanFiltros(req.body.filters);
+  const where = await audienceWhere(acc(req), f, Math.max(0, Number(req.body.cooldown_days) || 0));
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(contacts).where(where);
+  const amostra = await db.select().from(contacts).where(where).orderBy(asc(contacts.name)).limit(8);
+  const [resp] = amostra[0]?.userId ? await db.select({ firstName: users.firstName }).from(users).where(eq(users.id, amostra[0].userId)) : [];
+  res.json({
+    total: n,
+    amostra: amostra.map(c => ({ id: c.id, name: c.name, phone: c.phone })),
+    exemplo: amostra[0] && req.body.text ? { para: amostra[0].name || amostra[0].phone, texto: renderTexto(String(req.body.text), amostra[0], resp?.firstName || req.user!.firstName || '', () => 0) } : null,
+  });
+});
+
+const int = (v: unknown, d: number, min: number, max: number) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
+
+/** Cria e já inicia (ou agenda). multipart: data (JSON) + attachment opcional. */
+disparosRouter.post('/broadcasts', upload.single('attachment'), async (req, res) => {
+  let v: any;
+  try { v = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body } catch { return res.status(422).json({ message: 'Dados inválidos.' }) }
+  const name = String(v.name || '').trim();
+  if (!name) return res.status(422).json({ message: 'Dê um nome pro disparo.' });
+  const [inbox] = await db.select().from(inboxes).where(and(eq(inboxes.id, Number(v.inbox_id)), eq(inboxes.accountId, acc(req))));
+  if (!inbox || !WHATSAPP.includes(inbox.provider || '')) return res.status(422).json({ message: 'Escolha o número de WhatsApp que vai disparar.' });
+  const flowId = Number(v.flow_id) || null;
+  if (flowId) {
+    const [f] = await db.select({ id: flows.id }).from(flows).where(and(eq(flows.id, flowId), eq(flows.accountId, acc(req))));
+    if (!f) return res.status(422).json({ message: 'Robô não encontrado.' });
+  }
+  const text = flowId ? null : String(v.text || '').trim();
+  if (!flowId && !text && !req.file) return res.status(422).json({ message: 'Escreva a mensagem (ou anexe um arquivo).' });
+  const minS = int(v.min_interval_seconds, 30, 20, 3600);
+  const maxS = Math.max(minS, int(v.max_interval_seconds, 90, 20, 3600));
+  const startH = int(v.start_hour, 8, 0, 23), endH = int(v.end_hour, 20, 1, 24);
+  if (endH <= startH) return res.status(422).json({ message: 'O horário de fim precisa ser depois do início.' });
+  const scheduledAt = v.scheduled_at ? new Date(v.scheduled_at) : null;
+  if (scheduledAt && Number.isNaN(scheduledAt.getTime())) return res.status(422).json({ message: 'Data de agendamento inválida.' });
+
+  const [b] = await db.insert(broadcasts).values({
+    accountId: acc(req), inboxId: inbox.id, createdById: req.user!.id, name, filters: cleanFiltros(v.filters), text, flowId,
+    scheduledAt, minIntervalSeconds: minS, maxIntervalSeconds: maxS, dailyLimit: int(v.daily_limit, 200, 1, 1000),
+    startHour: startH, endHour: endH, cooldownDays: int(v.cooldown_days, 0, 0, 365),
+  }).returning();
+  if (req.file && !flowId) await attach('Broadcast', b.id, 'attachment', req.file.buffer, req.file.originalname, req.file.mimetype);
+  const iniciado = await iniciarDisparo(b.id);
+  res.status(201).json(await toJson(iniciado ?? b));
+});
+
+disparosRouter.get('/broadcasts/:id(\\d+)', async (req, res) => {
+  const [b] = await db.select().from(broadcasts).where(and(eq(broadcasts.id, Number(req.params.id)), eq(broadcasts.accountId, acc(req))));
+  if (!b) return res.status(404).json({ error: 'not_found' });
+  const filtro = String(req.query.status || '');
+  const rows = await db.select({ r: broadcastRecipients, name: contacts.name, phone: contacts.phone }).from(broadcastRecipients)
+    .innerJoin(contacts, eq(contacts.id, broadcastRecipients.contactId))
+    .where(and(eq(broadcastRecipients.broadcastId, b.id), filtro === 'replied' ? sql`${broadcastRecipients.repliedAt} IS NOT NULL` : filtro ? eq(broadcastRecipients.status, filtro) : undefined))
+    .orderBy(sql`${broadcastRecipients.sentAt} DESC NULLS LAST`, asc(broadcastRecipients.id)).limit(500);
+  res.json({
+    ...(await toJson(b)),
+    recipients: rows.map(x => ({ id: x.r.id, contact_id: x.r.contactId, name: x.name, phone: x.phone, status: x.r.status, error: x.r.error, sent_at: x.r.sentAt, replied_at: x.r.repliedAt })),
+  });
+});
+
+for (const acao of ['pause', 'resume', 'cancel'] as const) {
+  disparosRouter.post(`/broadcasts/:id(\\d+)/${acao}`, async (req: Request, res: Response) => {
+    const [b] = await db.select({ id: broadcasts.id }).from(broadcasts).where(and(eq(broadcasts.id, Number(req.params.id)), eq(broadcasts.accountId, acc(req))));
+    if (!b) return res.status(404).json({ error: 'not_found' });
+    const u = await mudarStatusDisparo(b.id, acao);
+    res.json(u ? await toJson(u) : null);
+  });
+}

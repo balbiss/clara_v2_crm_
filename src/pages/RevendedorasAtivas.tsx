@@ -138,6 +138,7 @@ export default function RevendedorasAtivas() {
             {agents.agents.map((a: any) => <option key={a.id} value={a.id}>{names[a.id]}</option>)}
           </select>
           <button disabled={!bulkTarget || bulkBusy} onClick={applyBulk} style={btn('primary', { padding: '7px 14px', opacity: bulkTarget ? 1 : 0.5 })}>{bulkBusy ? 'Aplicando…' : 'Aplicar'}</button>
+          <button onClick={() => navigate('/disparos/novo', { state: { contact_ids: selected } })} style={btn('ghost', { padding: '7px 14px' })}>Enviar disparo</button>
           <button onClick={() => setSelected([])} style={{ border: 'none', background: 'none', color: 'var(--muted)', fontWeight: 600 }}>Cancelar</button>
         </div>
       )}

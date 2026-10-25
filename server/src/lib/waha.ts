@@ -83,6 +83,19 @@ export class WahaService {
     } catch { return null; }
   }
 
+  /** check-exists com resposta de 3 estados (disparo): número tem WhatsApp (com o chatId certo, ex.
+   *  com/sem o 9), não tem, ou não deu pra saber (WAHA fora/lenta → tentar de novo depois). */
+  async checkNumber(phone: string): Promise<{ exists: boolean | null; chatId: string | null }> {
+    let digits = phone.replace(/D/g, '');
+    if (digits.length >= 10 && digits.length <= 11) digits = '55' + digits;
+    try {
+      const res = await this.request('GET', `/api/contacts/check-exists?session=${this.session}&phone=${digits}`, undefined, 20000);
+      if (!res?.ok) return { exists: null, chatId: null };
+      const data = await res.json() as { numberExists?: boolean; chatId?: string };
+      return { exists: !!data.numberExists, chatId: data.numberExists ? data.chatId ?? null : null };
+    } catch { return { exists: null, chatId: null }; }
+  }
+
   /** Envia texto ou anexo. Retorna o id serializado da mensagem na WAHA (vira source_id). */
   async sendMessage(recipient: string, text: string | null, attachment?: Attachment | null): Promise<string | null> {
     if (!this.apiUrl) return null; // WAHA não configurada (ambiente local)

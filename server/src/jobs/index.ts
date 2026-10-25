@@ -8,6 +8,7 @@ import { tickAiAgents } from '../lib/aiAgent.js';
 import { rodarSyncJueri } from '../lib/jueriSync.js';
 import { avancarRegua } from './regua.js';
 import { renovarFotosPerfil } from '../lib/avatars.js';
+import { tickDisparos } from '../lib/disparos.js';
 
 // Substitui o config/recurring.yml do Solid Queue da v1. Cada tarefa roda num intervalo fixo,
 // sem sobrepor execuções. JOBS_DISABLED=true desliga tudo (útil em teste).
@@ -26,6 +27,8 @@ const tasks: Task[] = [
   { name: 'jueri_cadastro', everyMs: 15 * 60 * 1000, run: () => rodarSyncJueri('cadastro') },
   { name: 'fotos_perfil', everyMs: 10 * 60 * 1000, run: () => renovarFotosPerfil() },
   { name: 'auto_close_conversations', everyMs: 5 * 60 * 1000, run: autoCloseConversations },
+  // disparo em massa: 1 envio por número por rodada (intervalo/limite/horário em lib/disparos)
+  { name: 'disparos', everyMs: 15 * 1000, run: tickDisparos },
   { name: 'waha_history_sync', everyMs: 30 * 60 * 1000, run: () => syncInboxHistory() },
 ];
 

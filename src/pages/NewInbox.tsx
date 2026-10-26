@@ -45,7 +45,7 @@ export default function NewInbox() {
   }
   const saveAccess = async () => {
     try {
-      // quem não escolher ninguém continua vendo tudo (regra da v1: sem acesso configurado = vê todas)
+      // ninguém marcado = só gerência/diretoria usam a caixa (a caixa já nasce "por carteira")
       await Promise.all(picked.map(id => api.post(`/inboxes/${created.id}/members`, { user_id: id })))
       setStep(4)
     } catch { toast('error', 'Erro ao salvar o acesso dos agentes.') }
@@ -93,7 +93,7 @@ export default function NewInbox() {
           {step === 3 && (
             <>
               <h2 style={{ ...serif, fontSize: 24, margin: '0 0 6px' }}>Quem tem acesso a esta caixa</h2>
-              <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.6, margin: '0 0 16px' }}>Só quem estiver marcado vê e responde as conversas desta caixa. Gerência, diretoria e financeiro sempre enxergam tudo. Se ninguém for marcado, a caixa continua na lista de todos, mas cada consultora só vê as conversas das próprias revendedoras (dá pra ajustar depois na aba Agentes da caixa).</p>
+              <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.6, margin: '0 0 16px' }}>Só quem estiver marcado tem esta caixa e responde por ela. Cada pessoa vê apenas as próprias revendedoras e as conversas atribuídas a ela; as que ainda não têm dono aparecem para todas as marcadas. Gerência e diretoria sempre veem tudo. Se ninguém for marcado, só a gerência e a diretoria usam a caixa. Dá pra mudar depois em Configurações da caixa.</p>
               <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden', maxHeight: 320, overflowY: 'auto', marginBottom: 18 }}>
                 {agents.map(a => (
                   <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: '1px solid var(--line)', background: picked.includes(a.id) ? 'var(--terraSoft)' : 'var(--card)', cursor: 'pointer' }}>

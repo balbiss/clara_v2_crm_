@@ -85,7 +85,8 @@ inboxesRouter.get('/inboxes/:id', async (req, res) => {
 });
 
 inboxesRouter.post('/inboxes', requireOwner, async (req, res) => {
-  const values = { ...inboxParams(req.body), accountId: req.user!.accountId! };
+  // regra geral da Clara: toda caixa nasce "por carteira" (cada consultora só vê o que é dela)
+  const values = { restrictByPortfolio: true, ...inboxParams(req.body), accountId: req.user!.accountId! };
   if (await phoneTaken(values.accountId, values)) return res.status(422).json({ phone_number: ['já está em uso'] });
   const [inbox] = await db.insert(inboxes).values(values).returning();
   if (inbox.provider === 'waha') await messagingService(inbox).createConnection(webhookUrlFor(inbox)).catch(() => {});

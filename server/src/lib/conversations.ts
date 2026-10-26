@@ -36,7 +36,7 @@ export async function assignedInboxes(userId: number) {
  * ConversationsController#visible_conversations_scope (condição SQL; exige join com contacts).
  * Gerente/diretoria/financeiro/permissão admin: tudo. Consultor: conversas em que é atendente,
  * dos times de vendas dele, das caixas liberadas sem carteira, e das caixas com carteira só
- * quando a revendedora é dele ou está sem responsável.
+ * quando a revendedora é dele ou está sem responsável (e a conversa não é de outra pessoa).
  */
 export async function visibleConversationsWhere(u: User): Promise<SQL> {
   const base = eq(conversations.accountId, u.accountId!);
@@ -48,7 +48,8 @@ export async function visibleConversationsWhere(u: User): Promise<SQL> {
   const conds: SQL[] = [eq(conversations.userId, u.id)];
   if (liderIds.length) conds.push(inArray(sql`${contacts.customAttributes} ->> 'gerente_jueri_id'`, liderIds));
   if (unrestricted.length) conds.push(inArray(conversations.inboxId, unrestricted));
-  if (restricted.length) conds.push(and(inArray(conversations.inboxId, restricted), or(eq(contacts.userId, u.id), sql`${contacts.userId} IS NULL`))!);
+  // caixa com carteira: revendedora dela; sem responsável, só se a conversa não está atribuída a outra pessoa
+  if (restricted.length) conds.push(and(inArray(conversations.inboxId, restricted), or(eq(contacts.userId, u.id), sql`(${contacts.userId} IS NULL AND (${conversations.userId} IS NULL OR ${conversations.userId} = ${u.id}))`))!);
   return and(base, or(...conds))!;
 }
 

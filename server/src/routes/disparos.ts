@@ -2,7 +2,9 @@ import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { broadcastRecipients, broadcasts, contacts, flows, inboxes, users } from '../db/schema.js';
+import { broadcastRecipients, broadcasts, contactTags, contacts, flows, inboxes, users } from '../db/schema.js';
+import { createContact } from '../lib/contacts.js';
+import { findOrCreateTag } from '../lib/conversations.js';
 import { requireAuth, requireFullPortfolio } from '../middleware/auth.js';
 import { attach, blobFor, blobUrl } from '../lib/storage.js';
 import { inboxBadge } from '../lib/conversations.js';
@@ -63,6 +65,37 @@ disparosRouter.post('/broadcasts/preview', async (req, res) => {
     amostra: amostra.map(c => ({ id: c.id, name: c.name, phone: c.phone })),
     exemplo: amostra[0] && req.body.text ? { para: amostra[0].name || amostra[0].phone, texto: renderTexto(String(req.body.text), amostra[0], resp?.firstName || req.user!.firstName || '', () => 0) } : null,
   });
+});
+
+/**
+ * Lista de números (colada ou de um .csv): uma pessoa por linha, com ou sem nome ("Maria; 14 99999-0000").
+ * Número que já existe no CRM é reaproveitado (mesmo DDD + mesmos 8 últimos dígitos, sem grupo); o novo
+ * vira contato com a etiqueta LISTA UPLOAD (como no Kommo). Devolve os ids pra usar no disparo.
+ */
+disparosRouter.post('/broadcasts/numeros', async (req, res) => {
+  const linhas = String(req.body.texto || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).slice(0, 5000);
+  const tag = await findOrCreateTag(acc(req), 'LISTA UPLOAD', '#9ca3af');
+  const ids = new Set<number>();
+  let criados = 0, existentes = 0;
+  const invalidos: string[] = [];
+  for (const linha of linhas) {
+    const partes = linha.split(/[;,\t]/).map(p => p.trim()).filter(Boolean);
+    const fone = partes.find(p => (p.replace(/\D/g, '').length >= 10));
+    let digitos = (fone || '').replace(/\D/g, '');
+    if (digitos.length >= 10 && digitos.length <= 11) digitos = '55' + digitos;
+    if (digitos.length < 12 || digitos.length > 13) { if (!/^(nome|telefone|celular|whatsapp)/i.test(linha)) invalidos.push(linha); continue; }
+    const nome = partes.filter(p => p !== fone).join(' ').trim() || null;
+    const fim = '%' + digitos.slice(-8);
+    const candidatos = await db.select().from(contacts).where(and(eq(contacts.accountId, acc(req)),
+      sql`coalesce(${contacts.status}, '') <> 'grupo' AND coalesce(${contacts.jid}, '') NOT LIKE '%@g.us'`,
+      sql`regexp_replace(coalesce(${contacts.phone}, ''), '\\D', '', 'g') LIKE ${fim}`)).limit(10);
+    const mesmo = candidatos.find(c => (c.phone || '').replace(/\D/g, '').slice(2, 4) === digitos.slice(2, 4));
+    if (mesmo) { ids.add(mesmo.id); existentes++; continue; }
+    const novo = await createContact({ accountId: acc(req), phone: '+' + digitos, name: nome || '+' + digitos, source: 'Lista de disparo' } as any);
+    await db.insert(contactTags).values({ contactId: novo.id, tagId: tag.id }).onConflictDoNothing();
+    ids.add(novo.id); criados++;
+  }
+  res.json({ contact_ids: [...ids], total: ids.size, criados, existentes, invalidos: invalidos.slice(0, 20), n_invalidos: invalidos.length });
 });
 
 const int = (v: unknown, d: number, min: number, max: number) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };

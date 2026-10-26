@@ -322,7 +322,7 @@ export default function Conversas() {
       await conversationsStore.assignConversation(conversationsStore.activeConversation.id, userId ? parseInt(userId) : null)
     } catch (error) {
       console.error('Error assigning conversation:', error)
-      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Erro ao atribuir a conversa.', showConfirmButton: false, timer: 3500 })
+      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: (error as Any)?.response?.data?.message || 'Erro ao atribuir a conversa.', showConfirmButton: false, timer: 5000 })
     } finally {
       s.isAssigning = false
     }

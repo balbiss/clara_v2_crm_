@@ -166,6 +166,12 @@ function NovoDisparo() {
   const location = useLocation() as any
   const contactIds: number[] = location.state?.contact_ids || []
   const [passo, setPasso] = useState(1)
+  // passo 1: escolher pelo CRM (filtros) ou colar/enviar uma lista de números de fora
+  const [modo, setModo] = useState<'filtros' | 'lista'>('filtros')
+  const [listaTexto, setListaTexto] = useState('')
+  const [listaRes, setListaRes] = useState<any>(null)
+  const [lendoLista, setLendoLista] = useState(false)
+  const listaRef = useRef<HTMLInputElement>(null)
   const [nome, setNome] = useState('')
   const [f, setF] = useState<any>({ stage_ids: [], statuses: [], tag_ids: [], sem_tag_ids: [], user_ids: [], cidade: '', aniversario_mes: false, contact_ids: contactIds })
   const [tipo, setTipo] = useState<'texto' | 'robo'>('texto')
@@ -231,6 +237,32 @@ function NovoDisparo() {
 
       <div style={card}>
         {passo === 1 && <>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            <button onClick={() => { setModo('filtros'); setListaRes(null); set('contact_ids', contactIds) }} style={kBtn(modo === 'filtros' ? 'blue' : 'ghost')}>Filtrar contatos do CRM</button>
+            <button onClick={() => { setModo('lista'); setF((x: any) => ({ ...x, stage_ids: [], statuses: [], tag_ids: [], sem_tag_ids: [], user_ids: [], cidade: '', aniversario_mes: false, contact_ids: listaRes?.contact_ids || [-1] })) }} style={kBtn(modo === 'lista' ? 'blue' : 'ghost')}>Lista de números</button>
+          </div>
+          {modo === 'lista' && <>
+            <label style={{ ...lbl, marginTop: 0 }}>Cole os números, um por linha (pode ter o nome antes: "Maria; 14 99999-0000")</label>
+            <textarea value={listaTexto} onChange={e => setListaTexto(e.target.value)} rows={8} placeholder={'Maria; 14 99999-0000\n14 98888-1111\nAna Paula, 11 97777-2222'} style={{ ...kInput, height: 'auto', padding: 10, lineHeight: 1.45 }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input ref={listaRef} type="file" accept=".csv,.txt,text/csv,text/plain" hidden onChange={async e => { const arq = e.target.files?.[0]; if (arq) setListaTexto(await arq.text()); e.target.value = '' }} />
+              <button onClick={() => listaRef.current?.click()} style={kBtn('ghost')}><Paperclip size={14} /> Enviar arquivo .csv ou .txt</button>
+              <button disabled={lendoLista || !listaTexto.trim()} onClick={async () => {
+                setLendoLista(true)
+                try {
+                  const { data } = await api.post('/broadcasts/numeros', { texto: listaTexto })
+                  setListaRes(data)
+                  set('contact_ids', data.contact_ids.length ? data.contact_ids : [-1])
+                } catch (e: any) { toast('error', e.response?.data?.message || 'Não foi possível ler a lista.') } finally { setLendoLista(false) }
+              }} style={{ ...kBtn('blue'), opacity: listaTexto.trim() ? 1 : 0.5 }}>{lendoLista ? 'Lendo…' : 'Usar esta lista'}</button>
+            </div>
+            {listaRes && <div style={{ marginTop: 10, padding: '8px 12px', background: '#fcf0f3', borderRadius: 3, fontSize: 13.5 }}>
+              <b>{listaRes.total}</b> número(s) prontos: {listaRes.existentes} já estavam no CRM, {listaRes.criados} novo(s) (com a etiqueta LISTA UPLOAD).
+              {listaRes.n_invalidos > 0 && <div style={{ color: '#c62828', marginTop: 4 }}>{listaRes.n_invalidos} linha(s) sem número válido: {listaRes.invalidos.join(' | ')}</div>}
+            </div>}
+            <p style={{ fontSize: 12.5, color: K.muted, marginBottom: 0 }}>Antes de cada envio o sistema confere se o número tem WhatsApp — quem não tem é pulado sozinho. Quem pediu pra não receber disparos também fica de fora.</p>
+          </>}
+          {modo === 'filtros' && <>
           {contactIds.length > 0 && <div style={{ padding: '8px 12px', background: '#fcf0f3', borderRadius: 3, fontSize: 13.5, marginBottom: 6 }}>{contactIds.length} pessoa(s) selecionada(s) na lista. <button onClick={() => set('contact_ids', [])} style={{ border: 'none', background: 'none', color: K.link, cursor: 'pointer', fontFamily: K.font }}>Usar filtros em vez disso</button></div>}
           <label style={{ ...lbl, marginTop: 0 }}>Status do Consignado</label>
           <Multi valor={f.statuses} onChange={v => set('statuses', v)} vazio="" opcoes={Object.entries({ ...ACTIVE_STATUS_LABELS, ...INACTIVE_STATUS_LABELS }) as [string, string][]} />
@@ -247,6 +279,7 @@ function NovoDisparo() {
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, height: 36 }}><input type="checkbox" checked={f.aniversario_mes} onChange={e => set('aniversario_mes', e.target.checked)} /> Só aniversariantes do mês</label>
           </div>
           <p style={{ fontSize: 12.5, color: K.muted, marginBottom: 0 }}>Filtros juntos valem todos ao mesmo tempo. Grupos, contatos bloqueados e quem pediu pra não receber ficam de fora sozinhos.</p>
+          </>}
         </>}
 
         {passo === 2 && <>

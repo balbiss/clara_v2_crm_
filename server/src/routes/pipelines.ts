@@ -4,7 +4,7 @@ import { db } from '../db/client.js';
 import { contacts, contactTags, flows, lossReasons, pipelineCards, pipelineStages, pipelineTriggers, pipelines, tags, tarefas, users } from '../db/schema.js';
 import { requireAuth, requireOwner, isFullPortfolio, hasPermission, type User } from '../middleware/auth.js';
 import { railsJson } from '../lib/serialize.js';
-import { createContact } from '../lib/contacts.js';
+import { createContact, updateContact } from '../lib/contacts.js';
 import { execute, moveCard, runEnterTriggers, validateTrigger } from '../lib/pipelines.js';
 import { logEvent } from '../lib/events.js';
 import { missingRequired } from '../lib/customFields.js';
@@ -261,8 +261,10 @@ pipelinesRouter.post('/pipelines/:id/pipeline_cards', async (req, res) => {
     const c = await createContact({ accountId: acc(req), name: name || null, phone: v.phone ? String(v.phone) : null, userId: req.user!.id } as any);
     contactId = c.id;
   } else {
-    const [c] = await db.select({ id: contacts.id, userId: contacts.userId }).from(contacts).where(and(eq(contacts.id, contactId), eq(contacts.accountId, acc(req))));
-    if (!c || (!seesAll(req.user!) && c.userId !== req.user!.id)) return res.status(422).json({ message: 'Contato não encontrado.' });
+    const [c] = await db.select().from(contacts).where(and(eq(contacts.id, contactId), eq(contacts.accountId, acc(req))));
+    if (!c || (!seesAll(req.user!) && c.userId && c.userId !== req.user!.id)) return res.status(422).json({ message: 'Esse contato é da carteira de outra pessoa.' });
+    // contato sem responsável: quem coloca no funil vira a responsável (Kommo: quem cria o lead)
+    if (!c.userId && !seesAll(req.user!)) await updateContact(c, { userId: req.user!.id });
   }
   const [dup] = await db.select({ id: pipelineCards.id }).from(pipelineCards).where(and(eq(pipelineCards.pipelineId, p.id), eq(pipelineCards.contactId, contactId)));
   if (dup) return res.status(422).json({ message: 'Esse contato já está neste funil.' });

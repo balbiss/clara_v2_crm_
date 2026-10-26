@@ -51,6 +51,10 @@ export const conversationsStore = proxy({
   currentFilter: 'todos', // todos, minhas, nao-atribuidos, sem-resposta
   sidebarFilter: 'all',
   sidebarInboxId: null,
+  // paginação da lista (100 por vez; "carregar mais" ao rolar até o fim)
+  page: 1,
+  hasMore: false,
+  loadingMore: false,
   sortStatus: 'open',
   sortBy: 'latest',
   sortType: 'all',
@@ -134,7 +138,9 @@ export const conversationsStore = proxy({
 
   async fetchConversations() {
     try {
-      const response = await api.get('/conversations')
+      const response = await api.get('/conversations', { params: { inbox_id: this.sidebarInboxId || undefined, per_page: 100 } })
+      this.page = 1
+      this.hasMore = response.data.length === 100
       // mantém a conversa aberta mesmo se ela não estiver entre as 100 mais recentes
       const aberta = this.conversations.find(c => c.id === this.activeConversationId)
       const anteriores = new Map(this.conversations.map(c => [c.id, c]))
@@ -233,15 +239,37 @@ export const conversationsStore = proxy({
   setFilter(filterType) { this.currentFilter = filterType },
 
   setSidebarFilter(filterType) {
+    const trocouCaixa = this.sidebarInboxId != null
     this.sidebarFilter = filterType
     this.sidebarInboxId = null
     this.reconcileActiveConversation()
+    if (trocouCaixa) this.fetchConversations()
   },
 
   setSidebarInboxId(inboxId) {
+    const trocouCaixa = String(this.sidebarInboxId) !== String(inboxId)
     this.sidebarInboxId = inboxId
     this.sidebarFilter = null
     this.reconcileActiveConversation()
+    // a lista vem do servidor já filtrada por caixa (senão só apareciam as que estavam entre as 100 da conta)
+    if (trocouCaixa) this.fetchConversations()
+  },
+
+  /** Próximas 100 conversas (rolou até o fim da lista). */
+  async loadMore() {
+    if (this.loadingMore || !this.hasMore) return
+    this.loadingMore = true
+    try {
+      const { data } = await api.get('/conversations', { params: { inbox_id: this.sidebarInboxId || undefined, per_page: 100, page: this.page + 1 } })
+      const ids = new Set(this.conversations.map(c => c.id))
+      this.conversations.push(...data.filter(c => !ids.has(c.id)))
+      this.page += 1
+      this.hasMore = data.length === 100
+    } catch (error) {
+      console.error('Erro ao carregar mais conversas:', error)
+    } finally {
+      this.loadingMore = false
+    }
   },
 
   // ao trocar de filtro/caixa, não deixa aberta uma conversa que não pertence ao filtro

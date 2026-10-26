@@ -950,7 +950,7 @@ export default function Conversas() {
               </button>
               {params.inboxId && (() => { const cx = inboxes.inboxes.find((i: Any) => String(i.id) === String(params.inboxId)); return cx ? <span title={cx.name} style={{ fontSize: 11.5, fontWeight: 700, padding: '1px 8px', borderRadius: 10, background: cx.badge_color, color: '#fff', textTransform: 'uppercase', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cx.badge_short || cx.name}</span> : null })()}
               <span style={{ flex: 1 }} />
-              <span style={{ fontSize: 13, color: K.muted }}>Total: {store.filteredConversations.length}</span>
+              <span style={{ fontSize: 13, color: K.muted }} title={store.hasMore ? 'Role a lista até o fim pra carregar mais' : undefined}>Total: {store.filteredConversations.length}{store.hasMore ? '+' : ''}</span>
               <button title="Mais opções" onClick={e => { stop(e); setListMenu(m => !m) }} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', color: K.text }}><MoreHorizontal size={18} /></button>
               {listMenu && (
                 <div style={{ ...menuK, top: '100%', right: 10 }} onClick={stop}>
@@ -973,7 +973,7 @@ export default function Conversas() {
             </div>
           )}
 
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          <div onScroll={e => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) conversationsStore.loadMore() }} style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {isSearchActive ? (
               v.isSearching && !v.searchResults ? <p style={{ fontSize: 14, color: K.muted, padding: 20, textAlign: 'center' }}>Pesquisando…</p> : v.searchResults ? (
                 <>

@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
 import crypto from 'node:crypto';
-import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { conversations, contacts, inboxes, messages, scheduledMessages, conversationTags, tags, accounts, users } from '../db/schema.js';
 import { requireAuth, isOwner, isFullPortfolio, visibleContactsWhere, type User } from '../middleware/auth.js';
@@ -34,14 +34,15 @@ async function loadVisible(req: Request, res: Response, key = 'id'): Promise<Con
 }
 
 
-// GET /conversations — 100 mais recentes visíveis (só a última mensagem de cada; ver formatConversations)
+// GET /conversations — mais recentes visíveis, por página (só a última mensagem de cada; ver formatConversations).
+// inbox_id: só daquela caixa (com vários números, as 100 mais recentes da conta escondiam as conversas de cada caixa)
 conversationsRouter.get('/conversations', async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(500, Math.max(1, Number(req.query.per_page) || 100));
   const rows = await db.select({ c: conversations }).from(conversations)
     .leftJoin(contacts, eq(contacts.id, conversations.contactId))
-    .where(await visibleConversationsWhere(req.user!))
-    .orderBy(sql`${conversations.lastActivityAt} DESC NULLS LAST`)
+    .where(and(await visibleConversationsWhere(req.user!), req.query.inbox_id ? eq(conversations.inboxId, Number(req.query.inbox_id)) : undefined))
+    .orderBy(sql`${conversations.lastActivityAt} DESC NULLS LAST`, desc(conversations.id))
     .offset((page - 1) * limit).limit(limit);
   res.json(await formatConversations(rows.map(r => r.c), req.user!.accountId!, { fullMessages: false }));
 });
@@ -51,7 +52,8 @@ conversationsRouter.post('/conversations', async (req, res) => {
   const u = req.user!;
   let contact: typeof contacts.$inferSelect | null = null;
   if (req.body.contact_id) {
-    [contact] = await db.select().from(contacts).where(and(await visibleContactsWhere(u), eq(contacts.id, Number(req.body.contact_id)))).limit(1);
+    // da carteira dela ou sem responsável (a conversa fica com quem iniciou)
+    [contact] = await db.select().from(contacts).where(and(eq(contacts.id, Number(req.body.contact_id)), or(await visibleContactsWhere(u), and(eq(contacts.accountId, u.accountId!), isNull(contacts.userId))))).limit(1);
     if (!contact) return res.status(404).json({ error: 'not_found', message: 'Revendedora não encontrada ou fora da sua carteira.' });
   } else {
     let digitos = String(req.body.phone ?? '').replace(/\D/g, '');
@@ -59,10 +61,14 @@ conversationsRouter.post('/conversations', async (req, res) => {
     if (digitos.length < 12 || digitos.length > 13) {
       return res.status(422).json({ error: 'telefone_invalido', message: 'Telefone inválido. Use DDD + número, ex: (16) 99323-5750.' });
     }
-    const [existente] = await db.select().from(contacts).where(and(eq(contacts.accountId, u.accountId!), searchByNameOrPhoneWhere(digitos))).limit(1);
+    // mesmo número = termina com os mesmos 8 dígitos (sem grupo: grupo antigo tem o número de quem criou dentro do id)
+    const fim = '%' + digitos.slice(-8);
+    const [existente] = await db.select().from(contacts).where(and(eq(contacts.accountId, u.accountId!),
+      sql`coalesce(${contacts.status}, '') <> 'grupo' AND coalesce(${contacts.jid}, '') NOT LIKE '%@g.us'`,
+      sql`(regexp_replace(coalesce(${contacts.phone}, ''), '\\D', '', 'g') LIKE ${fim} OR EXISTS (SELECT 1 FROM reseller_phones rp WHERE rp.contact_id = ${contacts.id} AND regexp_replace(rp.phone, '\\D', '', 'g') LIKE ${fim}))`)).limit(1);
     if (existente) {
       const [vis] = await db.select({ id: contacts.id }).from(contacts).where(and(await visibleContactsWhere(u), eq(contacts.id, existente.id))).limit(1);
-      if (!vis) return res.status(403).json({ error: 'fora_da_carteira', message: `Esse número já é de ${existente.name || 'uma revendedora'}, que está em outra carteira.` });
+      if (!vis && existente.userId) return res.status(403).json({ error: 'fora_da_carteira', message: `Esse número já é de ${existente.name || 'uma revendedora'}, que está em outra carteira.` });
       contact = existente;
     } else {
       contact = await createContact({ accountId: u.accountId!, phone: `+${digitos}`, name: String(req.body.name ?? '').trim() || `+${digitos}`, userId: u.id, source: 'WhatsApp' });

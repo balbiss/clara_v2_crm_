@@ -11,8 +11,10 @@ export type Contact = typeof contacts.$inferSelect;
 type NewContact = typeof contacts.$inferInsert;
 
 export const CYCLE_RESTART_STATUS = 'revendedor_ativo';
-export const INACTIVE_STATUSES = ['sem_maleta', 'inativa_pendencia', 'suspensa_atraso', 'negativado_juridico', 'resgate', 'reativacao', 'descadastrada'];
-export const ACTIVE_STATUSES = ['revendedor_ativo', 'terceiro_dia', 'decimo_dia', 'vigesimo_dia', 'agendado', 'reagendar', 'atrasada'];
+// critérios da Bel (26/10): ativa = mais de min_pecas_ativa peças abertas. Atrasada e Suspensa por atraso
+// são etapas de cobrança DENTRO das ativas; inativa só quem caiu pra ≤ min peças (Sem maleta) e afins.
+export const INACTIVE_STATUSES = ['sem_maleta', 'inativa_pendencia', 'negativado_juridico', 'resgate', 'reativacao', 'descadastrada'];
+export const ACTIVE_STATUSES = ['revendedor_ativo', 'terceiro_dia', 'decimo_dia', 'vigesimo_dia', 'agendado', 'reagendar', 'atrasada', 'suspensa_atraso'];
 export const STATUS_OVERRIDE_PERMANENTE = ['resgate', 'negativado_juridico', 'descadastrada'];
 export const DIAS_MINIMOS_PARA_REATIVACAO = 60;
 const BROADCAST_FIELDS = ['name', 'firstName', 'lastName', 'phone', 'temperature', 'status', 'source', 'intention', 'userId', 'avatarUrl'] as const;

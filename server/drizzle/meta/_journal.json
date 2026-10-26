@@ -127,6 +127,20 @@
       "when": 1793020000000,
       "tag": "0017_refazer_historico_30d",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793030000000,
+      "tag": "0018_ciclo_pela_maleta",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793040000000,
+      "tag": "0019_ordem_etapas_consignado",
+      "breakpoints": true
     }
   ]
 }

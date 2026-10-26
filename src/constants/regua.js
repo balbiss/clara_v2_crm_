@@ -9,12 +9,13 @@ export const ACTIVE_STATUS_LABELS = {
   agendado: 'Agendado',
   reagendar: 'Reagendar',
   atrasada: 'Atrasada',
+  // critérios da Bel (26/10): suspensa por atraso continua ATIVA (tem maleta) — é etapa de cobrança
+  suspensa_atraso: 'Suspensa por Atraso',
 }
 
 export const INACTIVE_STATUS_LABELS = {
   sem_maleta: 'Sem Maleta',
   inativa_pendencia: 'Inativa com Pendência',
-  suspensa_atraso: 'Suspensa por Atraso',
   negativado_juridico: 'Negativado/Jurídico',
   resgate: 'Resgate',
   reativacao: 'Reativação',

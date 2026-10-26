@@ -43,6 +43,7 @@ const ETAPAS: { key: string; name: string; color: string; description?: string; 
     { event: 'schedule', action: 'create_task', config: { titulo: 'Reagendar cliente', tipo: 'manual_agendamento' }, schedule: { kind: 'daily', time: '08:00' } },
   ] },
   { key: 'atrasada', name: 'Atrasada', color: '#ff8f92' },
+  { key: 'suspensa_atraso', name: 'Suspensa por atraso', color: '#ff8f92' },
   { key: 'sem_maleta', name: 'Sem maleta', color: '#d5d8db', triggers: [
     addTags('SEM MALETA'),
     task('Reativação - tentativa 1', 'manual_ligar', 72 * H),
@@ -57,7 +58,6 @@ const ETAPAS: { key: string; name: string; color: string; description?: string; 
     rmTags(0, 'REVENDEDORA ATIVA'),
     task('Verificar pendência financeira', 'manual_cobranca', 72 * H),
   ] },
-  { key: 'suspensa_atraso', name: 'Suspensa por atraso', color: '#ff8f92' },
   { key: 'negativado_juridico', name: 'Negativado / Jurídico', color: '#d5d8db' },
   { key: 'resgate', name: 'Resgate', color: '#ffcc66', triggers: [toda_terca('RESGATAR MALETA', 'manual_cobranca')] },
   { key: 'reativacao', name: 'Reativação', color: '#e6e8ff', triggers: [

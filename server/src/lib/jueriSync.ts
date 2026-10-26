@@ -1,13 +1,13 @@
-import { and, eq, inArray, isNotNull, notInArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, notInArray, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { accounts, contacts, lifecycleEvents, notifications, pedidos, pipelineCards, pipelineStages, pipelines, resellerPhones, salesTeamMemberships, salesTeams, users } from '../db/schema.js';
-import { ACTIVE_STATUSES, DIAS_MINIMOS_PARA_REATIVACAO, INACTIVE_STATUSES, STATUS_OVERRIDE_PERMANENTE, createContact, updateContact, type Contact } from './contacts.js';
+import { ACTIVE_STATUSES, INACTIVE_STATUSES, STATUS_OVERRIDE_PERMANENTE, createContact, updateContact, type Contact } from './contacts.js';
 import { CUTOFF_LEGADO, QUANTIDADE_EFETIVA_SQL, QUANTIDADE_SENTINELA_LEGADO, STATUS_ABERTO, STATUS_BAIXADO, STATUS_CANCELADO, STATUS_PERDIDO, pedidoOpenNow, hojeSP } from './pedidos.js';
 
 // JueriSyncService + JueriApiService da v1, portados 1:1 (mesma regra de carteira):
 //  • revendedora com > min_pecas_ativa (25) peças abertas vira Ativa; inativa reativa; Resgate/
 //    Negativado/Descadastrada/desconsiderada nunca mudam sozinhas
-//  • quem estava ativa e não tem mais maleta acima do limiar → Sem Maleta (marco "churn")
+//  • quem estava ativa e não tem mais maleta acima do limiar → Sem Maleta (o marco "churn" é do fim do mês)
 //  • pedido novo de quem já está ativa reinicia o ciclo (1º dia)
 //  • Caução/Colaborador nunca entram; Atacado entra com status 'atacado' (funil Atacado)
 //  • líderes (fk_tipo_revendedor_id = 1) viram Times de vendas; responsável pelo "ID do gerente
@@ -66,7 +66,9 @@ function qtdEfetiva(p: any) {
   return Number(p.quantidade) || 0;
 }
 const somaAbertas = (lista: any[]) => lista.filter(aberto).reduce((s, p) => s + qtdEfetiva(p), 0);
-const inicioCiclo = (lista: any[]) => { const ds = lista.filter(aberto).map(p => p.data_criacao).filter(Boolean).map((d: string) => new Date(String(d).replace(' ', 'T'))).filter(d => !isNaN(+d)); return ds.length ? new Date(Math.min(...ds.map(Number))) : new Date() };
+// início do ciclo = pedido aberto mais antigo com mais de min peças (critérios da Bel: "maleta com 1 peça
+// esquecida" não conta); sem nenhum acima do limiar, o mais antigo aberto
+const inicioCiclo = (lista: any[], min = 25) => { const abertos = lista.filter(aberto); const maletas = abertos.filter(p => qtdEfetiva(p) > min); const ds = (maletas.length ? maletas : abertos).map(p => p.data_criacao).filter(Boolean).map((d: string) => new Date(String(d).replace(' ', 'T'))).filter(d => !isNaN(+d)); return ds.length ? new Date(Math.min(...ds.map(Number))) : new Date() };
 
 type Resultado = { criados: number; reativados: number; atualizados: number; sem_maleta: number; pedidos_sincronizados: number; erros: number };
 const novoResultado = (): Resultado => ({ criados: 0, reativados: 0, atualizados: 0, sem_maleta: 0, pedidos_sincronizados: 0, erros: 0 });
@@ -142,8 +144,7 @@ export class JueriSync {
       const atual = await this.snapshot(c.id);
       const acima = atual.pecas > this.minPecas;
       if (c.desconsiderado || STATUS_OVERRIDE_PERMANENTE.includes(c.status || '')) return res;
-      const novoPedido = !!p?.data_criacao && !!c.statusChangedAt && +new Date(String(p.data_criacao).replace(' ', 'T')) > +c.statusChangedAt;
-      if (acima && INACTIVE_STATUSES.includes(c.status || '') && (c.status !== 'suspensa_atraso' || novoPedido)) await this.reativar(c, null, res);
+      if (acima && INACTIVE_STATUSES.includes(c.status || '')) await this.reativar(c, null, res);
       else if (!acima && ACTIVE_STATUSES.includes(c.status || '')) await this.semMaleta(c, antes, atual.pecas, res);
       else if (acima && ACTIVE_STATUSES.includes(c.status || '')) await this.reiniciarSeNovo(c, null);
       res.atualizados++;
@@ -179,18 +180,15 @@ export class JueriSync {
     if (!c) { const r = await jueri(`/revendedor/${id}`); await this.criarRevendedora(id, r, lista, res); return }
     if (c.desconsiderado || STATUS_OVERRIDE_PERMANENTE.includes(c.status || '')) { res.atualizados++; return }
     if (INACTIVE_STATUSES.includes(c.status || '')) {
-      // suspensa por atraso só volta com maleta NOVA (pedido aberto depois da suspensão); a mesma maleta
-      // atrasada não reativa — senão a régua suspende de novo na hora seguinte e vira um vai-e-volta
-      if (c.status === 'suspensa_atraso' && !(c.statusChangedAt && +inicioCiclo(lista) > +c.statusChangedAt)) { res.atualizados++; return }
-      await this.reativar(c, inicioCiclo(lista), res); return
+      await this.reativar(c, inicioCiclo(lista, this.minPecas), res); return
     }
-    await this.reiniciarSeNovo(c, inicioCiclo(lista));
+    await this.reiniciarSeNovo(c, inicioCiclo(lista, this.minPecas));
     res.atualizados++;
   }
 
   private async criarRevendedora(id: string, r: any, lista: any[], res: Resultado) {
     const attrs = await this.attrsDoCadastro(null, r);
-    const c = await createContact({ accountId: this.accountId, idJueri: id, source: 'Jueri', ...attrs, status: 'revendedor_ativo', cycleStartedAt: inicioCiclo(lista) } as any);
+    const c = await createContact({ accountId: this.accountId, idJueri: id, source: 'Jueri', ...attrs, status: 'revendedor_ativo', cycleStartedAt: inicioCiclo(lista, this.minPecas) } as any);
     await this.persistirPedidos(c, lista, res);
     for (const raw of [r.telefone_2, r.telefone_3]) {
       const n = formatarTelefone(raw); if (!n || n === c.phone) continue;
@@ -203,25 +201,31 @@ export class JueriSync {
   }
 
   private async reativar(c: Contact, inicio: Date | null, res: Resultado) {
-    const dias = c.statusChangedAt ? Math.floor((Date.now() - +c.statusChangedAt) / 86400e3) : null;
-    const marco = c.status !== 'inativa_pendencia' && dias !== null && dias >= DIAS_MINIMOS_PARA_REATIVACAO;
+    // critérios da Bel: Reativação = voltou a passar de min peças depois de um Churn (sem prazo mínimo)
+    const [ultimo] = await db.select({ t: lifecycleEvents.eventType }).from(lifecycleEvents)
+      .where(and(eq(lifecycleEvents.contactId, c.id), inArray(lifecycleEvents.eventType, ['iniciada', 'churn', 'reativacao'])))
+      .orderBy(desc(lifecycleEvents.occurredAt)).limit(1);
+    const marco = ultimo?.t === 'churn';
     await updateContact(c, { status: 'revendedor_ativo', ...(inicio ? { cycleStartedAt: inicio } : {}) });
     if (marco) await this.marco(c.id, 'reativacao');
     res.reativados++;
   }
 
   private async reiniciarSeNovo(c: Contact, inicio: Date | null) {
-    const novo = inicio ?? (await db.execute(sql`SELECT MIN(data_criacao) AS d FROM pedidos WHERE contact_id = ${c.id} AND status_id = ${STATUS_ABERTO}`) as any)[0]?.d;
+    // sem a lista do Jueri: maleta aberta mais antiga (> min peças), senão qualquer pedido aberto
+    const novo = inicio ?? (await db.execute(sql`SELECT COALESCE(MIN(${pedidos.dataCriacao}) FILTER (WHERE ${QUANTIDADE_EFETIVA_SQL} > ${this.minPecas}), MIN(${pedidos.dataCriacao})) AS d FROM pedidos WHERE ${pedidos.contactId} = ${c.id} AND ${pedidos.statusId} = ${STATUS_ABERTO}`) as any)[0]?.d;
     if (!novo || !c.cycleStartedAt) return;
     const d = new Date(novo);
-    if (+d <= +c.cycleStartedAt + 60_000) return;
+    // compara pelo DIA (o banco guarda só a data do pedido; a lista do Jueri vem com hora) — maleta nova é de outro dia
+    if (d.toISOString().slice(0, 10) <= c.cycleStartedAt.toISOString().slice(0, 10)) return;
     await updateContact(c, { status: 'revendedor_ativo', cycleStartedAt: d });
     await this.marco(c.id, 'ciclo_reiniciado');
   }
 
   private async semMaleta(c: Contact, antes: number, depois: number, res: Resultado) {
     await updateContact(c, { status: 'sem_maleta' });
-    await db.insert(lifecycleEvents).values({ accountId: this.accountId, contactId: c.id, eventType: 'churn', occurredAt: new Date(), metadata: { pecas_antes: antes, pecas_depois: depois } });
+    // o marco Churn não é gravado aqui: só no fim do mês em que teve baixa (jobs/regua registrarChurns)
+    void antes; void depois;
     res.sem_maleta++;
   }
 

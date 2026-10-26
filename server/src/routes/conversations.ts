@@ -161,6 +161,8 @@ async function updateConversation(req: Request, res: Response) {
     set.status = v;
   }
   if ('user_id' in p) set.userId = p.user_id === null || p.user_id === '' ? null : Number(p.user_id);
+  // consultora só atribui a si mesma ou tira (Bel, 26/10: a lista inteira confundia); transferir com nota segue liberado
+  if ('user_id' in p && set.userId && set.userId !== u.id && !isFullPortfolio(u) && !req.body.transfer_note) return res.status(403).json({ error: 'forbidden', message: 'Você só pode atribuir a conversa a você mesma. Pra passar pra outra pessoa, use Transferir.' });
   if ('snoozed_until' in p) set.snoozedUntil = p.snoozed_until ? new Date(String(p.snoozed_until)) : null;
   let current = conv;
   if (Object.keys(set).length) [current] = await db.update(conversations).set({ ...set, updatedAt: new Date() }).where(eq(conversations.id, conv.id)).returning();

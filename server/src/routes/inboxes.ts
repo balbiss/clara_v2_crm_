@@ -93,6 +93,12 @@ inboxesRouter.post('/inboxes', requireOwner, async (req, res) => {
   res.status(201).json(toJson(inbox));
 });
 
+/** Caixa virou "por carteira": conversa sem atendente passa pra dona da revendedora. */
+export async function syncAtendentesDaCarteira(inboxId: number) {
+  await db.execute(sql`UPDATE conversations cv SET user_id = c.user_id FROM contacts c
+    WHERE cv.contact_id = c.id AND cv.inbox_id = ${inboxId} AND cv.user_id IS NULL AND c.user_id IS NOT NULL`);
+}
+
 async function updateInbox(req: Request, res: Response) {
   const i = await loadInbox(req, res);
   if (!i) return;
@@ -100,6 +106,7 @@ async function updateInbox(req: Request, res: Response) {
   if (await phoneTaken(i.accountId!, { provider: i.provider, phoneNumber: i.phoneNumber, ...values }, i.id)) return res.status(422).json({ phone_number: ['já está em uso'] });
   if (values.provider === 'instagram' && values.followupEnabled) return res.status(422).json({ followup_enabled: ['não é permitido para o canal Instagram (janela de 24h da Meta)'] });
   const [updated] = await db.update(inboxes).set({ ...values, updatedAt: new Date() }).where(eq(inboxes.id, i.id)).returning();
+  if (updated.restrictByPortfolio && !i.restrictByPortfolio) await syncAtendentesDaCarteira(updated.id);
   res.json(toJson(updated));
 }
 inboxesRouter.put('/inboxes/:id', requireOwner, updateInbox);

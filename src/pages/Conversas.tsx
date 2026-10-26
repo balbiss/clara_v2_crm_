@@ -37,6 +37,7 @@ import ForwardMessageModal from '../components/ForwardMessageModal'
 import { serif, inputStyle, labelStyle, btn, Card, Field, PILL, Tag, Dropdown, MenuItem } from '../components/ui'
 import { ChatAvatar } from '../components/ChatAvatar'
 import { confirmBox } from '../components/ui2'
+import { isFullPortfolio } from '../config/roles'
 import { inboxesStore } from '../store/inboxes'
 import { fmtPhone } from './SettingsInboxDetail'
 
@@ -1126,7 +1127,13 @@ export default function Conversas() {
                       <span style={{ width: '42%', flex: 'none', color: K.muted, fontSize: 14 }}>Usuário responsável</span>
                       <select value={conv.assignee_id || ''} onChange={e => handleAssign(e.target.value)} disabled={v.isAssigning} style={{ flex: 1, minWidth: 0, border: 'none', background: 'none', fontFamily: K.font, fontSize: 14, color: K.text, padding: 0, cursor: 'pointer' }}>
                         <option value="">Não atribuído</option>
-                        {agentsByDepartment.map(group => <optgroup key={group.dept} label={group.label}>{group.agents.map((agent: Any) => <option key={agent.id} value={agent.id}>{agent.first_name} {agent.last_name}</option>)}</optgroup>)}
+                        {isFullPortfolio(store.currentUser)
+                          ? agentsByDepartment.map(group => <optgroup key={group.dept} label={group.label}>{group.agents.map((agent: Any) => <option key={agent.id} value={agent.id}>{agent.first_name} {agent.last_name}</option>)}</optgroup>)
+                          : <>
+                              {/* consultora: só ela mesma (pra passar pra outra pessoa, usa Transferir) */}
+                              <option value={store.currentUser.id}>{store.currentUser.first_name || store.currentUser.name} (você)</option>
+                              {conv.assignee_id && conv.assignee_id !== store.currentUser.id && <option value={conv.assignee_id} disabled>{conv.assignee || 'Outra pessoa'}</option>}
+                            </>}
                       </select>
                     </div>
                   )}

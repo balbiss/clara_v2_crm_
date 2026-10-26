@@ -66,6 +66,9 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
     if (await messageExists(sourceId)) return null; // eco do que o CRM/IA já salvou
     if (cache.read(`ai_is_replying_${inbox.id}_${chatId}`)) return null; // eco da IA/Fluxo em corrida
     if (cache.read(`sending_from_crm_${inbox.id}_${chatId}`)) return null; // eco do envio manual em corrida
+    // eco da 1ª mensagem pra número novo: o contato ainda não tem jid (a trava acima não pega) e o
+    // sourceId só é gravado depois do envio — reconhece pelo id real ou pelo mesmo texto em ±3 min
+    if (await alreadyImported(inbox, payload)) return null;
     // intervenção humana real pelo celular: salva e pausa a IA
     humanReplyViaPhone = true;
     if (inbox.aiEnabled || await aiHandlesInbox(inbox.id)) {
@@ -159,7 +162,8 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
       .catch(e => console.error('Failed to fetch profile picture (Waha):', e.message));
   }
 
-  const conversation = await findOrCreateConversation(contact.id, inbox.id, { accountId, status: 0 });
+  // caixa por carteira: conversa nova já nasce com a dona da revendedora como atendente
+  const conversation = await findOrCreateConversation(contact.id, inbox.id, { accountId, status: 0, userId: inbox.restrictByPortfolio ? contact.userId : null });
   const text = String(payload.body ?? '');
   const media = isObj(payload.media) ? payload.media : null;
   // com mídia, a v1 já mostrava a bolha na hora e reenviava quando o arquivo terminava de baixar

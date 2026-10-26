@@ -1012,13 +1012,13 @@ export default function Conversas() {
                       </span>
                       <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <b style={{ flex: '0 1 auto', minWidth: 0, fontSize: 15, color: fg, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.contact.name}</b>
-                          <span style={{ flex: 'none', fontSize: 11, fontWeight: 700, padding: '0 4px', borderRadius: 2, background: on ? 'rgba(255,255,255,.25)' : '#7dbb2d', color: '#fff' }}>{convNo(c)}</span>
-                          {variasCaixas && c.inbox_short && <span title={`Número: ${c.inbox_name}`} style={{ flex: '0 1 auto', minWidth: 0, maxWidth: 120, fontSize: 10.5, fontWeight: 700, padding: '1px 6px', borderRadius: 9, background: c.inbox_color, color: '#fff', border: on ? '1px solid rgba(255,255,255,.7)' : 'none', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.inbox_short}</span>}
+                          <b title={c.contact.name} style={{ flex: '0 1 auto', minWidth: 0, fontSize: 15, color: fg, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.contact.name}</b>
                           <span style={{ flex: 1 }} />
                           <span style={{ fontSize: 13, color: on ? '#fff' : K.muted, whiteSpace: 'nowrap' }}>{listTime(c.last_activity_iso)}</span>
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                          <span style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, padding: '0 4px', borderRadius: 2, background: on ? 'rgba(255,255,255,.25)' : '#7dbb2d', color: '#fff' }}>{convNo(c)}</span>
+                          {variasCaixas && !store.sidebarInboxId && c.inbox_short && <span title={`Número: ${c.inbox_name}`} style={{ flex: 'none', maxWidth: 90, fontSize: 10, fontWeight: 700, padding: '0 6px', borderRadius: 9, background: c.inbox_color, color: '#fff', border: on ? '1px solid rgba(255,255,255,.7)' : 'none', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.inbox_short}</span>}
                           <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: on ? '#fff' : c.unread > 0 ? K.text : '#5c6670', fontWeight: c.unread > 0 ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {(last?.senderType === 'agent' ? (last.agentName || 'Você') : c.contact.name) + ': ' + mediaLabel(c.preview, last?.attachmentType)}
                           </span>

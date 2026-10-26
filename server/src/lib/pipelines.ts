@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { contacts, contactTags, notes, pipelineCards, pipelineStages, pipelineTriggerRuns, pipelineTriggers, pipelines, tags, tarefas, users } from '../db/schema.js';
+import { contacts, contactTags, conversations, messages, notes, pipelineCards, pipelineStages, pipelineTriggerRuns, pipelineTriggers, pipelines, tags, tarefas, users } from '../db/schema.js';
 import { cache } from './cache.js';
 import { setReguaTriggerRunner, updateContact } from './contacts.js';
 import { MANUAL_TIPOS, PRIORIDADES, isUniqueViolation } from './tarefas.js';
@@ -192,6 +192,14 @@ export async function execute(t: Trigger, card: Card, chainDepth: number) {
     const contact = await loadContact(card.contactId);
     if (!contact) return;
     if (!(await conditionsMatch(contact, t.conditions as Condition[]))) return;
+    // "só se o cliente não respondeu" (ex.: 24 h em Novo Lead sem resposta → Sem resposta): qualquer
+    // mensagem do cliente depois que o card entrou na etapa cancela a ação
+    if ((t.config as any)?.only_if_no_reply) {
+      const [resp] = await db.select({ id: messages.id }).from(messages)
+        .innerJoin(conversations, eq(conversations.id, messages.conversationId))
+        .where(and(eq(conversations.contactId, card.contactId), eq(messages.senderType, 'Contact'), sql`${messages.createdAt} > ${card.stageEnteredAt.toISOString()}`)).limit(1);
+      if (resp) return;
+    }
     await runAction(t, card, contact, chainDepth);
   } catch (e) {
     console.error(`PipelineTrigger#${t.id} (${t.actionType}) falhou pro card #${card.id}:`, (e as Error).message);

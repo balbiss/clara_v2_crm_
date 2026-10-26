@@ -93,7 +93,7 @@ export function whenText(t: any, ctx: Ctx): string {
     return `${fmtDelay(Math.abs(off))} ${off < 0 ? 'antes' : 'depois'} — Lead: ${campo}`
   }
   if (t.event === 'client_reply') return 'Quando o cliente responder nesta etapa'
-  return t.delay_minutes ? `Quando movido para esta etapa, depois ${fmtDelay(t.delay_minutes)}` : 'Quando movido para ou criado nesta etapa'
+  return t.delay_minutes ? `Quando movido para esta etapa, depois ${fmtDelay(t.delay_minutes)}${t.config?.only_if_no_reply ? ', se o cliente não responder' : ''}` : 'Quando movido para ou criado nesta etapa'
 }
 
 /** 2ª linha: O QUE faz. */

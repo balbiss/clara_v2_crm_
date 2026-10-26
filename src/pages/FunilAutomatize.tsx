@@ -200,6 +200,12 @@ function TriggerForm({ pipes, pipe, stage, trigger, tags, agents, flows, fields,
           <span style={{ fontSize: 12.5, color: K.muted }}>{delayN ? '' : '(imediatamente)'}</span>
         </div>
       )}
+      {event === 'enter' && delayN > 0 && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 14, cursor: 'pointer' }}>
+          <input type="checkbox" checked={!!cfg.only_if_no_reply} onChange={e => set('only_if_no_reply', e.target.checked)} />
+          Só se o cliente não responder nesse tempo
+        </label>
+      )}
       {event === 'schedule' && (
         <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
           {sel(sched.kind, v => setSched({ ...sched, kind: v }), [['daily', 'Diariamente'], ['weekly', 'Uma vez por semana'], ['once', 'Uma vez (data fixa)']], { width: 190 })}
@@ -220,7 +226,7 @@ function TriggerForm({ pipes, pipe, stage, trigger, tags, agents, flows, fields,
       )}
 
       <label style={lbl}>Ação</label>
-      {sel(action, v => { setAction(v); setCfg((c: any) => ({ date_field: c.date_field, offset_minutes: c.offset_minutes })) }, ACTIONS.map(a => [a.id, a.label]))}
+      {sel(action, v => { setAction(v); setCfg((c: any) => ({ date_field: c.date_field, offset_minutes: c.offset_minutes, only_if_no_reply: c.only_if_no_reply })) }, ACTIONS.map(a => [a.id, a.label]))}
       <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {action === 'move_stage' && sel(cfg.target_stage_id || '', v => set('target_stage_id', Number(v)), [['', 'Escolha a etapa…'], ...allStages.filter(([id]) => id !== stage.id)])}
         {action === 'create_task' && (<>

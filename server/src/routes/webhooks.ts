@@ -39,7 +39,7 @@ function handleSessionStatus(inbox: typeof inboxes.$inferSelect, payload: Record
   const lock = `waha_history_sync_lock_${inbox.id}`;
   if (open && !cache.exist(lock)) {
     cache.write(lock, true, 10 * 60);
-    if (!inbox.historyImportedAt) { setTimeout(() => void importFullHistory(inbox.id).catch(e => console.error('[WahaHistorico]', e.message)), 30 * 1000); return; }
+    if (!inbox.historyImportedAt) { setTimeout(() => void importFullHistory(inbox.id).catch(e => console.error('[WahaHistorico]', e.message)), 3 * 60 * 1000); return; } // espera o WhatsApp Web carregar a lista de conversas
     void historySinceFor(inbox).then(since => {
       setTimeout(() => syncInboxHistory(inbox.id, since).catch(e => console.error('[WahaHistorySync]', e.message)), 60 * 1000);
       setTimeout(() => syncInboxHistory(inbox.id, since).catch(e => console.error('[WahaHistorySync]', e.message)), 5 * 60 * 1000);

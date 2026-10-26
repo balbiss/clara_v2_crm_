@@ -67,13 +67,16 @@ async function syncChat(inbox: typeof inboxes.$inferSelect, service: WahaService
 }
 
 // --- importação completa (uma vez por caixa, ao conectar) -----------------------------------------
-// Puxa TODAS as conversas particulares do WhatsApp pro CRM (grupos ficam de fora, como no Kommo):
-// até FULL_MSGS mensagens mais recentes de cada conversa; arquivos só dos últimos FULL_MEDIA_DAYS
-// dias (o resto fica como "arquivo não baixado", pra não encher o armazenamento). Mensagem antiga
-// nunca dispara robô, IA nem gatilho. Progresso em cache (inbox:ID:history) pra tela da caixa.
+// Puxa as conversas particulares do WhatsApp com atividade nos últimos FULL_DAYS dias (grupos ficam de
+// fora, como no Kommo): até FULL_MSGS mensagens desse período por conversa; arquivos só dos últimos
+// FULL_MEDIA_DAYS dias. Uma conversa por vez com pausa (o servidor do WhatsApp é dividido com a v1 e
+// a importação pesada derrubava sessões). Mensagem antiga nunca dispara robô, IA nem gatilho.
+// Progresso em cache (inbox:ID:history) pra tela da caixa.
 const FULL_CHATS = 5000;
-const FULL_MSGS = 300;
-const FULL_MEDIA_DAYS = 30;
+const FULL_DAYS = 30;
+const FULL_MSGS = 100;
+const FULL_MEDIA_DAYS = 7;
+const PAUSA_MS = 1500;
 
 export const historyProgress = (inboxId: number) => cache.read(`inbox:${inboxId}:history`) as { status: string; chats: number; total: number; mensagens: number } | null;
 
@@ -87,7 +90,8 @@ export async function importFullHistory(inboxId: number) {
     if (!inbox || inbox.provider !== 'waha') return;
     const service = new WahaService(inbox);
     if (!service.configured || !(await service.connected())) return;
-    const chats = (await service.fetchRecentChats(FULL_CHATS)).map(c => {
+    const desde = nowS() - FULL_DAYS * 86400;
+    const chats = (await service.fetchRecentChats(FULL_CHATS)).filter(c => Number(c.timestamp) >= desde).map(c => {
       const idObj = c.id as { _serialized?: string } | string | undefined;
       return (typeof idObj === 'object' ? idObj?._serialized : idObj) ?? '';
     }).filter(id => id && id !== 'status@broadcast' && !id.endsWith('@g.us') && !id.endsWith('@newsletter') && !id.endsWith('@broadcast'));
@@ -102,9 +106,10 @@ export async function importFullHistory(inboxId: number) {
         console.log(`[WahaHistorico] inbox ${inbox.id}: WhatsApp desconectou, importação pausada em ${i}/${chats.length}`);
         return;
       }
-      try { mensagens += await syncChat(inbox, service, chatId, 0, FULL_MSGS, mediaSince); }
+      try { mensagens += await syncChat(inbox, service, chatId, desde, FULL_MSGS, mediaSince); }
       catch (e) { console.error(`[WahaHistorico] inbox ${inbox.id} chat ${chatId}:`, (e as Error).message); }
       cache.write(key, { status: 'importando', chats: i + 1, total: chats.length, mensagens }, 24 * 3600);
+      await new Promise(r => setTimeout(r, PAUSA_MS));
     }
     await db.update(inboxes).set({ historyImportedAt: new Date() }).where(eq(inboxes.id, inbox.id));
     cache.write(key, { status: 'concluido', chats: chats.length, total: chats.length, mensagens }, 7 * 24 * 3600);

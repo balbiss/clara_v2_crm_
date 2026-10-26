@@ -120,6 +120,13 @@
       "when": 1793010000000,
       "tag": "0016_atendente_da_carteira",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793020000000,
+      "tag": "0017_refazer_historico_30d",
+      "breakpoints": true
     }
   ]
 }

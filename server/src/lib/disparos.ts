@@ -7,6 +7,7 @@ import { createMessage, messageStatusValue, rebroadcast } from './messages.js';
 import { convStatusValue, findOrCreateConversation, findOrCreateTag } from './conversations.js';
 import { setJidIfFree } from './contacts.js';
 import { startBot } from './salesbot.js';
+import { entrarNoFunilDaCaixa } from './pipelines.js';
 import { cache } from './cache.js';
 import { broadcastConversations } from './realtime.js';
 import { setBroadcastReplyHook } from './wahaIngestion.js';
@@ -224,6 +225,7 @@ async function passo(b: typeof broadcasts.$inferSelect): Promise<boolean> {
     const run = await startBot(b.flowId, contact.id, { conversationId: conv.id, trigger: 'disparo', force: true });
     if (!run) { await marcar('failed', { error: 'robo_nao_rodou' }); await proximoEnvio(); return true; }
     await marcar('sent', { sentAt: new Date() });
+    await entrarNoFunilDaCaixa(inbox, contact.id).catch(e => console.error('[Disparo] funil de entrada', (e as Error).message));
     await proximoEnvio();
     return true;
   }
@@ -246,6 +248,7 @@ async function passo(b: typeof broadcasts.$inferSelect): Promise<boolean> {
     await rebroadcast(msg.id);
   }
   await marcar('sent', { sentAt: new Date(), messageId: msg.id });
+  await entrarNoFunilDaCaixa(inbox, contact.id).catch(e => console.error('[Disparo] funil de entrada', (e as Error).message));
   await proximoEnvio();
   return true;
 }

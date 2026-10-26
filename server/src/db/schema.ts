@@ -343,6 +343,8 @@ export const inboxes = pgTable('inboxes', {
   // 0012_caixa_cor_apelido: identificação visual da caixa (lib/conversations inboxBadge)
   color: varchar('color'),
   shortName: varchar('short_name'),
+  // 0020_funil_entrada_caixa: etapa onde cai o contato novo desta caixa (lib/pipelines entrarNoFunilDaCaixa)
+  entryStageId: bigint('entry_stage_id', { mode: 'number' }),
   signMessages: boolean('sign_messages').default(false).notNull(),
   roundRobinGroupId: bigint('round_robin_group_id', { mode: 'number' }).references((): AnyPgColumn => roundRobinGroups.id),
   updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),

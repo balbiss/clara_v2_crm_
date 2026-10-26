@@ -38,10 +38,10 @@ const PERMITTED: Record<string, keyof typeof inboxes.$inferInsert> = {
   followup_max_attempts: 'followupMaxAttempts', followup_wait_time_minutes: 'followupWaitTimeMinutes',
   followup_send_closing_message: 'followupSendClosingMessage', followup_closing_message: 'followupClosingMessage',
   round_robin_group_id: 'roundRobinGroupId', restrict_by_portfolio: 'restrictByPortfolio', sign_messages: 'signMessages', working_hours: 'workingHours',
-  color: 'color', short_name: 'shortName',
+  color: 'color', short_name: 'shortName', entry_stage_id: 'entryStageId',
 };
 const BOOL = new Set(['aiEnabled', 'workingHoursEnabled', 'followupEnabled', 'followupSendClosingMessage', 'restrictByPortfolio', 'signMessages']);
-const NUM = new Set(['aiTemperature', 'followupMaxAttempts', 'followupWaitTimeMinutes', 'roundRobinGroupId']);
+const NUM = new Set(['aiTemperature', 'followupMaxAttempts', 'followupWaitTimeMinutes', 'roundRobinGroupId', 'entryStageId']);
 
 function inboxParams(body: Record<string, unknown>): Partial<typeof inboxes.$inferInsert> {
   const src = (body.inbox ?? {}) as Record<string, unknown>;

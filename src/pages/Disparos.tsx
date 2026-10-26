@@ -323,6 +323,12 @@ function NovoDisparo() {
               </label>
             ))}
           </div>
+          {inbox && (() => {
+            const etapa = opt.pipes.flatMap((p: any) => p.pipeline_stages.map((s: any) => ({ id: s.id, nome: `${p.name} › ${s.name}` }))).find((s: any) => s.id === inbox.entry_stage_id)
+            return <div style={{ marginTop: 10, padding: '8px 12px', background: '#fcf0f3', borderRadius: 3, fontSize: 13.5 }}>
+              {etapa ? <>Quem receber vai para o funil <b>{etapa.nome}</b> (funil de entrada desta caixa), se ainda não estiver nele.</> : <>Esta caixa não tem funil de entrada: quem receber não entra em funil nenhum. Dá pra escolher em Configurações › Caixas de entrada.</>}
+            </div>
+          })()}
           <p style={{ fontSize: 12.5, color: K.muted }}>Dica: se possível use um número separado do atendimento. Se o WhatsApp bloquear, o atendimento continua.</p>
         </>}
 

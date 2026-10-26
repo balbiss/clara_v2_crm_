@@ -8,7 +8,7 @@ import { fotoPrecisaAtualizar, salvarFotoPerfil } from './avatars.js';
 import { createMessage, rebroadcast, messageStatusValue, type Message } from './messages.js';
 import { createContact, findByAnyPhone, setJidIfFree, updateContact, likeEscape, type Contact } from './contacts.js';
 import { broadcastConversations } from './realtime.js';
-import { onClientReply } from './pipelines.js';
+import { onClientReply, entrarNoFunilDaCaixa } from './pipelines.js';
 import { conversationTagsOf, findOrCreateConversation, findOrCreateTag, addConversationTag, convStatusValue } from './conversations.js';
 
 // Porte do WahaMessageIngestion da v1 — compartilhado entre o webhook (tempo real) e o
@@ -99,6 +99,7 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
   const service = new WahaService(inbox);
   let contact: Contact | null;
   let contactPhoneFormatted: string;
+  let contatoNovo = false;
 
   if (isGroup) {
     contact = await findByJid(accountId, chatId);
@@ -129,6 +130,7 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
     contact = await findByAnyPhone(accountId, contactPhoneFormatted);
     contact ||= await findByJid(accountId, chatId);
     if (!contact) {
+      contatoNovo = true;
       try {
         contact = await createContact({
           accountId, phone: contactPhoneFormatted, jid: chatId, source: 'WhatsApp',
@@ -184,6 +186,9 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
     await attachHistoricalMedia(service, record, payload);
     return record;
   }
+
+  // contato novo que chegou por esta caixa: cai no funil de entrada dela
+  if (contatoNovo && !isGroup) void entrarNoFunilDaCaixa(inbox, contact.id).catch(e => console.error('Funil de entrada —', e.message));
 
   if (mediaInBackground) {
     // download em background, com tentativas e timeout curto (nunca segura o webhook)

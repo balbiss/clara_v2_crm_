@@ -48,6 +48,7 @@ export default function SettingsInboxDetail() {
   const [inbox, setInbox] = useState<any>(null)
   const [tab, setTab] = useState('settings')
   const [members, setMembers] = useState<any[]>([])
+  const [funis, setFunis] = useState<any[]>([])
   const [groups, setGroups] = useState<any[]>([])
   const [promptOpen, setPromptOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -58,6 +59,7 @@ export default function SettingsInboxDetail() {
   useEffect(() => {
     api.get(`/inboxes/${id}`).then(({ data }) => setInbox(data)).catch(() => navigate('/settings/inboxes'))
     api.get(`/inboxes/${id}/members`).then(({ data }) => setMembers(data)).catch(e => console.error(e))
+    api.get('/pipelines').then(({ data }) => setFunis(data.filter((p: any) => !p.system))).catch(() => {})
     api.get('/round_robin_groups').then(({ data }) => setGroups(data)).catch(e => console.error(e))
     if (!inboxesStore.isLoadedOnce) inboxesStore.fetchInboxes()
   }, [id, navigate])
@@ -74,7 +76,7 @@ export default function SettingsInboxDetail() {
     setSaving(true)
     try {
       await api.put(`/inboxes/${inbox.id}`, { inbox: {
-        name: inbox.name, short_name: inbox.short_name || null, color: inbox.color || null, bot_prompt: inbox.bot_prompt, ai_enabled: inbox.ai_enabled, ai_name: inbox.ai_name, ai_prompt: inbox.ai_prompt,
+        name: inbox.name, short_name: inbox.short_name || null, color: inbox.color || null, entry_stage_id: inbox.entry_stage_id || null, bot_prompt: inbox.bot_prompt, ai_enabled: inbox.ai_enabled, ai_name: inbox.ai_name, ai_prompt: inbox.ai_prompt,
         knowledge_base: inbox.knowledge_base, followup_enabled: inbox.followup_enabled, followup_max_attempts: inbox.followup_max_attempts,
         followup_wait_time_minutes: inbox.followup_wait_time_minutes, followup_send_closing_message: inbox.followup_send_closing_message,
         followup_closing_message: inbox.followup_closing_message, round_robin_group_id: inbox.round_robin_group_id,
@@ -164,6 +166,14 @@ export default function SettingsInboxDetail() {
                     })}
                   </div>
                 ), 'Use cores bem diferentes pra cada número.')}
+              </div>
+              <div style={{ marginTop: 14 }}>
+                {field('Funil de entrada', (
+                  <select value={inbox.entry_stage_id || ''} onChange={e => set({ entry_stage_id: e.target.value ? Number(e.target.value) : null })} style={inputStyle}>
+                    <option value="">Nenhum (contato novo fica sem funil)</option>
+                    {funis.map(p => <optgroup key={p.id} label={p.name}>{p.pipeline_stages.filter((s: any) => s.kind === 'normal').map((s: any) => <option key={s.id} value={s.id}>{p.name} › {s.name}</option>)}</optgroup>)}
+                  </select>
+                ), 'Contato novo que chama por este número, e quem recebe disparo por ele, cai nesta etapa. As automações da etapa rodam normalmente.')}
               </div>
               <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 Como a equipe vai ver:

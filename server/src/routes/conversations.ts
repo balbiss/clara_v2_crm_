@@ -7,6 +7,7 @@ import { conversations, contacts, inboxes, messages, scheduledMessages, conversa
 import { requireAuth, isOwner, isFullPortfolio, visibleContactsWhere, type User } from '../middleware/auth.js';
 import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, type Conversation } from '../lib/conversations.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
+import { entrarNoFunilDaCaixa } from '../lib/pipelines.js';
 import { createMessage, messageStatusValue, messagePayload, rebroadcast } from '../lib/messages.js';
 import { triggerOnConversationClosed } from '../lib/salesbot.js';
 import { messagingService } from '../lib/waha.js';
@@ -51,6 +52,7 @@ conversationsRouter.get('/conversations', async (req, res) => {
 conversationsRouter.post('/conversations', async (req, res) => {
   const u = req.user!;
   let contact: typeof contacts.$inferSelect | null = null;
+  let contatoNovo = false;
   if (req.body.contact_id) {
     // da carteira dela ou sem responsável (a conversa fica com quem iniciou)
     [contact] = await db.select().from(contacts).where(and(eq(contacts.id, Number(req.body.contact_id)), or(await visibleContactsWhere(u), and(eq(contacts.accountId, u.accountId!), isNull(contacts.userId))))).limit(1);
@@ -71,6 +73,7 @@ conversationsRouter.post('/conversations', async (req, res) => {
       if (!vis && existente.userId) return res.status(403).json({ error: 'fora_da_carteira', message: `Esse número já é de ${existente.name || 'uma revendedora'}, que está em outra carteira.` });
       contact = existente;
     } else {
+      contatoNovo = true;
       contact = await createContact({ accountId: u.accountId!, phone: `+${digitos}`, name: String(req.body.name ?? '').trim() || `+${digitos}`, userId: u.id, source: 'WhatsApp' });
     }
   }
@@ -86,6 +89,7 @@ conversationsRouter.post('/conversations', async (req, res) => {
     else [inbox] = await db.select().from(inboxes).where(and(eq(inboxes.accountId, u.accountId!), inArray(inboxes.provider, WHATSAPP_PROVIDERS))).orderBy(asc(inboxes.id)).limit(1);
   }
   if (!inbox) return res.status(422).json({ error: 'sem_caixa_conectada', message: 'Nenhuma caixa de WhatsApp conectada nesta conta ainda.' });
+  if (contatoNovo) await entrarNoFunilDaCaixa(inbox, contact.id).catch(e => console.error('Funil de entrada —', e.message));
 
   let [conv] = await db.select().from(conversations).where(and(eq(conversations.contactId, contact.id), eq(conversations.inboxId, inbox.id))).orderBy(asc(conversations.id)).limit(1);
   if (!conv) {

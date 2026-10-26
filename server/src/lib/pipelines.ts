@@ -328,6 +328,21 @@ async function runAction(t: Trigger, card: Card, contact: Contact, chainDepth: n
   }
 }
 
+/** Funil de entrada da caixa (Kommo "leads de entrada" por canal): põe o contato na etapa escolhida na
+ *  caixa, se ainda não está naquele funil, e roda os gatilhos da etapa. Sem etapa configurada, nada. */
+export async function entrarNoFunilDaCaixa(inbox: { entryStageId: number | null; accountId: number | null }, contactId: number) {
+  if (!inbox.entryStageId || !inbox.accountId) return;
+  const [st] = await db.select({ id: pipelineStages.id, pipelineId: pipelineStages.pipelineId, system: pipelines.system }).from(pipelineStages)
+    .innerJoin(pipelines, eq(pipelines.id, pipelineStages.pipelineId))
+    .where(and(eq(pipelineStages.id, inbox.entryStageId), eq(pipelines.accountId, inbox.accountId)));
+  if (!st || st.system) return;
+  const [novo] = await db.insert(pipelineCards).values({ pipelineId: st.pipelineId, pipelineStageId: st.id, contactId }).onConflictDoNothing().returning();
+  if (!novo) return; // já estava nesse funil
+  const [c] = await db.select({ n: contacts.name, p: contacts.phone }).from(contacts).where(eq(contacts.id, contactId));
+  void logEvent({ accountId: inbox.accountId, contactId, objectType: 'lead', objectId: novo.id, objectName: c?.n || c?.p || '', eventType: 'lead_created', after: (await stageLabel(st.id)).label });
+  await runEnterTriggers(novo);
+}
+
 /** Funil Consignado acompanha a régua: toda troca de contact.status põe o card do contato na etapa
  *  daquele status (criando o card se ainda não existe) e roda os gatilhos da etapa, como no Kommo. */
 export async function syncConsignadoCard(contact: Contact) {

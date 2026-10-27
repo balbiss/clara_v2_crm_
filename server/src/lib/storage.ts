@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import http from 'node:http';
+import https from 'node:https';
 import type { Readable } from 'node:stream';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadBucketCommand, CreateBucketCommand } from '@aws-sdk/client-s3';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -12,10 +14,18 @@ import { activeStorageAttachments, activeStorageBlobs } from '../db/schema.js';
 const bucket = process.env.MINIO_BUCKET || 'clara-crm';
 const SERVICE_NAME = 'minio';
 
+// conexões com o MinIO: mais vagas e tempo limite (em 27/10 as 50 vagas padrão ficaram presas por
+// downloads abandonados e nenhum áudio/foto carregava — ver routes/files.ts)
 export const s3 = new S3Client({
   endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:59040',
   region: 'us-east-1',
   forcePathStyle: true,
+  requestHandler: {
+    httpAgent: new http.Agent({ keepAlive: true, maxSockets: 200 }),
+    httpsAgent: new https.Agent({ keepAlive: true, maxSockets: 200 }),
+    connectionTimeout: 5000,
+    requestTimeout: 60000,
+  },
   credentials: {
     accessKeyId: process.env.MINIO_ACCESS_KEY || '',
     secretAccessKey: process.env.MINIO_SECRET_KEY || '',
@@ -106,8 +116,9 @@ export function verifyBlobSignature(id: number, sig: string): boolean {
   return sig.length === expected.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
 }
 
-export async function openBlob(blob: Blob): Promise<Readable> {
-  const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: blob.key }));
+/** Abre o arquivo no MinIO (inteiro ou só um pedaço — "bytes=ini-fim", usado pelo player de áudio/vídeo). */
+export async function openBlob(blob: Blob, range?: string): Promise<Readable> {
+  const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: blob.key, ...(range ? { Range: range } : {}) }));
   return obj.Body as Readable;
 }
 

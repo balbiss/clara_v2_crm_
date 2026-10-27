@@ -52,7 +52,7 @@ settingsRouter.put('/workspace_settings', requireAuth, requireOwner, async (req,
 // --- perfil do próprio usuário ------------------------------------------------------------------
 settingsRouter.get('/profile', requireAuth, async (req, res) => {
   const u = req.user!;
-  res.json({ id: u.id, first_name: u.firstName, last_name: u.lastName, email: u.email, phone: u.phone, role: roleName(u.role) });
+  res.json({ id: u.id, first_name: u.firstName, last_name: u.lastName, email: u.email, phone: u.phone, role: roleName(u.role), permissions: u.permissions ?? {} });
 });
 settingsRouter.put('/profile', requireAuth, async (req, res) => {
   const p = req.body?.profile ?? {};

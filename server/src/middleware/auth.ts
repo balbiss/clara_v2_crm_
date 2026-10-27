@@ -57,6 +57,13 @@ export function requireFullPortfolio(req: Request, res: Response, next: NextFunc
   if (!req.user || !isFullPortfolio(req.user)) return forbidden(res, 'Acesso restrito a gerência/diretoria.');
   next();
 }
+// Disparos: gerência/diretoria sempre; consultora só se a diretoria ligou "Fazer disparos" no usuário
+// (aí ela dispara só pra própria carteira e pelos números que atende — routes/disparos.ts)
+export const canBroadcast = (u: User) => isFullPortfolio(u) || hasPermission(u, 'broadcast');
+export function requireBroadcast(req: Request, res: Response, next: NextFunction) {
+  if (!req.user || !canBroadcast(req.user)) return forbidden(res, 'Disparos não liberados para este usuário.');
+  next();
+}
 export function requireFinance(req: Request, res: Response, next: NextFunction) {
   if (!req.user || !isFinance(req.user)) return forbidden(res, 'Acesso restrito ao financeiro/diretoria.');
   next();

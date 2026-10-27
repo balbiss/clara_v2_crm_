@@ -50,10 +50,11 @@ const Agents = lazy(() => import('./pages/Agents'))
 // Mesmas regras do router/index.js da v1 (beforeEach).
 const FINANCE_BLOCKED = ['/carteira', '/tarefas']
 
-function Guard({ children, fullPortfolio, criticalConfig }: { children: ReactNode; fullPortfolio?: boolean; criticalConfig?: boolean }) {
+function Guard({ children, fullPortfolio, criticalConfig, broadcast }: { children: ReactNode; fullPortfolio?: boolean; criticalConfig?: boolean; broadcast?: boolean }) {
   const { pathname } = useLocation()
   if (!localStorage.getItem('auth_token')) return <Navigate to="/login" replace />
   const user = readUser()
+  if (broadcast && user?.role && !FULL_PORTFOLIO_ROLES.includes(user.role) && user.permissions?.broadcast !== true) return <Navigate to="/dashboard" replace />
   if (fullPortfolio && user?.role && !FULL_PORTFOLIO_ROLES.includes(user.role)) return <Navigate to="/dashboard" replace />
   if (criticalConfig && user?.role && !CRITICAL_CONFIG_ROLES.includes(user.role)) return <Navigate to="/dashboard" replace />
   if (user?.role === 'financeiro' && FINANCE_BLOCKED.includes(pathname)) return <Navigate to="/inativas" replace />
@@ -61,7 +62,7 @@ function Guard({ children, fullPortfolio, criticalConfig }: { children: ReactNod
 }
 
 const emMigracao = (title: string) => <ComingSoon title={title} description="Tela em migração para a v2 — ainda não portada." />
-const g = (el: ReactNode, opts: { fullPortfolio?: boolean; criticalConfig?: boolean } = {}) => <Guard {...opts}>{el}</Guard>
+const g = (el: ReactNode, opts: { fullPortfolio?: boolean; criticalConfig?: boolean; broadcast?: boolean } = {}) => <Guard {...opts}>{el}</Guard>
 
 function App() {
   return (
@@ -87,8 +88,8 @@ function App() {
             <Route path="conversas/inbox/:inboxId" element={g(<Conversas />)} />
             <Route path="conversas/:filter" element={g(<Conversas />)} />
             <Route path="chat-equipe" element={g(<TeamChat />)} />
-            <Route path="disparos" element={g(<Disparos />, { fullPortfolio: true })} />
-            <Route path="disparos/:id" element={g(<Disparos />, { fullPortfolio: true })} />
+            <Route path="disparos" element={g(<Disparos />, { broadcast: true })} />
+            <Route path="disparos/:id" element={g(<Disparos />, { broadcast: true })} />
             <Route path="contatos" element={g(<Contacts />)} />
             <Route path="contatos/:id" element={g(<ContactDetails />)} />
             <Route path="pipelines/todos-leads" element={g(emMigracao('Todos os leads'), { fullPortfolio: true })} />

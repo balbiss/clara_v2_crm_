@@ -5,6 +5,11 @@ import api from '../api'
 import { confirmBox, toast } from '../components/ui2'
 import { K, kBtn, kInput } from '../lib/kommo'
 import { ACTIVE_STATUS_LABELS, INACTIVE_STATUS_LABELS } from '../constants/regua'
+import { readUser } from '../lib/hooks'
+import { isFullPortfolio } from '../config/roles'
+
+// consultora com "Fazer disparos" ligado: só a própria carteira, só os disparos dela (o servidor garante)
+const ehConsultora = () => !isFullPortfolio(readUser())
 
 // Comunicações › Disparos: mensagem (ou robô) pra uma lista filtrada, saindo por um número escolhido,
 // um de cada vez, com intervalo aleatório, limite por dia e horário (motor em server/src/lib/disparos.ts).
@@ -66,7 +71,7 @@ function ListaDisparos() {
         <span style={{ flex: 1 }} />
         <button onClick={() => navigate('/disparos/novo')} style={kBtn('blue')}><Plus size={15} /> Novo disparo</button>
       </div>
-      <p style={{ color: K.muted, fontSize: 14, marginTop: 0 }}>Mensagem para várias pessoas de uma vez, uma de cada vez, com intervalo entre os envios pra proteger o número.</p>
+      <p style={{ color: K.muted, fontSize: 14, marginTop: 0 }}>Mensagem para várias pessoas de uma vez, uma de cada vez, com intervalo entre os envios pra proteger o número.{ehConsultora() && ' Aqui aparecem só os disparos que você criou, e eles vão só pra revendedoras da sua carteira.'}</p>
       {lista === null ? <p style={{ color: K.muted }}>Carregando…</p> : !lista.length ? (
         <div style={{ ...card, textAlign: 'center', color: K.muted, padding: 40 }}>Nenhum disparo ainda.</div>
       ) : lista.map(b => (
@@ -258,6 +263,7 @@ function NovoDisparo() {
             </div>
             {listaRes && <div style={{ marginTop: 10, padding: '8px 12px', background: '#fcf0f3', borderRadius: 3, fontSize: 13.5 }}>
               <b>{listaRes.total}</b> número(s) prontos: {listaRes.existentes} já estavam no CRM, {listaRes.criados} novo(s) (com a etiqueta LISTA UPLOAD).
+              {listaRes.outra_carteira > 0 && <div style={{ marginTop: 4 }}>{listaRes.outra_carteira} número(s) ficaram de fora porque são da carteira de outra consultora.</div>}
               {listaRes.n_invalidos > 0 && <div style={{ color: '#c62828', marginTop: 4 }}>{listaRes.n_invalidos} linha(s) sem número válido: {listaRes.invalidos.join(' | ')}</div>}
             </div>}
             <p style={{ fontSize: 12.5, color: K.muted, marginBottom: 0 }}>Antes de cada envio o sistema confere se o número tem WhatsApp — quem não tem é pulado sozinho. Quem pediu pra não receber disparos também fica de fora.</p>
@@ -272,8 +278,10 @@ function NovoDisparo() {
           <Multi valor={f.tag_ids} onChange={v => set('tag_ids', v)} vazio="Nenhuma etiqueta" opcoes={opt.tags.map((t: any) => [t.id, t.name])} />
           <label style={lbl}>Não tem a etiqueta</label>
           <Multi valor={f.sem_tag_ids} onChange={v => set('sem_tag_ids', v)} vazio="Nenhuma etiqueta" opcoes={opt.tags.map((t: any) => [t.id, t.name])} />
+          {ehConsultora() ? <p style={{ fontSize: 13.5, margin: '12px 0 0', padding: '8px 12px', background: '#fcf0f3', borderRadius: 3 }}>O disparo vai só pra revendedoras da <b>sua carteira</b>.</p> : <>
           <label style={lbl}>Carteira de</label>
           <Multi valor={f.user_ids} onChange={v => set('user_ids', v)} vazio="" opcoes={opt.agents.map((a: any) => [a.id, nomeAgente(a)])} />
+          </>}
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 220px' }}><label style={lbl}>Cidade</label><input value={f.cidade} onChange={e => set('cidade', e.target.value)} placeholder="Qualquer cidade" style={kInput} /></div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, height: 36 }}><input type="checkbox" checked={f.aniversario_mes} onChange={e => set('aniversario_mes', e.target.checked)} /> Só aniversariantes do mês</label>
@@ -343,9 +351,9 @@ function NovoDisparo() {
           </div>
           <label style={lbl}>Ritmo (protege o número)</label>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', fontSize: 14 }}>
-            De <input type="number" min={20} value={ritmo.min} onChange={e => setRitmo({ ...ritmo, min: Number(e.target.value) })} style={{ ...kInput, width: 70 }} />
+            De <input type="number" min={ehConsultora() ? 30 : 20} value={ritmo.min} onChange={e => setRitmo({ ...ritmo, min: Number(e.target.value) })} style={{ ...kInput, width: 70 }} />
             a <input type="number" min={20} value={ritmo.max} onChange={e => setRitmo({ ...ritmo, max: Number(e.target.value) })} style={{ ...kInput, width: 70 }} /> segundos entre envios ·
-            até <input type="number" min={1} max={1000} value={ritmo.limite} onChange={e => setRitmo({ ...ritmo, limite: Number(e.target.value) })} style={{ ...kInput, width: 80 }} /> por dia ·
+            até <input type="number" min={1} max={ehConsultora() ? 200 : 1000} value={ritmo.limite} onChange={e => setRitmo({ ...ritmo, limite: ehConsultora() ? Math.min(200, Number(e.target.value)) : Number(e.target.value) })} style={{ ...kInput, width: 80 }} /> por dia ·
             das <input type="number" min={0} max={23} value={ritmo.inicio} onChange={e => setRitmo({ ...ritmo, inicio: Number(e.target.value) })} style={{ ...kInput, width: 60 }} />h
             às <input type="number" min={1} max={24} value={ritmo.fim} onChange={e => setRitmo({ ...ritmo, fim: Number(e.target.value) })} style={{ ...kInput, width: 60 }} />h
           </div>

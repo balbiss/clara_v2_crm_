@@ -1,5 +1,6 @@
 // Menu da Clara (mesmas telas e mesmas travas de perfil da v1), no formato de navegação do v2.
-export type NavRule = 'all' | 'notFinance' | 'fullPortfolio' | 'critical'
+// broadcast = Disparos: gerência/diretoria, ou quem tem "Fazer disparos" ligado no usuário
+export type NavRule = 'all' | 'notFinance' | 'fullPortfolio' | 'critical' | 'broadcast'
 export interface NavItem { path: string; label: string; group: 'menu' | 'gestao' | 'ferramentas' | 'config'; rule: NavRule; badge?: 'conversas' | 'equipe' }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -32,9 +33,10 @@ export const NAV_ITEMS: NavItem[] = [
 
 export const GROUP_LABELS: Record<NavItem['group'], string> = { menu: 'Menu', gestao: 'Gestão', ferramentas: 'Ferramentas', config: 'Configurações' }
 
-export function allowed(rule: NavRule, role: string) {
+export function allowed(rule: NavRule, role: string, perms?: Record<string, unknown> | null) {
   if (rule === 'notFinance') return role !== 'financeiro'
   if (rule === 'fullPortfolio') return role === 'gerente' || role === 'diretoria'
+  if (rule === 'broadcast') return role === 'gerente' || role === 'diretoria' || perms?.broadcast === true
   if (rule === 'critical') return role === 'diretoria'
   return true
 }

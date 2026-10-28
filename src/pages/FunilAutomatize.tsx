@@ -190,7 +190,7 @@ function TriggerForm({ pipes, pipe, stage, trigger, tags, agents, flows, fields,
     <Modal width={560} title={trigger ? 'Editar gatilho' : 'Adicionar gatilho'} subtitle={`Etapa: ${stage.name}`} onClose={onClose}
       footer={<><button onClick={onClose} style={kBtn('ghost')}>Cancelar</button><button disabled={saving} onClick={save} style={kBtn('blue')}>{saving ? 'Salvando…' : 'Salvar'}</button></>}>
       <label style={{ ...lbl, marginTop: 0 }}>Executar</label>
-      {sel(event, setEvent, [['enter', 'Quando movido para ou criado nesta etapa'], ['client_reply', 'Quando o cliente responder'], ['schedule', 'Em um horário agendado'], ['date_field', 'Antes/depois de uma data do lead']])}
+      {sel(event, setEvent, [['enter', 'Quando movido para ou criado nesta etapa'], ['client_reply', 'Quando o cliente responder'], ['agent_message', 'Quando a equipe mandar mensagem'], ['schedule', 'Em um horário agendado'], ['date_field', 'Antes/depois de uma data do lead']])}
 
       {event === 'enter' && (
         <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>

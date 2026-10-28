@@ -22,7 +22,7 @@ type Trigger = typeof pipelineTriggers.$inferSelect;
 type Contact = typeof contacts.$inferSelect;
 
 export const MAX_CHAIN = 5;
-export const EVENTS = ['enter', 'client_reply', 'schedule', 'date_field'] as const;
+export const EVENTS = ['enter', 'client_reply', 'agent_message', 'schedule', 'date_field'] as const;
 // ganchos do Agente de IA (lib/aiAgent registra; evita import circular)
 const aiHooks: { start: (contactId: number, agentId: number | null) => Promise<unknown>; stop: (contactId: number, agentId: number | null) => Promise<unknown> } = { start: async () => {}, stop: async () => {} };
 export function setAiAgentHooks(h: typeof aiHooks) { Object.assign(aiHooks, h); }
@@ -139,7 +139,7 @@ export async function moveCard(card: Card, stageId: number, chainDepth = 0, pipe
   });
   const closing = stage?.kind === 'won' || stage?.kind === 'lost';
   const [moved] = await db.update(pipelineCards).set({
-    pipelineId, pipelineStageId: stageId, stageEnteredAt: new Date(), replyTriggeredAt: null,
+    pipelineId, pipelineStageId: stageId, stageEnteredAt: new Date(), replyTriggeredAt: null, agentMessageTriggeredAt: null,
     closedAt: closing ? new Date() : null, ...(stage?.kind === 'lost' ? {} : { lossReason: null }), updatedAt: new Date(),
   }).where(eq(pipelineCards.id, card.id)).returning();
   await db.update(pipelineTriggerRuns).set({ status: 'cancelled', updatedAt: new Date() })
@@ -173,14 +173,24 @@ export async function runEnterTriggers(card: Card, chainDepth = 0) {
 
 /** Gatilhos "quando o cliente responder" de todas as etapas onde o contato está — 1 vez por permanência. */
 export async function onClientReply(contactId: number) {
+  await gatilhosDeMensagem(contactId, 'client_reply');
+}
+
+/** Gatilhos "quando a equipe mandar mensagem" (pelo CRM ou pelo celular) — ex.: Novo Lead → Primeiro contato. */
+export async function onAgentMessage(contactId: number) {
+  await gatilhosDeMensagem(contactId, 'agent_message');
+}
+
+async function gatilhosDeMensagem(contactId: number, evento: 'client_reply' | 'agent_message') {
+  const coluna = evento === 'client_reply' ? pipelineCards.replyTriggeredAt : pipelineCards.agentMessageTriggeredAt;
   const cards = await db.select().from(pipelineCards).where(eq(pipelineCards.contactId, contactId));
   for (const card of cards) {
     const triggers = await db.select().from(pipelineTriggers)
-      .where(and(eq(pipelineTriggers.pipelineStageId, card.pipelineStageId), eq(pipelineTriggers.active, true), eq(pipelineTriggers.event, 'client_reply')))
+      .where(and(eq(pipelineTriggers.pipelineStageId, card.pipelineStageId), eq(pipelineTriggers.active, true), eq(pipelineTriggers.event, evento)))
       .orderBy(asc(pipelineTriggers.position));
     if (!triggers.length) continue;
-    const claimed = await db.update(pipelineCards).set({ replyTriggeredAt: new Date() })
-      .where(and(eq(pipelineCards.id, card.id), sql`${pipelineCards.replyTriggeredAt} IS NULL`)).returning({ id: pipelineCards.id });
+    const claimed = await db.update(pipelineCards).set(evento === 'client_reply' ? { replyTriggeredAt: new Date() } : { agentMessageTriggeredAt: new Date() })
+      .where(and(eq(pipelineCards.id, card.id), sql`${coluna} IS NULL`)).returning({ id: pipelineCards.id });
     if (!claimed.length) continue;
     for (const t of triggers) await execute(t, card, 0);
   }

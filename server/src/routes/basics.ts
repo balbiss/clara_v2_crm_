@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
-import { and, asc, desc, eq, isNull, isNotNull, max, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, isNotNull, max, or, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { tags, notifications, messageTemplates, pushSubscriptions, roundRobinGroups, users, contacts, inboxes, notes, agendamentos, conversations, tarefas, inboxMembers, salesTeamMemberships, internalMessages } from '../db/schema.js';
 import { requireAuth, requireOwner, isFullPortfolio, roleName, roleValue, ROLES } from '../middleware/auth.js';
@@ -277,7 +277,9 @@ basicsRouter.post('/agents/:id/assign_unassigned_by_gerente', requireAuth, requi
   const u = await loadAgent(req, res);
   if (!u) return;
   if (!u.jueriGerenteId) return res.status(422).json({ error: 'sem_gerente_id', message: 'Esse agente não tem "ID do Gerente no Jueri" preenchido.' });
-  const where = and(eq(contacts.accountId, acc(req)), isNull(contacts.userId), sql`${contacts.customAttributes} ->> 'gerente_jueri_id' = ${u.jueriGerenteId}`);
+  // pode ter mais de um gerente do Jueri (ex.: Geovana = Vendas 6 e Vendas 10): "522041, 613730"
+  const ids = String(u.jueriGerenteId).split(/[,;\s]+/).filter(Boolean);
+  const where = and(eq(contacts.accountId, acc(req)), isNull(contacts.userId), inArray(sql`${contacts.customAttributes} ->> 'gerente_jueri_id'`, ids));
   // update_all na v1 (sem callbacks)
   const updated = await db.update(contacts).set({ userId: u.id }).where(where).returning({ id: contacts.id });
   res.json({ assigned_count: updated.length });

@@ -7,7 +7,7 @@ import { conversations, contacts, inboxes, messages, scheduledMessages, conversa
 import { requireAuth, isOwner, isFullPortfolio, visibleContactsWhere, type User } from '../middleware/auth.js';
 import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, type Conversation } from '../lib/conversations.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
-import { entrarNoFunilDaCaixa } from '../lib/pipelines.js';
+import { entrarNoFunilDaCaixa, onAgentMessage } from '../lib/pipelines.js';
 import { createMessage, messageStatusValue, messagePayload, rebroadcast } from '../lib/messages.js';
 import { triggerOnConversationClosed } from '../lib/salesbot.js';
 import { messagingService } from '../lib/waha.js';
@@ -364,6 +364,8 @@ conversationsRouter.post('/conversations/:conversation_id/messages', upload.sing
   broadcastConversations(u.accountId!, { event: 'message_created', conversation_id: conv.id, message: await messagePayload(message, attachment) });
 
   const [inbox] = conv.inboxId ? await db.select().from(inboxes).where(eq(inboxes.id, conv.inboxId)) : [];
+  // gatilho "quando a equipe mandar mensagem" (ex.: Novo Lead → Primeiro contato)
+  if (!isPrivate) void onAgentMessage(conv.contactId).catch(e => console.error('Gatilho agent_message falhou —', (e as Error).message));
   if (!isPrivate && inbox && WHATSAPP_PROVIDERS.includes(inbox.provider ?? '')) {
     // envio em segundo plano: a tela não fica esperando o WhatsApp (com a caixa lenta/caída o campo
     // ficava travado com o texto); se falhar, a mensagem vira "Não enviada" na conversa

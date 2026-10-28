@@ -504,6 +504,7 @@ export const pipelineCards = pgTable('pipeline_cards', {
   position: integer('position').default(0).notNull(),
   updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
   replyTriggeredAt: timestamp('reply_triggered_at', { precision: 6, mode: 'date' }),
+  agentMessageTriggeredAt: timestamp('agent_message_triggered_at', { precision: 6, mode: 'date' }),
   // 0001_funis_kommo
   stageEnteredAt: timestamp('stage_entered_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
   value: numeric('value', { precision: 14, scale: 2 }).default('0').notNull(),

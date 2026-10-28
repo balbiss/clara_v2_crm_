@@ -222,8 +222,9 @@ async function passo(b: typeof broadcasts.$inferSelect): Promise<boolean> {
     [contact] = await db.update(contacts).set({ userId: b.assigneeId, updatedAt: new Date() }).where(eq(contacts.id, contact.id)).returning();
   }
 
-  // conversa: a que já existe nesse número; nova nasce fechada (reabre quando a pessoa responder)
-  const conv = await findOrCreateConversation(contact.id, inbox.id, { accountId: b.accountId, status: convStatusValue('resolved') ?? 2, userId: contact.userId, source: 'whatsapp' });
+  // conversa: a que já existe nesse número, aberta na caixa de entrada (Bel, 28/10: fechada não aparecia)
+  const conv = await findOrCreateConversation(contact.id, inbox.id, { accountId: b.accountId, status: 0, userId: contact.userId, source: 'whatsapp' });
+  if (conv.status !== 0) await db.update(conversations).set({ status: 0, snoozedUntil: null }).where(eq(conversations.id, conv.id));
   if (!conv.userId && contact.userId) await db.update(conversations).set({ userId: contact.userId }).where(eq(conversations.id, conv.id));
 
   if (b.flowId) {

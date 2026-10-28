@@ -104,11 +104,23 @@ export default function Funis() {
     move(id, Number(target))
   }
 
+  // arrastar o fundo do quadro (fora dos cards e botões) rola pros lados, como no Kommo
+  const boardRef = useRef<HTMLDivElement>(null)
+  const arrastarQuadro = (e: React.MouseEvent) => {
+    const el = boardRef.current
+    if (!el || e.button !== 0 || (e.target as HTMLElement).closest('[draggable="true"], button, input, a, select, textarea')) return
+    const x0 = e.clientX, s0 = el.scrollLeft
+    const mover = (ev: MouseEvent) => { el.scrollLeft = s0 - (ev.clientX - x0) }
+    const soltar = () => { window.removeEventListener('mousemove', mover); window.removeEventListener('mouseup', soltar); el.style.cursor = 'grab' }
+    el.style.cursor = 'grabbing'
+    window.addEventListener('mousemove', mover); window.addEventListener('mouseup', soltar)
+  }
+
   if (loading) return <p style={{ fontFamily: K.font, color: K.muted, padding: 20 }}>Carregando funis…</p>
   if (!pipe) return <p style={{ fontFamily: K.font, padding: 20 }}>Nenhum funil ainda. {isOwner() && 'Crie o primeiro em Automatize.'}</p>
 
   return (
-    <div className="k-fullbleed" style={{ fontFamily: K.font, color: K.text, margin: -24, minHeight: 'calc(100vh - 0px)', background: K.boardBg, display: 'flex', flexDirection: 'column' }}>
+    <div className="k-fullbleed" style={{ fontFamily: K.font, color: K.text, margin: -24, height: 'calc(100vh - var(--top-h, 0px))', overflow: 'hidden', background: K.boardBg, display: 'flex', flexDirection: 'column' }}>
       {/* barra do topo, igual ao Kommo */}
       <div className="k-topbar" style={{ minHeight: 64, background: '#fff', borderBottom: `1px solid ${K.line}`, display: 'flex', alignItems: 'center', gap: 14, padding: '0 20px', flex: 'none', flexWrap: 'wrap' }}>
         <div ref={menuRef} style={{ position: 'relative' }}>
@@ -136,8 +148,9 @@ export default function Funis() {
         <button onClick={() => setNovo({})} style={kBtn('blue')}>Novo lead</button>
       </div>
 
-      {/* colunas */}
-      <div style={{ flex: 1, display: 'flex', gap: 0, overflowX: 'auto', padding: '0 12px', minHeight: 0 }}>
+      {/* colunas: o quadro tem a altura da tela (cada coluna rola por dentro), então a barra de rolagem
+          lateral fica sempre visível embaixo; dá também pra arrastar o fundo pra andar pros lados (Bel, 28/10) */}
+      <div ref={boardRef} className="k-board" onMouseDown={arrastarQuadro} style={{ flex: 1, display: 'flex', gap: 0, overflowX: 'auto', overflowY: 'hidden', padding: '0 12px', minHeight: 0, cursor: 'grab' }}>
         {stages.map((s: any) => {
           const list = byStage[s.id] || []
           const total = list.reduce((n: number, c: any) => n + (c.value || 0), 0)

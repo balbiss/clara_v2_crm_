@@ -234,6 +234,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #c8506a
 
 /* topos das telas no padrão Kommo: em tela pequena quebram linha em vez de passar da borda */
 .k-tabs::-webkit-scrollbar { display: none; }
+/* quadro dos funis: barra de rolagem lateral mais grossa e escura, fácil de pegar */
+.k-board::-webkit-scrollbar { height: 16px; }
+.k-board::-webkit-scrollbar-track { background: rgba(0,0,0,.06); }
+.k-board::-webkit-scrollbar-thumb { background: #b5546d; border: 3px solid transparent; background-clip: padding-box; }
+.k-board { scrollbar-color: #b5546d rgba(0,0,0,.06); }
 @media (max-width: 1400px) { .k-hide-narrow { display: none; } }
 @media (max-width: 900px) {
   /* telas de ponta a ponta (funil, Automatize, calendário): margem igual ao padding do celular */

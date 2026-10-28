@@ -62,7 +62,9 @@ export async function paresDuplicados() {
   return await db.execute(sql`
     SELECT DISTINCT ON (w.id) w.id AS origem, j.id AS destino FROM contacts w
     JOIN contacts j ON j.account_id = w.account_id AND j.id <> w.id AND j.id_jueri IS NOT NULL AND ${SEM_GRUPO('j')}
-    WHERE w.id_jueri IS NULL AND ${SEM_GRUPO('w')} AND ${mesmoTelefoneSql(sql.raw('w.phone'), sql.raw('j.phone'))}
+    WHERE w.id_jueri IS NULL AND ${SEM_GRUPO('w')} AND (${mesmoTelefoneSql(sql.raw('w.phone'), sql.raw('j.phone'))}
+      -- 2º/3º telefone do cadastro do Jueri também vale
+      OR EXISTS (SELECT 1 FROM reseller_phones rp WHERE rp.contact_id = j.id AND ${mesmoTelefoneSql(sql.raw('w.phone'), sql.raw('rp.phone'))}))
     ORDER BY w.id, j.id`) as unknown as { origem: number; destino: number }[];
 }
 

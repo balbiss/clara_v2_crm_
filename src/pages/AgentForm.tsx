@@ -112,8 +112,8 @@ export default function AgentForm() {
           {field('Perfil de acesso', radioCard(ROLES, form.role, v => set({ role: v })))}
           {(form.role === 'gerente' || form.role === 'consultor') && field(<>ID do gerente no Jueri (opcional)</>, (
             <>
-              <input value={form.jueri_gerente_id} onChange={e => set({ jueri_gerente_id: e.target.value })} placeholder="Ex.: 42" style={inputStyle} />
-              <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, margin: '6px 0 0' }}>Se preenchido, toda revendedora nova sincronizada do Jueri sob esse gerente já entra atribuída a esta pessoa.</p>
+              <input value={form.jueri_gerente_id} onChange={e => set({ jueri_gerente_id: e.target.value })} placeholder="Ex.: 42 (mais de um: 42, 57)" style={inputStyle} />
+              <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, margin: '6px 0 0' }}>Se preenchido, toda revendedora nova sincronizada do Jueri sob esse gerente já entra atribuída a esta pessoa. Mais de um gerente: separe por vírgula.</p>
               {editing && form.jueri_gerente_id && <button type="button" onClick={assignRetro} disabled={retro} style={btn('soft', { marginTop: 8, fontSize: 12.5 })}>{retro ? 'Aplicando…' : 'Atribuir revendedoras já existentes sem responsável'}</button>}
             </>
           ))}

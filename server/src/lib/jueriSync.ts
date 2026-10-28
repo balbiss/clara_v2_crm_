@@ -83,7 +83,7 @@ export class JueriSync {
   static async paraConta(accountId: number) {
     const [a] = await db.select({ min: accounts.minPecasAtiva }).from(accounts).where(eq(accounts.id, accountId));
     const s = new JueriSync(accountId, a?.min ?? 25);
-    for (const u of await db.select({ id: users.id, g: users.jueriGerenteId }).from(users).where(and(eq(users.accountId, accountId), isNotNull(users.jueriGerenteId)))) if (u.g) s.gerenteUser.set(String(u.g), u.id);
+    for (const u of await db.select({ id: users.id, g: users.jueriGerenteId }).from(users).where(and(eq(users.accountId, accountId), isNotNull(users.jueriGerenteId)))) for (const g of String(u.g || '').split(/[,;\s]+/).filter(Boolean)) s.gerenteUser.set(g, u.id); // vários gerentes: "522041, 613730"
     return s;
   }
 

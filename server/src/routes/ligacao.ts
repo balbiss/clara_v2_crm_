@@ -135,6 +135,14 @@ ligacaoRouter.post('/inboxes/:id/ligacao/conectar', requireOwner, async (req, re
   const i = await caixaDaConta(req, res); if (!i) return;
   try {
     let sid = i.callSessionId;
+    // sessão que já existe no AstraCalls (ex.: número conectado antes, no teste): só vincula
+    const existente = String(req.body?.session_id || '');
+    if (!sid && existente) {
+      const s = (await astra<{ sessions: { id: string }[] }>('GET', '/api/sessions')).sessions.find(x => x.id === existente);
+      if (!s) return erro(res, 404, 'Sessão de ligação não encontrada.');
+      await db.update(inboxes).set({ callSessionId: existente }).where(eq(inboxes.id, i.id));
+      return res.json({ ok: true });
+    }
     if (!sid) {
       sid = (await astra<{ id: string }>('POST', '/api/sessions', { name: `${i.name} (CRM)` })).id;
       await db.update(inboxes).set({ callSessionId: sid }).where(eq(inboxes.id, i.id));

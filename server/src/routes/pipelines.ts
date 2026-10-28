@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { and, asc, eq, inArray, max, sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { contacts, contactTags, flows, lossReasons, pipelineCards, pipelineStages, pipelineTriggers, pipelines, tags, tarefas, users } from '../db/schema.js';
-import { requireAuth, requireOwner, isFullPortfolio, hasPermission, type User } from '../middleware/auth.js';
+import { requireAuth, requireOwner, isFullPortfolio, isOwner, hasPermission, type User } from '../middleware/auth.js';
 import { railsJson } from '../lib/serialize.js';
 import { createContact, updateContact } from '../lib/contacts.js';
 import { aplicarAosQueJaEstao, execute, moveCard, runEnterTriggers, validateTrigger } from '../lib/pipelines.js';
@@ -40,7 +40,11 @@ const triggerJson = (t: typeof pipelineTriggers.$inferSelect) => railsJson(t);
 // --- funis ---------------------------------------------------------------------------------------
 
 pipelinesRouter.get('/pipelines', async (req, res) => {
-  const ps = await db.select().from(pipelines).where(eq(pipelines.accountId, acc(req))).orderBy(asc(pipelines.position), asc(pipelines.id));
+  let ps = await db.select().from(pipelines).where(eq(pipelines.accountId, acc(req))).orderBy(asc(pipelines.position), asc(pipelines.id));
+  // funis que a pessoa vê (Configurações › Usuários › "Funis que vê"; Bel, 28/10): sem lista = todos.
+  // Diretoria sempre vê todos (configura as automações).
+  const funis = (req.user!.permissions as { funis?: unknown } | null)?.funis;
+  if (!isOwner(req.user!) && Array.isArray(funis) && funis.length) ps = ps.filter(p => funis.map(Number).includes(p.id));
   if (!ps.length) return res.json([]);
   const ss = await db.select().from(pipelineStages).where(inArray(pipelineStages.pipelineId, ps.map(p => p.id))).orderBy(asc(pipelineStages.position), asc(pipelineStages.id));
   const ts = ss.length ? await db.select().from(pipelineTriggers).where(inArray(pipelineTriggers.pipelineStageId, ss.map(s => s.id))).orderBy(asc(pipelineTriggers.position), asc(pipelineTriggers.id)) : [];

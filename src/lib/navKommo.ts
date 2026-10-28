@@ -51,10 +51,11 @@ export const KOMMO_SETTINGS: KNavLeaf[] = [
 
 /** Menu filtrado pelo perfil; grupos que ficam vazios somem. */
 type NavInbox = { id: number; name: string; provider?: string; badge_short?: string; badge_color?: string; connected?: boolean }
-export function kommoNavFor(role: string, pipelines: { slug: string; name: string }[], inboxes: NavInbox[] = [], perms?: Record<string, unknown> | null) {
+export function kommoNavFor(role: string, pipelines: { slug: string; name: string }[], inboxes: NavInbox[] = [], perms?: Record<string, unknown> | null, consignadoVisivel = true) {
   return KOMMO_NAV.map(g => {
     if (!g.children) return allowed(g.rule || 'all', role, perms) ? g : null
     let children = g.children.filter(c => allowed(c.rule, role, perms))
+    if (g.id === 'pipelines' && !consignadoVisivel) children = children.filter(c => c.path !== '/funil') // "Funis que vê" sem o Consignado
     if (g.id === 'pipelines') children = [...children, ...pipelines.map(p => ({ path: `/pipelines/${p.slug}`, label: p.name, rule: 'all' as NavRule }))]
     if (g.id === 'comunicacoes') {
       // cada número de WhatsApp (só os que a pessoa acessa) logo abaixo de Conversas, com a cor da caixa

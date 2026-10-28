@@ -36,11 +36,13 @@ export default function AgentForm() {
   const [loading, setLoading] = useState(editing)
   const [showPw, setShowPw] = useState(false)
   const [groups, setGroups] = useState<any[]>([])
+  const [funis, setFunis] = useState<any[]>([])
   const [retro, setRetro] = useState(false)
   const set = (patch: any) => setForm((f: any) => ({ ...f, ...patch }))
 
   useEffect(() => {
     api.get('/round_robin_groups').then(({ data }) => setGroups(data)).catch(e => console.error('Erro ao carregar grupos de rodízio', e))
+    api.get('/pipelines').then(({ data }) => setFunis(data)).catch(() => {})
     if (!id) return
     api.get(`/agents/${id}`).then(({ data }) => {
       setForm({
@@ -130,6 +132,21 @@ export default function AgentForm() {
             </select>
           ))}
         </Section>
+
+        {form.role !== 'diretoria' && funis.length > 0 && (
+          <Section title="Funis que vê" description="Marque só os funis que essa pessoa usa: os outros somem do menu e da hora de mover o card. Nenhum marcado = vê todos.">
+            {funis.map((p: any) => {
+              const lista: number[] = Array.isArray(form.permissions.funis) ? (form.permissions.funis as any) : []
+              const on = lista.includes(p.id)
+              return (
+                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: '1px solid var(--line)', cursor: 'pointer', fontSize: 13.5 }}>
+                  <input type="checkbox" checked={on} onChange={() => set({ permissions: { ...form.permissions, funis: (on ? lista.filter(x => x !== p.id) : [...lista, p.id]) as any } })} />
+                  {p.system ? `${p.name} (régua das revendedoras)` : p.name}
+                </label>
+              )
+            })}
+          </Section>
+        )}
 
         <Section title="Permissões de acesso" description="O que esta pessoa pode ver ou fazer, além do perfil escolhido.">
           {PERMS.map(p => (

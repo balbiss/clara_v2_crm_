@@ -252,7 +252,8 @@ export function AppShell() {
   // menu no formato do Kommo (lib/navKommo.ts): grupos com seta que abrem/fecham, badge vermelho,
   // item ativo em azul-claro. Configurações / Ajuda / Notificações ficam no rodapé, igual ao Kommo.
   // Consignado de sistema já está no menu como a régua (/funil) — não repete
-  const nav = kommoNavFor(role, pipelinesSnap.pipelines.filter((p: any) => !p.system), inboxesSnap.inboxes, currentUser.permissions)
+  const nav = kommoNavFor(role, pipelinesSnap.pipelines.filter((p: any) => !p.system), inboxesSnap.inboxes, currentUser.permissions,
+    role === 'diretoria' || !(currentUser.permissions?.funis?.length) || !pipelinesSnap.pipelines.length || pipelinesSnap.pipelines.some((p: any) => p.system))
   const badgeFor = (b?: string) => (b === 'conversas' ? unreadConversas : b === 'equipe' ? chatSnap.totalUnread : 0)
   const isActive = (path: string) => location.pathname === path || (path === '/conversas' && location.pathname.startsWith('/conversas') && !location.pathname.startsWith('/conversas/inbox/')) || ((path.startsWith('/pipelines/') || path === '/disparos') && location.pathname.startsWith(path + '/'))
   const groupActive = (g: { path?: string; children?: { path: string }[] }) => (g.path ? isActive(g.path) : (g.children || []).some(c => isActive(c.path)))

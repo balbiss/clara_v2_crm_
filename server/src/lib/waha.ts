@@ -130,7 +130,10 @@ export class WahaService {
         let endpoint = '/api/sendFile';
         if (contentType.startsWith('image/')) endpoint = '/api/sendImage';
         else if (contentType.startsWith('audio/')) { endpoint = '/api/sendVoice'; payload.ptt = true; delete payload.caption; }
-        else if (contentType.startsWith('video/') && !videoComoArquivo) endpoint = '/api/sendVideo';
+        // vídeo "de verdade" (sendVideo) só funciona na imagem devlikeapro/waha:chrome; a WAHA da Clara não é
+        // essa (devolve 422) — então vídeo vai como arquivo mp4, que abre e toca no celular.
+        // Com WAHA_SEND_VIDEO=1 (depois de trocar a imagem) volta a ir como vídeo.
+        else if (contentType.startsWith('video/') && !videoComoArquivo && process.env.WAHA_SEND_VIDEO === '1') endpoint = '/api/sendVideo';
         res = await this.request('POST', endpoint, payload, 120000);
         // imagem/vídeo que o WhatsApp recusa (HEIC, formato estranho, grande demais) vai como documento —
         // menos se a sessão caiu ("Session status is not as expected"): aí não adianta tentar de novo

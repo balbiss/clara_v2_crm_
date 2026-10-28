@@ -149,10 +149,14 @@ export const LIMITE_MAXIMO = 150;
 export const limiteDoNumero = (dias: number) => (dias < 7 ? 20 : dias < 14 ? 50 : dias < 21 ? 80 : dias < 28 ? 110 : LIMITE_MAXIMO);
 
 /** Texto do disparo pode sair? (null = pode) */
+// Texto diferente pra cada pessoa: nome + 1 variação, ou (prospecção, lista sem nome) 2 variações.
 export function problemaNoTexto(t: string): string | null {
-  if (!/\{(primeiro_nome|nome)\}/.test(t)) return 'Coloque o nome da pessoa na mensagem: {primeiro_nome}. Mensagem igual pra todo mundo é o que mais faz o WhatsApp banir o número.';
-  if (!/\{[^{}|]+\|[^{}]+\}/.test(t)) return 'Coloque pelo menos uma variação, ex.: {Oi|Olá|Oie}. Assim cada pessoa recebe um texto um pouco diferente.';
-  return null;
+  const variacoes = (t.match(/\{[^{}|]+\|[^{}]+\}/g) || []).length;
+  const temNome = /\{(primeiro_nome|nome)\}/.test(t);
+  if (temNome ? variacoes >= 1 : variacoes >= 2) return null;
+  return temNome
+    ? 'Coloque pelo menos uma variação, ex.: {Oi|Olá|Oie}. Assim cada pessoa recebe um texto um pouco diferente.'
+    : 'Mensagem igual pra todo mundo é o que mais faz o WhatsApp banir o número. Sem o nome da pessoa, coloque pelo menos 2 variações, ex.: {Oi|Olá|Oie}, tudo bem? {Vi seu interesse|Vim falar} sobre…';
 }
 
 /** Quanto o número ainda pode mandar hoje (soma de todos os disparos dele). */

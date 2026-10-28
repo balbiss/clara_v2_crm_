@@ -197,8 +197,14 @@ function NovoDisparo() {
   const [ritmo, setRitmo] = useState({ min: 45, max: 120, limite: 150, inicio: 8, fim: 20, cooldown: 0 })
   const [numero, setNumero] = useState<any>(null)
   // espelho da trava do servidor (lib/disparos.ts problemaNoTexto): texto igual pra todos derruba o número
-  const problemaTexto = (t: string) => !/\{(primeiro_nome|nome)\}/.test(t) ? 'Coloque o nome da pessoa: {primeiro_nome}. Mensagem igual pra todo mundo é o que mais faz o WhatsApp banir o número.'
-    : !/\{[^{}|]+\|[^{}]+\}/.test(t) ? 'Coloque pelo menos uma variação, ex.: {Oi|Olá|Oie}. Assim cada pessoa recebe um texto um pouco diferente.' : null
+  // nome + 1 variação, ou (prospecção, lista sem nome) 2 variações
+  const problemaTexto = (t: string) => {
+    const variacoes = (t.match(/\{[^{}|]+\|[^{}]+\}/g) || []).length
+    const temNome = /\{(primeiro_nome|nome)\}/.test(t)
+    if (temNome ? variacoes >= 1 : variacoes >= 2) return null
+    return temNome ? 'Coloque pelo menos uma variação, ex.: {Oi|Olá|Oie}. Assim cada pessoa recebe um texto um pouco diferente.'
+      : 'Mensagem igual pra todo mundo é o que mais faz o WhatsApp banir o número. Sem o nome da pessoa, coloque pelo menos 2 variações, ex.: {Oi|Olá|Oie}, tudo bem? {Vi seu interesse|Vim falar} sobre…'
+  }
   const [prev, setPrev] = useState<any>(null)
   const [opt, setOpt] = useState<any>({ pipes: [], tags: [], agents: [], flows: [], inboxes: [] })
   const [enviando, setEnviando] = useState(false)

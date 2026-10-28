@@ -79,6 +79,10 @@ export async function registrarChurns(agora = new Date()) {
   const ini = iniMes.toISOString().slice(0, 10), fim = fimMes.toISOString().slice(0, 10);
   const vespera = new Date(Date.UTC(y, m - 2, 0)).toISOString().slice(0, 10);
   const quando = `${fim}T23:59:59-03:00`;
+  // limites do mês no horário de Brasília: o churn é gravado 23:59 -03 do último dia, que em UTC já é o
+  // dia 1º seguinte — comparar com a data "pura" deixava o churn de fora e ele era gravado de novo toda hora
+  const desde = sql`(${ini}::date)::timestamp AT TIME ZONE 'America/Sao_Paulo'`;
+  const ate = sql`(${fim}::date + 1)::timestamp AT TIME ZONE 'America/Sao_Paulo'`;
   let n = 0;
   for (const acc of await db.select({ id: accounts.id, min: accounts.minPecasAtiva }).from(accounts)) {
     const pecasEm = (d: string) => sql`(SELECT COALESCE(SUM(${QUANTIDADE_EFETIVA_SQL}), 0) FROM pedidos WHERE pedidos.contact_id = c.id AND ${pedidoOpenAt(d)})`;
@@ -87,9 +91,9 @@ export async function registrarChurns(agora = new Date()) {
       WHERE c.account_id = ${acc.id} AND c.id_jueri IS NOT NULL AND c.desconsiderado = false
         AND EXISTS (SELECT 1 FROM pedidos p WHERE p.contact_id = c.id AND p.data_baixa BETWEEN ${ini}::date AND ${fim}::date)
         AND ${pecasEm(fim)} <= ${acc.min}
-        AND NOT EXISTS (SELECT 1 FROM lifecycle_events e WHERE e.contact_id = c.id AND e.event_type = 'churn' AND e.occurred_at >= ${ini}::date AND e.occurred_at < (${fim}::date + 1))
+        AND NOT EXISTS (SELECT 1 FROM lifecycle_events e WHERE e.contact_id = c.id AND e.event_type = 'churn' AND e.occurred_at >= ${desde} AND e.occurred_at < ${ate})
         AND COALESCE(
-          (SELECT e.event_type IN ('iniciada', 'reativacao') FROM lifecycle_events e WHERE e.contact_id = c.id AND e.event_type IN ('iniciada', 'churn', 'reativacao') AND e.occurred_at < (${fim}::date + 1) ORDER BY e.occurred_at DESC LIMIT 1),
+          (SELECT e.event_type IN ('iniciada', 'reativacao') FROM lifecycle_events e WHERE e.contact_id = c.id AND e.event_type IN ('iniciada', 'churn', 'reativacao') AND e.occurred_at < ${ate} ORDER BY e.occurred_at DESC LIMIT 1),
           ${pecasEm(vespera)} > ${acc.min})`) as unknown as { id: number; pecas_fim: number }[];
     for (const r of rows) {
       await db.insert(lifecycleEvents).values({ accountId: acc.id, contactId: Number(r.id), eventType: 'churn', occurredAt: new Date(quando), metadata: { pecas_abertas: Number(r.pecas_fim), mes: ini.slice(0, 7) } });

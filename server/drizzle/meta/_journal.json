@@ -148,6 +148,13 @@
       "when": 1793050000000,
       "tag": "0020_funil_entrada_caixa",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793060000000,
+      "tag": "0021_churn_duplicado",
+      "breakpoints": true
     }
   ]
 }

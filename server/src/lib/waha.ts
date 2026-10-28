@@ -1,4 +1,7 @@
 import { spawn } from 'node:child_process';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { cache } from './cache.js';
 import type { inboxes } from '../db/schema.js';
 
@@ -114,18 +117,29 @@ export class WahaService {
             filename = filename.replace(/\.\w+$/, '') + '.ogg';
           }
         }
+        // vídeo do iPhone (.mov/quicktime) e outros formatos: o WhatsApp só aceita mp4 (H.264) e a WAHA
+        // devolvia 422 — converte antes; se a conversão falhar, vai como arquivo (documento)
+        let videoComoArquivo = false;
+        if (contentType.startsWith('video/') && !/mp4/.test(contentType)) {
+          const mp4 = await convertToMp4(data);
+          if (mp4) { data = mp4; contentType = 'video/mp4'; filename = filename.replace(/\.\w+$/, '') + '.mp4'; }
+          else videoComoArquivo = true;
+        }
         const payload: Json = { session: this.session, chatId, file: { mimetype: contentType, filename, data: data.toString('base64') } };
         if (text && text.trim()) payload.caption = text;
         let endpoint = '/api/sendFile';
         if (contentType.startsWith('image/')) endpoint = '/api/sendImage';
         else if (contentType.startsWith('audio/')) { endpoint = '/api/sendVoice'; payload.ptt = true; delete payload.caption; }
-        else if (contentType.startsWith('video/')) endpoint = '/api/sendVideo';
-        res = await this.request('POST', endpoint, payload, 60000);
-        // imagem que o WhatsApp recusa (HEIC, grande demais) vai como documento
-        if (!res?.ok && endpoint === '/api/sendImage') {
-          console.warn(`Waha sendImage falhou (${res?.status}), reenviando como arquivo`);
-          res = await this.request('POST', '/api/sendFile', payload, 60000);
+        else if (contentType.startsWith('video/') && !videoComoArquivo) endpoint = '/api/sendVideo';
+        res = await this.request('POST', endpoint, payload, 120000);
+        // imagem/vídeo que o WhatsApp recusa (HEIC, formato estranho, grande demais) vai como documento —
+        // menos se a sessão caiu ("Session status is not as expected"): aí não adianta tentar de novo
+        const sessaoCaiu = !res?.ok && /Session status/i.test((await res?.clone().text().catch(() => '')) || '');
+        if (!res?.ok && !sessaoCaiu && (endpoint === '/api/sendImage' || endpoint === '/api/sendVideo')) {
+          console.warn(`Waha ${endpoint} falhou (${res?.status}), reenviando como arquivo`);
+          res = await this.request('POST', '/api/sendFile', payload, 120000);
         }
+        if (!res?.ok) console.warn(`Waha ${endpoint} falhou (${res?.status}):`, (await res?.clone().text().catch(() => ''))?.slice(0, 300));
       } else {
         res = await this.request('POST', '/api/sendText', { session: this.session, chatId, text });
       }
@@ -254,6 +268,26 @@ export const WHATSAPP_PROVIDERS = ['waha'] as const;
 /** Inbox#messaging_service — na v2 só existe WAHA. */
 export function messagingService(inbox: Inbox): WahaService {
   return new WahaService(inbox);
+}
+
+/**
+ * Qualquer vídeo → mp4 H.264/AAC que o WhatsApp toca (no máx. 1280 px). Usa arquivo temporário porque
+ * .mov do iPhone guarda o índice no fim do arquivo e o ffmpeg não lê isso por pipe.
+ */
+async function convertToMp4(input: Buffer): Promise<Buffer | null> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'vid-'));
+  const src = path.join(dir, 'in'), out = path.join(dir, 'out.mp4');
+  try {
+    await fs.writeFile(src, input);
+    const code = await new Promise<number | null>(resolve => {
+      const ff = spawn('ffmpeg', ['-y', '-i', src, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-pix_fmt', 'yuv420p',
+        '-vf', "scale='min(1280,iw)':-2", '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', out]);
+      const t = setTimeout(() => ff.kill('SIGKILL'), 180000);
+      ff.on('error', () => { clearTimeout(t); resolve(null) });
+      ff.on('close', c => { clearTimeout(t); resolve(c) });
+    });
+    return code === 0 ? await fs.readFile(out) : null;
+  } catch { return null; } finally { await fs.rm(dir, { recursive: true, force: true }).catch(() => {}); }
 }
 
 function convertToOggOpus(input: Buffer): Promise<Buffer | null> {

@@ -23,7 +23,12 @@ const STATUS: Record<string, [string, string]> = {
 const MOTIVO: Record<string, string> = {
   fora_do_horario: 'Fora do horário de envio — continua sozinho no próximo horário',
   limite_diario: 'Limite do dia atingido — continua amanhã',
-  numero_desconectado: 'O número está desconectado — continua quando reconectar',
+  numero_desconectado: 'O número desconectou (pode ter sido banido). O disparo foi pausado: reconecte, confira o número e só então retome',
+  aguardando_outro_disparo: 'Esperando o outro disparo deste número terminar (um por vez em cada número)',
+  limite_frios: 'Limite de pessoas que nunca falaram com a loja atingido hoje — continua amanhã',
+  descanso: 'Pausa de descanso pra proteger o número — continua sozinho',
+  falhas_seguidas: 'Pausado: 3 envios seguidos falharam. Confira o número antes de retomar',
+  muitos_pediram_para_sair: 'Pausado: muita gente pediu pra não receber. Reveja a lista e a mensagem antes de retomar',
   whatsapp_instavel: 'O WhatsApp não respondeu — tentando de novo em instantes',
   sem_numero: 'O número desse disparo foi apagado',
   manual: 'Pausado por você',
@@ -99,7 +104,8 @@ function DetalheDisparo({ id }: { id: number }) {
   if (!b) return <p style={{ fontFamily: K.font, color: K.muted }}>Carregando…</p>
   const acao = async (a: 'pause' | 'resume' | 'cancel') => {
     if (a === 'cancel' && !(await confirmBox('Cancelar o disparo?', 'Quem ainda não recebeu não vai receber mais. Não dá pra desfazer.', 'Sim, cancelar'))) return
-    await api.post(`/broadcasts/${id}/${a}`); load()
+    try { await api.post(`/broadcasts/${id}/${a}`) } catch (e: any) { toast('warning', e.response?.data?.message || 'Não foi possível.') }
+    load()
   }
   const ativo = ['running', 'scheduled'].includes(b.status)
   return (
@@ -188,7 +194,11 @@ function NovoDisparo() {
   const [responsavel, setResponsavel] = useState('')
   const [quando, setQuando] = useState<'agora' | 'agendar'>('agora')
   const [agendarEm, setAgendarEm] = useState('')
-  const [ritmo, setRitmo] = useState({ min: 30, max: 90, limite: 200, inicio: 8, fim: 20, cooldown: 0 })
+  const [ritmo, setRitmo] = useState({ min: 45, max: 120, limite: 150, inicio: 8, fim: 20, cooldown: 0 })
+  const [numero, setNumero] = useState<any>(null)
+  // espelho da trava do servidor (lib/disparos.ts problemaNoTexto): texto igual pra todos derruba o número
+  const problemaTexto = (t: string) => !/\{(primeiro_nome|nome)\}/.test(t) ? 'Coloque o nome da pessoa: {primeiro_nome}. Mensagem igual pra todo mundo é o que mais faz o WhatsApp banir o número.'
+    : !/\{[^{}|]+\|[^{}]+\}/.test(t) ? 'Coloque pelo menos uma variação, ex.: {Oi|Olá|Oie}. Assim cada pessoa recebe um texto um pouco diferente.' : null
   const [prev, setPrev] = useState<any>(null)
   const [opt, setOpt] = useState<any>({ pipes: [], tags: [], agents: [], flows: [], inboxes: [] })
   const [enviando, setEnviando] = useState(false)
@@ -211,6 +221,8 @@ function NovoDisparo() {
   const set = (k: string, v: any) => setF((x: any) => ({ ...x, [k]: v }))
   const nomeAgente = (a: any) => a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim()
   const inbox = opt.inboxes.find((i: any) => i.id === inboxId)
+  // quanto o número ainda pode mandar hoje (aquecimento, leads frios, disparo já rodando)
+  useEffect(() => { setNumero(null); if (inboxId) api.get(`/broadcasts/numero/${inboxId}`).then(r => setNumero(r.data)).catch(() => {}) }, [inboxId])
 
   const disparar = async () => {
     if (!nome.trim()) return toast('warning', 'Dê um nome pro disparo.')
@@ -233,7 +245,7 @@ function NovoDisparo() {
   }
 
   const passos = ['Para quem', 'Mensagem', 'Número', 'Quando']
-  const podeSeguir = passo === 1 ? (prev?.total ?? 0) > 0 : passo === 2 ? (tipo === 'texto' ? !!(texto.trim() || arquivo) : !!flowId) : passo === 3 ? !!inboxId : true
+  const podeSeguir = passo === 1 ? (prev?.total ?? 0) > 0 : passo === 2 ? (tipo === 'texto' ? !!texto.trim() && !problemaTexto(texto) : !!flowId) : passo === 3 ? !!inboxId && !numero?.disparo_ativo : true
 
   return (
     <div style={{ fontFamily: K.font, color: K.text, maxWidth: 900 }}>
@@ -304,6 +316,7 @@ function NovoDisparo() {
             <p style={{ fontSize: 12.5, color: K.muted, margin: '6px 0 0' }}>
               Campos: <code>{'{primeiro_nome}'}</code> <code>{'{nome}'}</code> <code>{'{consultora}'}</code> <code>{'{data_agendamento}'}</code>. Variações: <code>{'{Oi|Olá|Bom dia}'}</code> (cada pessoa recebe uma).
             </p>
+            {texto.trim() && problemaTexto(texto) && <div style={{ marginTop: 8, padding: '8px 12px', background: '#fff8e6', border: '1px solid #f1d27a', borderRadius: 3, fontSize: 13.5 }}>{problemaTexto(texto)}</div>}
             <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
               <input ref={fileRef} type="file" accept="image/*,video/*,application/pdf" hidden onChange={e => setArquivo(e.target.files?.[0] || null)} />
               <button onClick={() => fileRef.current?.click()} style={kBtn('ghost')}><Paperclip size={14} /> {arquivo ? 'Trocar arquivo' : 'Anexar foto, vídeo ou PDF'}</button>
@@ -348,6 +361,13 @@ function NovoDisparo() {
             </select>
             <p style={{ fontSize: 12.5, color: K.muted, margin: '6px 0 0' }}>Quem ainda não tem responsável passa a ser dessa pessoa, e a conversa já fica com ela. Quem já é de alguém continua com quem está.</p>
           </>}
+          {numero && (numero.disparo_ativo
+            ? <div style={{ marginTop: 10, padding: '8px 12px', background: '#fdecea', border: '1px solid #f5c2c0', borderRadius: 3, fontSize: 13.5 }}>Esse número já está com o disparo <b>{numero.disparo_ativo.name}</b> rodando. Um por vez em cada número: espere terminar, pause ou cancele ele, ou escolha outro número.</div>
+            : <div style={{ marginTop: 10, padding: '8px 12px', background: '#f3f6f4', border: `1px solid ${K.line}`, borderRadius: 3, fontSize: 13.5, lineHeight: 1.5 }}>
+                Proteção do número: hoje ele pode mandar <b>até {numero.limite_hoje}</b> mensagens de disparo (já foram {numero.enviados_hoje}).
+                {numero.dias < 28 && <> O limite cresce com o tempo de uso: 20/dia na 1ª semana, 50 na 2ª, 80 na 3ª, 110 na 4ª, até 150.</>}
+                {' '}Pra quem <b>nunca falou com a loja</b>, no máximo {numero.limite_frios} por dia ({numero.frios_hoje} hoje), com 2 a 5 minutos entre cada.
+              </div>)}
           <p style={{ fontSize: 12.5, color: K.muted }}>Dica: se possível use um número separado do atendimento. Se o WhatsApp bloquear, o atendimento continua.</p>
         </>}
 
@@ -364,7 +384,7 @@ function NovoDisparo() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', fontSize: 14 }}>
             De <input type="number" min={ehConsultora() ? 30 : 20} value={ritmo.min} onChange={e => setRitmo({ ...ritmo, min: Number(e.target.value) })} style={{ ...kInput, width: 70 }} />
             a <input type="number" min={20} value={ritmo.max} onChange={e => setRitmo({ ...ritmo, max: Number(e.target.value) })} style={{ ...kInput, width: 70 }} /> segundos entre envios ·
-            até <input type="number" min={1} max={ehConsultora() ? 200 : 1000} value={ritmo.limite} onChange={e => setRitmo({ ...ritmo, limite: ehConsultora() ? Math.min(200, Number(e.target.value)) : Number(e.target.value) })} style={{ ...kInput, width: 80 }} /> por dia ·
+            até <input type="number" min={1} max={150} value={ritmo.limite} onChange={e => setRitmo({ ...ritmo, limite: Math.min(150, Number(e.target.value)) })} style={{ ...kInput, width: 80 }} /> por dia ·
             das <input type="number" min={0} max={23} value={ritmo.inicio} onChange={e => setRitmo({ ...ritmo, inicio: Number(e.target.value) })} style={{ ...kInput, width: 60 }} />h
             às <input type="number" min={1} max={24} value={ritmo.fim} onChange={e => setRitmo({ ...ritmo, fim: Number(e.target.value) })} style={{ ...kInput, width: 60 }} />h
           </div>

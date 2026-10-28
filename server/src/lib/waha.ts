@@ -221,6 +221,18 @@ export class WahaService {
     } catch { return null; }
   }
 
+  /** Marca como lida e mostra "digitando…" por alguns segundos antes de mandar (disparo parecer gente). */
+  async simularDigitacao(chatId: string, ms: number): Promise<void> {
+    if (!this.apiUrl) return;
+    const body = { session: this.session, chatId: normalizeJid(chatId) };
+    try {
+      await this.request('POST', '/api/sendSeen', body, 8000);
+      await this.request('POST', '/api/startTyping', body, 8000);
+      await new Promise(r => setTimeout(r, ms));
+      await this.request('POST', '/api/stopTyping', body, 8000);
+    } catch { /* sem "digitando" não impede o envio */ }
+  }
+
   async connected(): Promise<boolean> {
     try {
       const data = await this.json<{ status?: string }>(await this.request('GET', `/api/sessions/${this.session}`));

@@ -166,13 +166,14 @@ function TriggerForm({ pipes, pipe, stage, trigger, tags, agents, flows, fields,
   const [cfg, setCfg] = useState<any>({ ...(t.config || {}) })
   const [conds, setConds] = useState<any[]>(t.conditions || [])
   const [saving, setSaving] = useState(false)
+  const [aplicarExistentes, setAplicarExistentes] = useState(false)
   const set = (k: string, v: any) => setCfg((c: any) => ({ ...c, [k]: v }))
 
   const save = async () => {
     const config = { ...cfg }
     if (event === 'date_field') config.offset_minutes = offDir * offN * offU
     else { delete config.date_field; delete config.offset_minutes }
-    const body = { event, action_type: action, config, conditions: conds, delay_minutes: event === 'enter' ? delayN * delayU : 0, schedule: event === 'schedule' ? sched : {} }
+    const body = { event, action_type: action, config, conditions: conds, delay_minutes: event === 'enter' ? delayN * delayU : 0, schedule: event === 'schedule' ? sched : {}, apply_existing: event === 'enter' && aplicarExistentes }
     setSaving(true)
     try {
       if (trigger) await api.put(`/pipeline_triggers/${trigger.id}`, body)
@@ -204,6 +205,12 @@ function TriggerForm({ pipes, pipe, stage, trigger, tags, agents, flows, fields,
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 14, cursor: 'pointer' }}>
           <input type="checkbox" checked={!!cfg.only_if_no_reply} onChange={e => set('only_if_no_reply', e.target.checked)} />
           Só se o cliente não responder nesse tempo
+        </label>
+      )}
+      {event === 'enter' && (
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 8, fontSize: 14, cursor: 'pointer' }}>
+          <input type="checkbox" checked={aplicarExistentes} onChange={e => setAplicarExistentes(e.target.checked)} style={{ marginTop: 3 }} />
+          <span>Aplicar o gatilho a todos os leads já nesta etapa<br /><span style={{ fontSize: 12.5, color: K.muted }}>O prazo conta de quando cada um entrou na etapa; quem já passou do prazo recebe agora. Cada lead recebe uma vez só.</span></span>
         </label>
       )}
       {event === 'schedule' && (

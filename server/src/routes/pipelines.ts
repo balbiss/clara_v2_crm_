@@ -5,7 +5,7 @@ import { contacts, contactTags, flows, lossReasons, pipelineCards, pipelineStage
 import { requireAuth, requireOwner, isFullPortfolio, hasPermission, type User } from '../middleware/auth.js';
 import { railsJson } from '../lib/serialize.js';
 import { createContact, updateContact } from '../lib/contacts.js';
-import { execute, moveCard, runEnterTriggers, validateTrigger } from '../lib/pipelines.js';
+import { aplicarAosQueJaEstao, execute, moveCard, runEnterTriggers, validateTrigger } from '../lib/pipelines.js';
 import { logEvent } from '../lib/events.js';
 import { missingRequired } from '../lib/customFields.js';
 
@@ -163,9 +163,7 @@ pipelinesRouter.post('/pipeline_stages/:id/pipeline_triggers', requireOwner, asy
   const [{ m }] = await db.select({ m: max(pipelineTriggers.position) }).from(pipelineTriggers).where(eq(pipelineTriggers.pipelineStageId, s.id));
   const [t] = await db.insert(pipelineTriggers).values({ pipelineStageId: s.id, actionType: v.actionType!, ...v, position: (m ?? -1) + 1 }).returning();
   // Kommo: "Aplicar a todos os leads que já estão nesta etapa"
-  if ((req.body.pipeline_trigger ?? req.body).apply_existing && t.event === 'enter') {
-    for (const card of await db.select().from(pipelineCards).where(eq(pipelineCards.pipelineStageId, s.id))) await execute(t, card, 0);
-  }
+  if ((req.body.pipeline_trigger ?? req.body).apply_existing) await aplicarAosQueJaEstao(t);
   res.status(201).json(triggerJson(t));
 });
 
@@ -183,6 +181,7 @@ pipelinesRouter.put('/pipeline_triggers/:id', requireOwner, async (req, res) => 
   const err = validateTrigger({ actionType: t.actionType, event: t.event, config: t.config, schedule: t.schedule, ...v });
   if (err) return res.status(422).json({ message: err });
   const [u] = await db.update(pipelineTriggers).set({ ...v, updatedAt: new Date() }).where(eq(pipelineTriggers.id, t.id)).returning();
+  if ((req.body.pipeline_trigger ?? req.body).apply_existing) await aplicarAosQueJaEstao(u);
   res.json(triggerJson(u));
 });
 

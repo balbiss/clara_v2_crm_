@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, inArray, sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { activeStorageAttachments, broadcastRecipients, broadcasts, contactTags, contacts, conversations, inboxes, tags, users } from '../db/schema.js';
+import { activeStorageAttachments, broadcastRecipients, broadcasts, contactTags, contacts, conversations, inboxes, messages, tags, users } from '../db/schema.js';
 import { messagingService } from './waha.js';
 import { blobFor, downloadBlob } from './storage.js';
 import { createMessage, messageStatusValue, rebroadcast } from './messages.js';
@@ -134,6 +134,50 @@ export async function mudarStatusDisparo(id: number, acao: 'pause' | 'resume' | 
   return b;
 }
 
+// --- proteção contra banimento ----------------------------------------------------------------------
+// 27–28/10 dois números caíram: texto igual pra todos, lista fria, vários disparos juntos no mesmo número
+// e limite de 400/dia. O WhatsApp derruba por PADRÃO. Travas que ninguém passa por cima:
+//  • texto com o nome da pessoa e pelo menos uma variação {Oi|Olá} (cada um recebe um texto diferente)
+//  • 1 disparo por vez em cada número
+//  • limite diário que cresce com a "idade" do número nos disparos (aquecimento)
+//  • lead frio (nunca escreveu pra loja): no máx. 30/dia por número e 2 a 5 min entre envios
+//  • descanso de 10–20 min a cada 12 envios, "digitando…" antes de cada mensagem
+//  • freio: número desconectado, 3 falhas seguidas ou muita gente pedindo pra sair → pausa e espera alguém
+export const LIMITE_FRIOS_DIA = 30;
+export const DESCANSO_A_CADA = 12;
+export const LIMITE_MAXIMO = 150;
+export const limiteDoNumero = (dias: number) => (dias < 7 ? 20 : dias < 14 ? 50 : dias < 21 ? 80 : dias < 28 ? 110 : LIMITE_MAXIMO);
+
+/** Texto do disparo pode sair? (null = pode) */
+export function problemaNoTexto(t: string): string | null {
+  if (!/\{(primeiro_nome|nome)\}/.test(t)) return 'Coloque o nome da pessoa na mensagem: {primeiro_nome}. Mensagem igual pra todo mundo é o que mais faz o WhatsApp banir o número.';
+  if (!/\{[^{}|]+\|[^{}]+\}/.test(t)) return 'Coloque pelo menos uma variação, ex.: {Oi|Olá|Oie}. Assim cada pessoa recebe um texto um pouco diferente.';
+  return null;
+}
+
+/** Quanto o número ainda pode mandar hoje (soma de todos os disparos dele). */
+export async function situacaoDoNumero(inboxId: number) {
+  const [r] = await db.select({
+    hoje: sql<number>`count(*) FILTER (WHERE ${broadcastRecipients.sentAt} >= ${diaSP(0).toISOString()})::int`,
+    friosHoje: sql<number>`count(*) FILTER (WHERE ${broadcastRecipients.sentAt} >= ${diaSP(0).toISOString()} AND ${broadcastRecipients.frio})::int`,
+    primeiro: sql<string | null>`min(${broadcastRecipients.sentAt})`,
+    ultimo: sql<string | null>`max(${broadcastRecipients.sentAt})`,
+  }).from(broadcastRecipients).innerJoin(broadcasts, eq(broadcasts.id, broadcastRecipients.broadcastId))
+    .where(and(eq(broadcasts.inboxId, inboxId), eq(broadcastRecipients.status, 'sent')));
+  const dias = r.primeiro ? Math.floor((Date.now() - new Date(r.primeiro).getTime()) / 86400e3) : 0;
+  return { hoje: r.hoje, friosHoje: r.friosHoje, ultimo: r.ultimo, dias, limite: limiteDoNumero(dias), limiteFrios: LIMITE_FRIOS_DIA };
+}
+
+/** Outro disparo ativo nesse número (só 1 por vez). */
+export async function disparoAtivoNoNumero(inboxId: number, exceto?: number) {
+  const [b] = await db.select({ id: broadcasts.id, name: broadcasts.name }).from(broadcasts)
+    .where(and(eq(broadcasts.inboxId, inboxId), inArray(broadcasts.status, ['running', 'scheduled']), exceto ? sql`${broadcasts.id} <> ${exceto}` : undefined)).orderBy(asc(broadcasts.id)).limit(1);
+  return b ?? null;
+}
+
+const pausar = (b: { id: number }, motivo: string) =>
+  db.update(broadcasts).set({ status: 'paused', pauseReason: motivo, updatedAt: new Date() }).where(eq(broadcasts.id, b.id));
+
 // --- job ------------------------------------------------------------------------------------------
 
 let rodando = false;
@@ -172,15 +216,16 @@ async function passo(b: typeof broadcasts.$inferSelect): Promise<boolean> {
   const [inbox] = b.inboxId ? await db.select().from(inboxes).where(eq(inboxes.id, b.inboxId)) : [];
   if (!inbox) { await db.update(broadcasts).set({ status: 'paused', pauseReason: 'sem_numero', updatedAt: agora }).where(eq(broadcasts.id, b.id)); return false; }
   const service = messagingService(inbox);
-  if (!(await service.connected())) { await esperar(b, new Date(Date.now() + 5 * 60_000), 'numero_desconectado'); return false; }
+  // número caiu (banido ou desconectado): pausa de vez — voltar sozinho depois de um banimento é o pior caso
+  if (!(await service.connected())) { await pausar(b, 'numero_desconectado'); return false; }
+  // só 1 disparo por vez no número: o mais antigo manda, os outros esperam a vez
+  const outro = await disparoAtivoNoNumero(inbox.id, b.id);
+  if (outro && outro.id < b.id) { await esperar(b, new Date(Date.now() + 5 * 60_000), 'aguardando_outro_disparo'); return false; }
 
-  // limite diário e intervalo mínimo valem por NÚMERO (somando todos os disparos dele)
-  const [{ hoje, ultimo }] = await db.select({
-    hoje: sql<number>`count(*) FILTER (WHERE ${broadcastRecipients.sentAt} >= ${diaSP(0).toISOString()})::int`,
-    ultimo: sql<string | null>`max(${broadcastRecipients.sentAt})`,
-  }).from(broadcastRecipients).innerJoin(broadcasts, eq(broadcasts.id, broadcastRecipients.broadcastId))
-    .where(and(eq(broadcasts.inboxId, inbox.id), eq(broadcastRecipients.status, 'sent')));
-  if (hoje >= b.dailyLimit) { await esperar(b, diaSP(1, b.startHour), 'limite_diario'); return false; }
+  // limite diário (com aquecimento) e intervalo mínimo valem por NÚMERO (somando todos os disparos dele)
+  const sit = await situacaoDoNumero(inbox.id);
+  const { hoje, ultimo } = sit;
+  if (hoje >= Math.min(b.dailyLimit, sit.limite)) { await esperar(b, diaSP(1, b.startHour), 'limite_diario'); return false; }
   if (ultimo && Date.now() - new Date(ultimo).getTime() < b.minIntervalSeconds * 1000) {
     await esperar(b, new Date(new Date(ultimo).getTime() + b.minIntervalSeconds * 1000), b.pauseReason); return false;
   }
@@ -197,13 +242,32 @@ async function passo(b: typeof broadcasts.$inferSelect): Promise<boolean> {
   if (!r) return false;
   const marcar = (status: string, extra: Partial<typeof broadcastRecipients.$inferInsert> = {}) =>
     db.update(broadcastRecipients).set({ status, updatedAt: new Date(), ...extra }).where(eq(broadcastRecipients.id, r.id));
-  const proximoEnvio = () => esperar(b, new Date(Date.now() + (b.minIntervalSeconds + Math.random() * Math.max(0, b.maxIntervalSeconds - b.minIntervalSeconds)) * 1000), null);
-
   let [contact] = await db.select().from(contacts).where(eq(contacts.id, r.contactId));
   if (!contact || contact.status === 'blocked') { await marcar('skipped', { error: 'contato_bloqueado' }); return false; }
   const optOut = await db.select({ id: tags.id }).from(contactTags).innerJoin(tags, eq(tags.id, contactTags.tagId))
     .where(and(eq(contactTags.contactId, contact.id), sql`upper(${tags.name}) = ${OPT_OUT_TAG}`)).limit(1);
   if (optOut.length) { await marcar('skipped', { error: 'pediu_para_sair' }); return false; }
+
+  // lead frio = nunca escreveu pra loja: limite próprio por dia e intervalo bem maior
+  const [jaEscreveu] = await db.select({ id: messages.id }).from(messages).innerJoin(conversations, eq(conversations.id, messages.conversationId))
+    .where(and(eq(conversations.contactId, contact.id), eq(messages.senderType, 'Contact'))).limit(1);
+  const frio = !jaEscreveu;
+  if (frio && sit.friosHoje >= sit.limiteFrios) { await marcar('pending'); await esperar(b, diaSP(1, b.startHour), 'limite_frios'); return false; }
+  const proximoEnvio = async () => {
+    // descanso a cada 12 envios do número; senão o intervalo do disparo (mais longo pra lead frio)
+    if ((hoje + 1) % DESCANSO_A_CADA === 0) return esperar(b, new Date(Date.now() + (10 + Math.random() * 10) * 60_000), 'descanso');
+    const min = frio ? Math.max(b.minIntervalSeconds, 120) : b.minIntervalSeconds;
+    const max = frio ? Math.max(b.maxIntervalSeconds, 300) : b.maxIntervalSeconds;
+    return esperar(b, new Date(Date.now() + (min + Math.random() * Math.max(0, max - min)) * 1000), null);
+  };
+  const falhou = async (erro: string) => {
+    await marcar('failed', { error: erro });
+    // 3 falhas seguidas no disparo: algo errado com o número — pausa pra alguém olhar
+    const ult = await db.select({ status: broadcastRecipients.status }).from(broadcastRecipients)
+      .where(and(eq(broadcastRecipients.broadcastId, b.id), inArray(broadcastRecipients.status, ['sent', 'failed']))).orderBy(sql`${broadcastRecipients.updatedAt} DESC`).limit(3);
+    if (ult.length === 3 && ult.every(x => x.status === 'failed')) await pausar(b, 'falhas_seguidas');
+    else await proximoEnvio();
+  };
 
   // confere na WAHA se o número tem WhatsApp e pega o chatId certo (com ou sem o 9)
   let chatId: string | null = null;
@@ -229,8 +293,8 @@ async function passo(b: typeof broadcasts.$inferSelect): Promise<boolean> {
 
   if (b.flowId) {
     const run = await startBot(b.flowId, contact.id, { conversationId: conv.id, trigger: 'disparo', force: true });
-    if (!run) { await marcar('failed', { error: 'robo_nao_rodou' }); await proximoEnvio(); return true; }
-    await marcar('sent', { sentAt: new Date() });
+    if (!run) { await falhou('robo_nao_rodou'); return true; }
+    await marcar('sent', { sentAt: new Date(), frio });
     await entrarNoFunilDaCaixa(inbox, contact.id).catch(e => console.error('[Disparo] funil de entrada', (e as Error).message));
     await proximoEnvio();
     return true;
@@ -241,9 +305,11 @@ async function passo(b: typeof broadcasts.$inferSelect): Promise<boolean> {
   const texto = renderTexto(b.text || '', contact, resp?.firstName || criador?.firstName || '');
   const blob = await blobFor('Broadcast', b.id, 'attachment');
   const file = blob ? { data: await downloadBlob(blob), filename: blob.filename, contentType: blob.contentType || 'application/octet-stream' } : null;
-  cache.write(`sending_from_crm_${inbox.id}_${chatId}`, true, 20); // o eco (fromMe) não vira mensagem duplicada
+  // "digitando…" por uns segundos (proporcional ao texto) antes de mandar, como uma pessoa
+  await service.simularDigitacao(chatId, 2500 + Math.min((texto || '').length * 60, 5000) + Math.random() * 1500);
+  cache.write(`sending_from_crm_${inbox.id}_${chatId}`, true, 30); // o eco (fromMe) não vira mensagem duplicada
   const externalId = await service.sendMessage(chatId, texto || null, file);
-  if (!externalId) { await marcar('failed', { error: 'envio_falhou' }); await proximoEnvio(); return true; }
+  if (!externalId) { await falhou('envio_falhou'); return true; }
 
   const msg = await createMessage({
     accountId: b.accountId, conversationId: conv.id, text: texto, senderType: 'User', senderId: b.createdById,
@@ -253,7 +319,7 @@ async function passo(b: typeof broadcasts.$inferSelect): Promise<boolean> {
     await db.insert(activeStorageAttachments).values({ name: 'attachment', recordType: 'Message', recordId: msg.id, blobId: blob.id });
     await rebroadcast(msg.id);
   }
-  await marcar('sent', { sentAt: new Date(), messageId: msg.id });
+  await marcar('sent', { sentAt: new Date(), messageId: msg.id, frio });
   await entrarNoFunilDaCaixa(inbox, contact.id).catch(e => console.error('[Disparo] funil de entrada', (e as Error).message));
   await proximoEnvio();
   return true;
@@ -266,7 +332,7 @@ export async function onRespostaDisparo(contactId: number, conversationId: numbe
   const desde = new Date(Date.now() - 7 * 86400e3);
   const recebidos = await db.update(broadcastRecipients).set({ repliedAt: new Date(), updatedAt: new Date() })
     .where(and(eq(broadcastRecipients.contactId, contactId), eq(broadcastRecipients.status, 'sent'), sql`${broadcastRecipients.repliedAt} IS NULL`, gte(broadcastRecipients.sentAt, desde)))
-    .returning({ id: broadcastRecipients.id });
+    .returning({ id: broadcastRecipients.id, broadcastId: broadcastRecipients.broadcastId });
   if (!recebidos.length) return;
   const [conv] = await db.select().from(conversations).where(eq(conversations.id, conversationId));
   if (conv && conv.status === convStatusValue('resolved')) {
@@ -276,6 +342,14 @@ export async function onRespostaDisparo(contactId: number, conversationId: numbe
   if (OPT_OUT_RE.test(texto || '') && conv) {
     const tag = await findOrCreateTag(conv.accountId, OPT_OUT_TAG, '#6b7280');
     await db.insert(contactTags).values({ contactId, tagId: tag.id }).onConflictDoNothing();
+    // freio: 3+ pedidos pra sair e 5%+ dos enviados no mesmo disparo = a lista está incomodando → pausa
+    for (const bid of new Set(recebidos.map(x => x.broadcastId))) {
+      const [c] = await db.select({
+        enviados: sql<number>`count(*) FILTER (WHERE ${broadcastRecipients.status} = 'sent')::int`,
+        sairam: sql<number>`count(*) FILTER (WHERE EXISTS (SELECT 1 FROM contact_tags ct JOIN tags t ON t.id = ct.tag_id WHERE ct.contact_id = ${broadcastRecipients.contactId} AND upper(t.name) = ${OPT_OUT_TAG}) AND ${broadcastRecipients.repliedAt} IS NOT NULL)::int`,
+      }).from(broadcastRecipients).where(eq(broadcastRecipients.broadcastId, bid));
+      if (c.sairam >= 3 && c.sairam >= c.enviados * 0.05) await db.update(broadcasts).set({ status: 'paused', pauseReason: 'muitos_pediram_para_sair', updatedAt: new Date() }).where(and(eq(broadcasts.id, bid), eq(broadcasts.status, 'running')));
+    }
   }
 }
 setBroadcastReplyHook(onRespostaDisparo);

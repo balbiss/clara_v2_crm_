@@ -936,6 +936,8 @@ export const broadcastRecipients = pgTable('broadcast_recipients', {
   messageId: bigint('message_id', { mode: 'number' }),
   sentAt: timestamp('sent_at', { precision: 6, mode: 'date' }),
   repliedAt: timestamp('replied_at', { precision: 6, mode: 'date' }),
+  // pessoa que nunca tinha escrito pra loja (lead frio): conta no limite de frios do número
+  frio: boolean('frio').default(false).notNull(),
   createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
 }, (t) => [

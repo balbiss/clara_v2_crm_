@@ -7,8 +7,9 @@ import { createContact } from '../lib/contacts.js';
 import { findOrCreateTag } from '../lib/conversations.js';
 import { isFullPortfolio, requireAuth, requireBroadcast } from '../middleware/auth.js';
 import { attach, blobFor, blobUrl } from '../lib/storage.js';
+import { messagingService } from '../lib/waha.js';
 import { assignedInboxes, inboxBadge } from '../lib/conversations.js';
-import { audienceWhere, cleanFiltros, iniciarDisparo, mudarStatusDisparo, renderTexto, type Filtros } from '../lib/disparos.js';
+import { LIMITE_MAXIMO, audienceWhere, cleanFiltros, disparoAtivoNoNumero, iniciarDisparo, mudarStatusDisparo, problemaNoTexto, renderTexto, situacaoDoNumero, type Filtros } from '../lib/disparos.js';
 
 // Comunicações › Disparos (lib/disparos.ts). Gerência e diretoria; consultora com "Fazer disparos" ligado
 // no usuário dispara só pra própria carteira, pelos números que atende, e só vê os disparos que criou.
@@ -57,6 +58,15 @@ async function toJson(b: typeof broadcasts.$inferSelect, counts?: Record<string,
     counts: counts ?? (await contagens([b.id])).get(b.id) ?? { total: 0, pending: 0, sent: 0, failed: 0, skipped: 0, cancelled: 0, replied: 0 },
   };
 }
+
+/** Quanto o número ainda pode mandar hoje (aquecimento + limite de leads frios). */
+disparosRouter.get('/broadcasts/numero/:inbox_id(\\d+)', async (req, res) => {
+  const [ib] = await db.select({ id: inboxes.id }).from(inboxes).where(and(eq(inboxes.id, Number(req.params.inbox_id)), eq(inboxes.accountId, acc(req))));
+  if (!ib) return res.status(404).json({ error: 'not_found' });
+  const sit = await situacaoDoNumero(ib.id);
+  const ativo = await disparoAtivoNoNumero(ib.id);
+  res.json({ enviados_hoje: sit.hoje, frios_hoje: sit.friosHoje, limite_hoje: sit.limite, limite_frios: sit.limiteFrios, dias: sit.dias, disparo_ativo: ativo });
+});
 
 disparosRouter.get('/broadcasts', async (req, res) => {
   const list = await db.select().from(broadcasts).where(doUsuario(req)).orderBy(desc(broadcasts.id)).limit(100);
@@ -132,7 +142,12 @@ disparosRouter.post('/broadcasts', upload.single('attachment'), async (req, res)
     if (!f) return res.status(422).json({ message: 'Robô não encontrado.' });
   }
   const text = flowId ? null : String(v.text || '').trim();
-  if (!flowId && !text && !req.file) return res.status(422).json({ message: 'Escreva a mensagem (ou anexe um arquivo).' });
+  if (!flowId && !text) return res.status(422).json({ message: 'Escreva a mensagem (mesmo com anexo, ela vai como legenda).' });
+  // proteção contra banimento (lib/disparos.ts): texto variado e 1 disparo por vez no número
+  const ruim = text ? problemaNoTexto(text) : null;
+  if (ruim) return res.status(422).json({ message: ruim });
+  const ativo = await disparoAtivoNoNumero(inbox.id);
+  if (ativo) return res.status(422).json({ message: `Esse número já está com o disparo "${ativo.name}" rodando. Um por vez em cada número: espere terminar, pause ou cancele, ou use outro número.` });
   // consultora não acelera nem passa dos 200/dia (protege o número que é de todos)
   const minS = int(v.min_interval_seconds, 30, restrito(req) ? 30 : 20, 3600);
   const maxS = Math.max(minS, int(v.max_interval_seconds, 90, 20, 3600));
@@ -149,7 +164,7 @@ disparosRouter.post('/broadcasts', upload.single('attachment'), async (req, res)
   }
   const [b] = await db.insert(broadcasts).values({
     accountId: acc(req), inboxId: inbox.id, createdById: req.user!.id, assigneeId, name, filters: filtrosDe(req, v.filters), text, flowId,
-    scheduledAt, minIntervalSeconds: minS, maxIntervalSeconds: maxS, dailyLimit: int(v.daily_limit, 200, 1, restrito(req) ? 200 : 1000),
+    scheduledAt, minIntervalSeconds: minS, maxIntervalSeconds: maxS, dailyLimit: int(v.daily_limit, LIMITE_MAXIMO, 1, LIMITE_MAXIMO),
     startHour: startH, endHour: endH, cooldownDays: int(v.cooldown_days, 0, 0, 365),
   }).returning();
   if (req.file && !flowId) await attach('Broadcast', b.id, 'attachment', req.file.buffer, req.file.originalname, req.file.mimetype);
@@ -175,6 +190,13 @@ for (const acao of ['pause', 'resume', 'cancel'] as const) {
   disparosRouter.post(`/broadcasts/:id(\\d+)/${acao}`, async (req: Request, res: Response) => {
     const [b] = await db.select({ id: broadcasts.id }).from(broadcasts).where(and(eq(broadcasts.id, Number(req.params.id)), doUsuario(req)));
     if (!b) return res.status(404).json({ error: 'not_found' });
+    if (acao === 'resume') {
+      const [cheio] = await db.select({ inboxId: broadcasts.inboxId }).from(broadcasts).where(eq(broadcasts.id, b.id));
+      const ativo = cheio?.inboxId ? await disparoAtivoNoNumero(cheio.inboxId, b.id) : null;
+      if (ativo) return res.status(422).json({ message: `Esse número já está com o disparo "${ativo.name}" rodando. Pause ou cancele ele antes.` });
+      const [ib] = cheio?.inboxId ? await db.select().from(inboxes).where(eq(inboxes.id, cheio.inboxId)) : [];
+      if (ib && !(await messagingService(ib).connected())) return res.status(422).json({ message: 'O número está desconectado. Reconecte (e confira se não foi banido) antes de retomar.' });
+    }
     const u = await mudarStatusDisparo(b.id, acao);
     res.json(u ? await toJson(u) : null);
   });

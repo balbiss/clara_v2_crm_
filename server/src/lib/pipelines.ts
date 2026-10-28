@@ -153,6 +153,23 @@ export async function moveCard(card: Card, stageId: number, chainDepth = 0, pipe
   return moved;
 }
 
+/**
+ * Kommo "Aplicar a todos os leads que já estão nesta etapa": roda o gatilho "quando entrar" nos cards que
+ * já estavam lá. Com atraso, conta do dia em que o card entrou (o que já passou do prazo roda agora);
+ * cada card recebe no máximo uma vez por permanência na etapa (mesma chave do gatilho normal).
+ */
+export async function aplicarAosQueJaEstao(t: Trigger) {
+  if (t.event !== 'enter') return 0;
+  const cards = await db.select().from(pipelineCards).where(eq(pipelineCards.pipelineStageId, t.pipelineStageId));
+  for (const card of cards) {
+    const quando = new Date(Math.max(card.stageEnteredAt.getTime() + t.delayMinutes * 60_000, Date.now()));
+    await db.insert(pipelineTriggerRuns).values({
+      pipelineTriggerId: t.id, pipelineCardId: card.id, runKey: `enter:${card.stageEnteredAt.toISOString()}`, runAt: quando, chainDepth: 0,
+    }).onConflictDoNothing();
+  }
+  return cards.length;
+}
+
 export async function runEnterTriggers(card: Card, chainDepth = 0) {
   if (chainDepth >= MAX_CHAIN) return;
   const triggers = await db.select().from(pipelineTriggers)

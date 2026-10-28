@@ -8,7 +8,8 @@ import { entrarNoFunilDaCaixa } from './pipelines.js';
 // em que criou o PRIMEIRO pedido, se a carga inicial (todos os pedidos criados nesse mês: maleta,
 // principal, edição limitada…) somar 20 produtos ou mais. Assim que a carga fecha os 20, o card entra em
 // Onboarding › "Iniciou na loja" e as automações da etapa rodam (tarefa "Revendedora iniciou!").
-// Fora: pedidos legados (antes de 2025-05-01), desconsideradas e quem já está no Onboarding.
+// Fora: pedidos legados (antes de 2025-05-01), desconsideradas, contas internas do Jueri ("PEDIDO EM
+// ESPERA …", "Conferência …") e quem já está no Onboarding.
 // Só quem fez o 1º pedido nos últimos 30 dias (revendedora antiga não volta pro Onboarding).
 export const MIN_PRODUTOS_CARGA_INICIAL = 20;
 
@@ -24,6 +25,7 @@ export async function cardsDeIniciadas() {
       WITH primeiro AS (SELECT contact_id, min(data_criacao) AS d FROM pedidos GROUP BY contact_id)
       SELECT c.id FROM contacts c JOIN primeiro p ON p.contact_id = c.id
       WHERE c.account_id = ${acc.id} AND c.id_jueri IS NOT NULL AND c.desconsiderado = false
+        AND coalesce(c.name, '') !~* '^\\s*(pedido em espera|confer[eê]ncia)'
         AND p.d >= ${CUTOFF_LEGADO}::date
         AND p.d >= ((now() AT TIME ZONE 'America/Sao_Paulo')::date - 30)
         AND (SELECT COALESCE(SUM(${QUANTIDADE_EFETIVA_SQL}), 0) FROM pedidos

@@ -4,6 +4,7 @@ import { accounts, contacts, lifecycleEvents, notifications, pedidos, pipelineCa
 import { ACTIVE_STATUSES, INACTIVE_STATUSES, STATUS_OVERRIDE_PERMANENTE, createContact, updateContact, type Contact } from './contacts.js';
 import { CUTOFF_LEGADO, QUANTIDADE_EFETIVA_SQL, QUANTIDADE_SENTINELA_LEGADO, STATUS_ABERTO, STATUS_BAIXADO, STATUS_CANCELADO, STATUS_PERDIDO, pedidoOpenNow, hojeSP } from './pedidos.js';
 import { contatoSoltoComTelefone, unirDuplicadosDoJueri } from './mesclarContatos.js';
+import { cardsDeIniciadas } from './onboarding.js';
 
 // JueriSyncService + JueriApiService da v1, portados 1:1 (mesma regra de carteira):
 //  • revendedora com > min_pecas_ativa (25) peças abertas vira Ativa; inativa reativa; Resgate/
@@ -200,7 +201,7 @@ export class JueriSync {
     }
     await this.snapshot(c.id);
     await this.marco(c.id, 'iniciada');
-    await this.cardFunil(c.id, 'onboarding', 'Primeira Maleta');
+    // card do Onboarding: cardsDeIniciadas() no fim da sync (critério da Bel: carga inicial >= 20 produtos)
     res.criados++;
   }
 
@@ -369,6 +370,7 @@ export async function rodarSyncJueri(tipo: 'completo' | 'cadastro' = 'completo')
     }
     // revendedora que ficou em dobro (contato do WhatsApp + do Jueri, mesmo telefone) vira uma só
     await unirDuplicadosDoJueri().catch(e => console.error('[Duplicados]', (e as Error).message));
+    await cardsDeIniciadas().catch(e => console.error('[Onboarding]', (e as Error).message));
     ultimaSync = { tipo, fim: new Date().toISOString(), segundos: Math.round((Date.now() - inicio) / 1000), resultado: out };
     console.log('[JueriSync]', JSON.stringify(ultimaSync));
     return ultimaSync;
@@ -384,8 +386,11 @@ export async function aplicarEventoJueri(accountId: number, evento: string | nul
   if (!jueriConfigurado() || !evento) return;
   const s = await JueriSync.paraConta(accountId);
   if (evento === 'pedido.deleted') await s.pedidoExcluido(payload);
-  else if (['pedido.created', 'pedido.updated', 'pedido.canceled'].includes(evento) && payload?.fk_revendedor_id != null) await s.pedidoEvento(payload);
-  else if (evento === 'revendedor.created') {
+  else if (['pedido.created', 'pedido.updated', 'pedido.canceled'].includes(evento) && payload?.fk_revendedor_id != null) {
+    await s.pedidoEvento(payload);
+    // carga inicial fechou os 20 produtos com este pedido? já entra no Onboarding, sem esperar a sync
+    if (evento !== 'pedido.canceled') await cardsDeIniciadas().catch(e => console.error('[Onboarding]', (e as Error).message));
+  } else if (evento === 'revendedor.created') {
     const r = payload?.revendedor && typeof payload.revendedor === 'object' ? payload.revendedor : payload;
     await db.insert(notifications).values({ accountId, audience: 'owner_level', title: 'Novo cadastro no Jueri', message: `${r?.nome || 'Revendedora sem nome'} — cadastro novo`, link: '/carteira' });
   }

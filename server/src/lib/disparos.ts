@@ -217,9 +217,14 @@ async function passo(b: typeof broadcasts.$inferSelect): Promise<boolean> {
   }
   if (!chatId) { await marcar('skipped', { error: 'sem_whatsapp' }); return false; }
   if (!contact.jid && chatId.endsWith('@c.us')) contact = await setJidIfFree(contact, chatId);
+  // responsável escolhido no disparo: assume quem ainda não tem dono (quem já é de alguém continua com essa pessoa)
+  if (b.assigneeId && !contact.userId) {
+    [contact] = await db.update(contacts).set({ userId: b.assigneeId, updatedAt: new Date() }).where(eq(contacts.id, contact.id)).returning();
+  }
 
   // conversa: a que já existe nesse número; nova nasce fechada (reabre quando a pessoa responder)
   const conv = await findOrCreateConversation(contact.id, inbox.id, { accountId: b.accountId, status: convStatusValue('resolved') ?? 2, userId: contact.userId, source: 'whatsapp' });
+  if (!conv.userId && contact.userId) await db.update(conversations).set({ userId: contact.userId }).where(eq(conversations.id, conv.id));
 
   if (b.flowId) {
     const run = await startBot(b.flowId, contact.id, { conversationId: conv.id, trigger: 'disparo', force: true });

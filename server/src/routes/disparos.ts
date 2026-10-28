@@ -42,6 +42,7 @@ const contagens = async (ids: number[]) => {
 
 async function toJson(b: typeof broadcasts.$inferSelect, counts?: Record<string, number>) {
   const [inbox] = b.inboxId ? await db.select().from(inboxes).where(eq(inboxes.id, b.inboxId)) : [];
+  const [resp] = b.assigneeId ? await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, b.assigneeId)) : [];
   const [autor] = b.createdById ? await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, b.createdById)) : [];
   const [flow] = b.flowId ? await db.select({ name: flows.name }).from(flows).where(eq(flows.id, b.flowId)) : [];
   const blob = await blobFor('Broadcast', b.id, 'attachment');
@@ -51,6 +52,7 @@ async function toJson(b: typeof broadcasts.$inferSelect, counts?: Record<string,
     min_interval_seconds: b.minIntervalSeconds, max_interval_seconds: b.maxIntervalSeconds, daily_limit: b.dailyLimit, start_hour: b.startHour, end_hour: b.endHour, cooldown_days: b.cooldownDays,
     inbox: inbox ? { id: inbox.id, name: inbox.name, phone_number: inbox.phoneNumber, ...inboxBadge(inbox) } : null,
     created_by: autor ? `${autor.firstName ?? ''} ${autor.lastName ?? ''}`.trim() : null,
+    assignee_id: b.assigneeId, assignee: resp ? `${resp.firstName ?? ''} ${resp.lastName ?? ''}`.trim() : null,
     attachment: blob ? { url: blobUrl(blob), name: blob.filename, type: blob.contentType } : null,
     counts: counts ?? (await contagens([b.id])).get(b.id) ?? { total: 0, pending: 0, sent: 0, failed: 0, skipped: 0, cancelled: 0, replied: 0 },
   };
@@ -139,8 +141,14 @@ disparosRouter.post('/broadcasts', upload.single('attachment'), async (req, res)
   const scheduledAt = v.scheduled_at ? new Date(v.scheduled_at) : null;
   if (scheduledAt && Number.isNaN(scheduledAt.getTime())) return res.status(422).json({ message: 'Data de agendamento inválida.' });
 
+  // responsável: consultora é sempre ela mesma; gerência escolhe (ou deixa sem)
+  let assigneeId: number | null = restrito(req) ? req.user!.id : Number(v.assignee_id) || null;
+  if (assigneeId && !restrito(req)) {
+    const [u] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, assigneeId), eq(users.accountId, acc(req))));
+    if (!u) return res.status(422).json({ message: 'Responsável não encontrado.' });
+  }
   const [b] = await db.insert(broadcasts).values({
-    accountId: acc(req), inboxId: inbox.id, createdById: req.user!.id, name, filters: filtrosDe(req, v.filters), text, flowId,
+    accountId: acc(req), inboxId: inbox.id, createdById: req.user!.id, assigneeId, name, filters: filtrosDe(req, v.filters), text, flowId,
     scheduledAt, minIntervalSeconds: minS, maxIntervalSeconds: maxS, dailyLimit: int(v.daily_limit, 200, 1, restrito(req) ? 200 : 1000),
     startHour: startH, endHour: endH, cooldownDays: int(v.cooldown_days, 0, 0, 365),
   }).returning();

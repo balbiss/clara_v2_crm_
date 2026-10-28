@@ -219,6 +219,9 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
   } else if (!record.text) {
     await db.update(messages).set({ text: '📎 Arquivo não suportado ou vazio', updatedAt: new Date() }).where(eq(messages.id, record.id));
   }
+  // cliente escreveu numa conversa fechada/adiada: reabre sempre (antes só reabria nos números com IA
+  // ligada — nos outros a conversa ficava fechada e só aparecia pesquisando; Clara, 28/10)
+  if (!fromMe && !isGroup && !humanReplyViaPhone) await reabrirSeFechada(conversation, contact);
   if (!mediaInBackground) await rebroadcast(record.id);
 
   if (!fromMe && !isGroup) void respostaDisparo(contact.id, conversation.id, text).catch(e => console.error('Resposta de disparo —', e.message));
@@ -237,9 +240,8 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
   return record;
 }
 
-/** Bloco "MOTOR DE IA" da v1: reabre a conversa e agenda a resposta com debounce de 8s. */
-async function aiEngine(inbox: Inbox, conversation: typeof conversations.$inferSelect, contact: Contact, chatId: string) {
-  if (cache.read(`ai_paused_${inbox.id}_${chatId}`)) return;
+/** Mensagem do cliente reabre a conversa fechada ou adiada (o que o motor de IA da v1 fazia só com IA ligada). */
+async function reabrirSeFechada(conversation: typeof conversations.$inferSelect, contact: Contact) {
   const status = conversation.status;
   if (status === convStatusValue('resolved')) {
     await db.update(conversations).set({ status: 0 }).where(eq(conversations.id, conversation.id));
@@ -253,6 +255,12 @@ async function aiEngine(inbox: Inbox, conversation: typeof conversations.$inferS
     broadcastConversations(conversation.accountId, { event: 'snooze_expired', conversation_id: conversation.id, contact_name: contact.name || contact.phone, reason: 'client_message' });
     broadcastConversations(conversation.accountId, { event: 'conversation_updated', conversation: { id: conversation.id, status: 'open', snoozed_until: null } });
   }
+  conversation.status = 0;
+}
+
+/** Bloco "MOTOR DE IA" da v1: agenda a resposta com debounce de 8s. */
+async function aiEngine(inbox: Inbox, conversation: typeof conversations.$inferSelect, contact: Contact, chatId: string) {
+  if (cache.read(`ai_paused_${inbox.id}_${chatId}`)) return;
   if (!aiResponder) return;
   const key = `debounce_ai_${inbox.id}_${chatId}`;
   const now = Date.now() + Math.random();

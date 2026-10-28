@@ -121,6 +121,7 @@ function DetalheDisparo({ id }: { id: number }) {
           <div><span style={{ color: K.muted }}>Número</span><br />{b.inbox ? <><Chip cor={b.inbox.color}>{b.inbox.short}</Chip> {b.inbox.phone_number}</> : '—'}</div>
           <div><span style={{ color: K.muted }}>Ritmo</span><br />{b.min_interval_seconds} a {b.max_interval_seconds} s entre envios, até {b.daily_limit} por dia, das {b.start_hour}h às {b.end_hour}h</div>
           <div><span style={{ color: K.muted }}>Criado por</span><br />{b.created_by} em {fmtDataHora(b.created_at)}</div>
+          {b.assignee && <div><span style={{ color: K.muted }}>Responsável pelos contatos</span><br />{b.assignee}</div>}
         </div>
         <div style={{ marginTop: 14, padding: 12, background: '#fcf0f3', borderRadius: 4, fontSize: 14, whiteSpace: 'pre-wrap' }}>
           {b.flow_id ? <>Robô: <b>{b.flow_name}</b></> : b.text}
@@ -184,6 +185,7 @@ function NovoDisparo() {
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [flowId, setFlowId] = useState('')
   const [inboxId, setInboxId] = useState<number | null>(null)
+  const [responsavel, setResponsavel] = useState('')
   const [quando, setQuando] = useState<'agora' | 'agendar'>('agora')
   const [agendarEm, setAgendarEm] = useState('')
   const [ritmo, setRitmo] = useState({ min: 30, max: 90, limite: 200, inicio: 8, fim: 20, cooldown: 0 })
@@ -221,6 +223,7 @@ function NovoDisparo() {
       fd.append('data', JSON.stringify({
         name: nome.trim(), inbox_id: inboxId, filters: f, text: tipo === 'texto' ? texto : null, flow_id: tipo === 'robo' ? Number(flowId) || null : null,
         scheduled_at: quando === 'agendar' ? new Date(agendarEm).toISOString() : null,
+        assignee_id: responsavel ? Number(responsavel) : null,
         min_interval_seconds: ritmo.min, max_interval_seconds: ritmo.max, daily_limit: ritmo.limite, start_hour: ritmo.inicio, end_hour: ritmo.fim, cooldown_days: ritmo.cooldown,
       }))
       if (arquivo && tipo === 'texto') fd.append('attachment', arquivo)
@@ -337,6 +340,14 @@ function NovoDisparo() {
               {etapa ? <>Quem receber vai para o funil <b>{etapa.nome}</b> (funil de entrada desta caixa), se ainda não estiver nele.</> : <>Esta caixa não tem funil de entrada: quem receber não entra em funil nenhum. Dá pra escolher em Configurações › Caixas de entrada.</>}
             </div>
           })()}
+          {!ehConsultora() && <>
+            <label style={lbl}>Responsável pelos contatos</label>
+            <select value={responsavel} onChange={e => setResponsavel(e.target.value)} style={kInput}>
+              <option value="">Ninguém (cada contato fica como está)</option>
+              {opt.agents.filter((a: any) => a.status !== 'blocked').map((a: any) => <option key={a.id} value={a.id}>{nomeAgente(a)}</option>)}
+            </select>
+            <p style={{ fontSize: 12.5, color: K.muted, margin: '6px 0 0' }}>Quem ainda não tem responsável passa a ser dessa pessoa, e a conversa já fica com ela. Quem já é de alguém continua com quem está.</p>
+          </>}
           <p style={{ fontSize: 12.5, color: K.muted }}>Dica: se possível use um número separado do atendimento. Se o WhatsApp bloquear, o atendimento continua.</p>
         </>}
 

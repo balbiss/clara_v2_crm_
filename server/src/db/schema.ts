@@ -902,6 +902,7 @@ export const broadcasts = pgTable('broadcasts', {
   accountId: bigint('account_id', { mode: 'number' }).notNull().references((): AnyPgColumn => accounts.id),
   inboxId: bigint('inbox_id', { mode: 'number' }).references((): AnyPgColumn => inboxes.id),
   createdById: bigint('created_by_id', { mode: 'number' }).references((): AnyPgColumn => users.id),
+  assigneeId: bigint('assignee_id', { mode: 'number' }).references((): AnyPgColumn => users.id, { onDelete: 'set null' }),
   name: varchar('name').notNull(),
   filters: jsonb('filters').default({}).notNull(),
   text: text('text'),

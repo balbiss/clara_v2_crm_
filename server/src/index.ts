@@ -31,6 +31,8 @@ import { importV1Router } from './routes/importV1.js';
 import { inicioRouter } from './routes/inicio.js';
 import { teamChatRouter } from './routes/teamChat.js';
 import { disparosRouter } from './routes/disparos.js';
+import { ligacaoRouter, tratarUpgradeLigacao } from './routes/ligacao.js';
+import { iniciarEventosLigacao } from './lib/ligacao.js';
 import './lib/aiAgent.js';
 import { startJobs } from './jobs/index.js';
 
@@ -47,6 +49,7 @@ app.get('/up', (_req, res) => res.json({ ok: true }));
 app.use(sessionsRouter);
 app.use(filesRouter);
 app.use(webhooksRouter);
+app.use(ligacaoRouter);
 app.use(conversationsRouter);
 app.use(inboxesRouter);
 app.use(pedidosRouter);
@@ -68,7 +71,10 @@ app.use(accountRouter);
 app.use(basicsRouter);
 
 const httpServer = http.createServer(app);
-const io = new Server(httpServer, { cors: { origin: process.env.CORS_ORIGIN || 'http://localhost:5183' } });
+// destroyUpgrade: false — sem isso o socket.io derruba qualquer "upgrade" que não é dele (o áudio da ligação)
+const io = new Server(httpServer, { cors: { origin: process.env.CORS_ORIGIN || 'http://localhost:5183' }, destroyUpgrade: false });
+// áudio da ligação pelo WhatsApp quando o WebRTC não passa (routes/ligacao.ts)
+httpServer.on('upgrade', (req, socket, head) => { void tratarUpgradeLigacao(req, socket, head).catch(() => socket.destroy()) });
 setIo(io);
 
 // Mesma autenticação do ApplicationCable::Connection da v1: token JWT + usuário ativo.
@@ -95,4 +101,5 @@ ensureBucket()
   .finally(() => httpServer.listen(port, () => {
     console.log('Clara v2 backend rodando em http://localhost:' + port);
     startJobs();
+    iniciarEventosLigacao();
   }));

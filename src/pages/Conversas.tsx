@@ -18,6 +18,7 @@ import AiSessionsBar from '../components/AiSessionsBar'
 import api from '../api'
 import { conversationsStore, isSemResposta } from '../store/conversations'
 import { prepareImage } from '../utils/prepareImage'
+import { BotaoLigar } from '../components/Telefone'
 import { ACTIVE_STATUS_LABELS, INACTIVE_STATUS_LABELS, statusLabel } from '../constants/regua'
 import { nivelInfo } from '../constants/nivel'
 import { useContactFields } from '../composables/useContactFields'
@@ -1049,6 +1050,7 @@ export default function Conversas() {
                 ) : (
                   <h2 onClick={startEditingName} title="Clique pra editar o nome" style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 22, lineHeight: 1.25, fontWeight: 700, textTransform: 'uppercase', cursor: 'text', overflowWrap: 'anywhere' }}>{conv.contact.name}</h2>
                 )}
+                <BotaoLigar conversationId={conv.id} inboxId={conv.inbox_id ?? null} />
                 <div style={{ position: 'relative' }}>
                   <button title="Mais" onClick={e => { stop(e); setHeadMenu(m => !m) }} style={{ border: 'none', background: 'none', color: ink, cursor: 'pointer', display: 'flex', padding: 4 }}><MoreHorizontal size={20} /></button>
                   {headMenu && (

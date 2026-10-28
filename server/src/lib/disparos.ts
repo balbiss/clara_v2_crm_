@@ -11,6 +11,7 @@ import { entrarNoFunilDaCaixa } from './pipelines.js';
 import { cache } from './cache.js';
 import { broadcastConversations } from './realtime.js';
 import { setBroadcastReplyHook } from './wahaIngestion.js';
+import { numeroEmLigacao } from './ligacao.js';
 
 // Disparo em massa (Comunicações › Disparos). A lista é congelada ao iniciar (broadcast_recipients) e
 // um job manda UM de cada vez por número: intervalo aleatório entre min/max segundos, limite diário por
@@ -222,6 +223,8 @@ async function passo(b: typeof broadcasts.$inferSelect): Promise<boolean> {
   const service = messagingService(inbox);
   // número caiu (banido ou desconectado): pausa de vez — voltar sozinho depois de um banimento é o pior caso
   if (!(await service.connected())) { await pausar(b, 'numero_desconectado'); return false; }
+  // número numa ligação (telefone do CRM): o WhatsApp só aguenta uma coisa por vez — espera
+  if (numeroEmLigacao(inbox.id)) { await esperar(b, new Date(Date.now() + 60_000), 'em_ligacao'); return false; }
   // só 1 disparo por vez no número: o mais antigo manda, os outros esperam a vez
   const outro = await disparoAtivoNoNumero(inbox.id, b.id);
   if (outro && outro.id < b.id) { await esperar(b, new Date(Date.now() + 5 * 60_000), 'aguardando_outro_disparo'); return false; }

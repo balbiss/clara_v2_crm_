@@ -8,6 +8,7 @@ import { brand } from '../config/brand'
 import { usePushNotifications } from '../composables/usePushNotifications'
 import { useInstallPrompt } from '../composables/useInstallPrompt'
 import { inboxesStore } from '../store/inboxes'
+import { Telefone } from './Telefone'
 import { contactsStore } from '../store/contacts'
 import { agentsStore } from '../store/agents'
 import { pipelinesStore } from '../store/pipelines'
@@ -431,6 +432,8 @@ export function AppShell() {
         <main className="app-main" style={{ flex: 1, padding: 24, minWidth: 0 }}>
           <Outlet />
         </main>
+        {/* ligação pelo WhatsApp: chamada chegando + ligação em andamento (continua ao trocar de tela) */}
+        <Telefone />
       </div>
 
       {/* gaveta do celular */}

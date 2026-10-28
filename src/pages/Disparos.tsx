@@ -32,6 +32,7 @@ const MOTIVO: Record<string, string> = {
   whatsapp_instavel: 'O WhatsApp não respondeu — tentando de novo em instantes',
   sem_numero: 'O número desse disparo foi apagado',
   manual: 'Pausado por você',
+  em_ligacao: 'O número está numa ligação agora — continua logo depois',
 }
 const RECIP: Record<string, string> = { pending: 'Na fila', sending: 'Enviando', sent: 'Enviada', failed: 'Falhou', skipped: 'Pulada', cancelled: 'Cancelada' }
 const ERRO: Record<string, string> = { sem_whatsapp: 'número sem WhatsApp', pediu_para_sair: 'pediu pra não receber', contato_bloqueado: 'contato bloqueado', envio_falhou: 'o WhatsApp recusou', robo_nao_rodou: 'o robô não rodou' }

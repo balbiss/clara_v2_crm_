@@ -345,6 +345,8 @@ export const inboxes = pgTable('inboxes', {
   shortName: varchar('short_name'),
   // 0020_funil_entrada_caixa: etapa onde cai o contato novo desta caixa (lib/pipelines entrarNoFunilDaCaixa)
   entryStageId: bigint('entry_stage_id', { mode: 'number' }),
+  // 0028_ligacao_whatsapp: sessão do AstraCalls (ligação de voz pelo WhatsApp) deste número
+  callSessionId: varchar('call_session_id'),
   signMessages: boolean('sign_messages').default(false).notNull(),
   roundRobinGroupId: bigint('round_robin_group_id', { mode: 'number' }).references((): AnyPgColumn => roundRobinGroups.id),
   updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),

@@ -13,3 +13,8 @@ export function broadcastConversations(accountId: number, payload: unknown) {
 export function broadcastInternalChat(accountId: number, payload: unknown) {
   io?.to(`internal_chat:${accountId}`).emit('internal_chat', payload);
 }
+
+/** Ligação pelo WhatsApp (lib/ligacao.ts): chamada chegando, atendida, encerrada. */
+export function broadcastLigacao(accountId: number, payload: unknown) {
+  io?.to(`conversations:${accountId}`).emit('ligacao', payload);
+}

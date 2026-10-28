@@ -6,6 +6,7 @@ import api from '../api'
 import { inboxesStore } from '../store/inboxes'
 import { btn, inputStyle, labelStyle, serif } from '../components/ui'
 import { Badge, Panel, Switch, toast } from '../components/ui2'
+import { PainelLigacao } from '../components/PainelLigacao'
 import { WhatsAppIcon } from '../components/WhatsAppIcon'
 import PromptGeneratorModal from '../components/PromptGeneratorModal'
 import { ChatAvatar } from '../components/ChatAvatar'
@@ -196,6 +197,7 @@ export default function SettingsInboxDetail() {
                 </Toggle>
               </>)}
             </Panel>
+            {['waha', 'baileys'].includes(inbox.provider) && <PainelLigacao inboxId={inbox.id} />}
           </div>
         )}
 

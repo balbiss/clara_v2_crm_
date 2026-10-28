@@ -26,7 +26,7 @@ const PERMS = [
   { key: 'delete_data', label: 'Apagar registros', desc: 'Pode excluir permanentemente contatos e negociações.' },
   { key: 'broadcast', label: 'Fazer disparos', desc: 'Libera Comunicações › Disparos. Consultora dispara só pra própria carteira e pelos números que atende. Gerência e diretoria já têm.' },
 ]
-const EMPTY = { first_name: '', last_name: '', email: '', phone: '', password: '', role: 'consultor', department: 'corretor', jueri_gerente_id: '', round_robin_group_id: null as number | null, status: 'active', permissions: { view_all_contacts: true, export_data: false, delete_data: false } as Record<string, boolean> }
+const EMPTY = { first_name: '', last_name: '', email: '', phone: '', password: '', role: 'consultor', department: 'corretor', jueri_gerente_id: '', round_robin_group_id: null as number | null, status: 'active', permissions: { view_all_contacts: false, export_data: false, delete_data: false } as Record<string, boolean> }
 
 export default function AgentForm() {
   const navigate = useNavigate()

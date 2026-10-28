@@ -10,6 +10,7 @@ import { attach, blobUrl } from '../lib/storage.js';
 import { deleteContactCascade } from '../lib/wahaIngestion.js';
 import { cache } from '../lib/cache.js';
 import { railsJson } from '../lib/serialize.js';
+import { paresDuplicados, unirDuplicadosDoJueri } from '../lib/mesclarContatos.js';
 
 // ContactsController + ContactTagsController + ContactFieldGroupsController + ContactCustomFieldsController da v1.
 export const contactsRouter = Router();
@@ -137,6 +138,16 @@ contactsRouter.delete('/contacts/:id(\\d+)', requireFullPortfolio, async (req, r
   if (!c) return;
   await deleteContactCascade(c.id);
   res.status(204).end();
+});
+
+// revendedoras em dobro (WhatsApp + Jueri, mesmo telefone): ?juntar=1 junta agora; sem ele só lista
+contactsRouter.get('/contacts/duplicados_jueri', requireOwner, async (req, res) => {
+  if (req.query.juntar === '1') return res.json({ juntados: await unirDuplicadosDoJueri() });
+  const pares = await paresDuplicados();
+  const ids = pares.flatMap(p => [Number(p.origem), Number(p.destino)]);
+  const rows = ids.length ? await db.select({ id: contacts.id, name: contacts.name, phone: contacts.phone, status: contacts.status }).from(contacts).where(inArray(contacts.id, ids)) : [];
+  const m = new Map(rows.map(r => [r.id, r]));
+  res.json(pares.map(p => ({ whatsapp: m.get(Number(p.origem)), jueri: m.get(Number(p.destino)) })));
 });
 
 // mesclar: conversas vão pro contato alvo e o duplicado é apagado

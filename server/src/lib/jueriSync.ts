@@ -3,6 +3,7 @@ import { db } from '../db/client.js';
 import { accounts, contacts, lifecycleEvents, notifications, pedidos, pipelineCards, pipelineStages, pipelines, resellerPhones, salesTeamMemberships, salesTeams, users } from '../db/schema.js';
 import { ACTIVE_STATUSES, INACTIVE_STATUSES, STATUS_OVERRIDE_PERMANENTE, createContact, updateContact, type Contact } from './contacts.js';
 import { CUTOFF_LEGADO, QUANTIDADE_EFETIVA_SQL, QUANTIDADE_SENTINELA_LEGADO, STATUS_ABERTO, STATUS_BAIXADO, STATUS_CANCELADO, STATUS_PERDIDO, pedidoOpenNow, hojeSP } from './pedidos.js';
+import { contatoSoltoComTelefone, unirDuplicadosDoJueri } from './mesclarContatos.js';
 
 // JueriSyncService + JueriApiService da v1, portados 1:1 (mesma regra de carteira):
 //  • revendedora com > min_pecas_ativa (25) peças abertas vira Ativa; inativa reativa; Resgate/
@@ -187,8 +188,11 @@ export class JueriSync {
   }
 
   private async criarRevendedora(id: string, r: any, lista: any[], res: Resultado) {
-    const attrs = await this.attrsDoCadastro(null, r);
-    const c = await createContact({ accountId: this.accountId, idJueri: id, source: 'Jueri', ...attrs, status: 'revendedor_ativo', cycleStartedAt: inicioCiclo(lista, this.minPecas) } as any);
+    // já conversou pelo WhatsApp (mesmo telefone, sem vínculo com o Jueri)? vira ela — não cria outra
+    const solto = await contatoSoltoComTelefone(this.accountId, formatarTelefone(r?.telefone_1));
+    const c = solto
+      ? await updateContact(solto, { ...(await this.attrsDoCadastro(solto, r)), idJueri: id, status: 'revendedor_ativo', cycleStartedAt: inicioCiclo(lista, this.minPecas) } as any)
+      : await createContact({ accountId: this.accountId, idJueri: id, source: 'Jueri', ...(await this.attrsDoCadastro(null, r)), status: 'revendedor_ativo', cycleStartedAt: inicioCiclo(lista, this.minPecas) } as any);
     await this.persistirPedidos(c, lista, res);
     for (const raw of [r.telefone_2, r.telefone_3]) {
       const n = formatarTelefone(raw); if (!n || n === c.phone) continue;
@@ -282,6 +286,8 @@ export class JueriSync {
       const [c] = await db.select().from(contacts).where(and(eq(contacts.accountId, this.accountId), eq(contacts.idJueri, id)));
       const attrs = await this.attrsDoCadastro(c ?? null, r);
       if (c) { await updateContact(c, { ...attrs, status: 'atacado' }); return }
+      const solto = await contatoSoltoComTelefone(this.accountId, formatarTelefone(r?.telefone_1));
+      if (solto) { await updateContact(solto, { ...(await this.attrsDoCadastro(solto, r)), idJueri: id, status: 'atacado' } as any); await this.cardFunil(solto.id, 'atacado'); res.criados++; return }
       const novo = await createContact({ accountId: this.accountId, idJueri: id, source: 'Jueri', ...attrs, status: 'atacado' } as any);
       await this.cardFunil(novo.id, 'atacado');
       res.criados++;
@@ -361,6 +367,8 @@ export async function rodarSyncJueri(tipo: 'completo' | 'cadastro' = 'completo')
       const s = await JueriSync.paraConta(a.id);
       out[a.id] = tipo === 'cadastro' ? await s.syncCadastro() : await s.call();
     }
+    // revendedora que ficou em dobro (contato do WhatsApp + do Jueri, mesmo telefone) vira uma só
+    await unirDuplicadosDoJueri().catch(e => console.error('[Duplicados]', (e as Error).message));
     ultimaSync = { tipo, fim: new Date().toISOString(), segundos: Math.round((Date.now() - inicio) / 1000), resultado: out };
     console.log('[JueriSync]', JSON.stringify(ultimaSync));
     return ultimaSync;

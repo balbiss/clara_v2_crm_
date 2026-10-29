@@ -229,9 +229,37 @@ async function serializeCards(rows: (typeof pipelineCards.$inferSelect)[]) {
 async function cardsWhere(req: Request, extra: SQL[]) {
   const conds = [eq(pipelines.accountId, acc(req)), ...extra];
   if (!seesAll(req.user!)) conds.push(eq(contacts.userId, req.user!.id));
-  if (req.query.q) {
-    const q = `%${String(req.query.q).replace(/[%_]/g, '')}%`;
-    conds.push(sql`(${contacts.name} ILIKE ${q} OR ${contacts.phone} ILIKE ${q})`);
+  // Filtro do quadro (Bel, 29/10 — igual ao Kommo): busca por nome, telefone, campo do cadastro ou trecho
+  // da conversa; responsável; data de criação do lead; e valor de um ou mais campos (cidade, agendamento…)
+  const termo = String(req.query.q || '').replace(/[%_]/g, '').trim();
+  if (termo) {
+    const q = `%${termo}%`;
+    const digitos = termo.replace(/[^0-9]/g, '');
+    conds.push(sql`(${contacts.name} ILIKE ${q} OR ${contacts.phone} ILIKE ${q} OR ${contacts.city} ILIKE ${q}
+      OR ${contacts.customAttributes}::text ILIKE ${q}
+      ${digitos.length >= 4 ? sql`OR regexp_replace(coalesce(${contacts.phone}, ''), '[^0-9]', '', 'g') LIKE ${`%${digitos}%`}` : sql``}
+      ${termo.length >= 3 ? sql`OR EXISTS (SELECT 1 FROM conversations cv JOIN messages m ON m.conversation_id = cv.id
+        WHERE cv.contact_id = ${contacts.id} AND m.text ILIKE ${q})` : sql``})`);
+  }
+  const resp = String(req.query.responsavel || '');
+  if (resp === 'nenhum') conds.push(sql`${contacts.userId} IS NULL`);
+  else if (Number(resp)) conds.push(eq(contacts.userId, Number(resp)));
+  const dia = (v: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null;
+  const criadoEm = sql`(${pipelineCards.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::date`;
+  if (dia(req.query.criado_de)) conds.push(sql`${criadoEm} >= ${dia(req.query.criado_de)}::date`);
+  if (dia(req.query.criado_ate)) conds.push(sql`${criadoEm} <= ${dia(req.query.criado_ate)}::date`);
+  let campos: { key?: string; valor?: string; de?: string; ate?: string }[] = [];
+  try { campos = JSON.parse(String(req.query.campos || '[]')); } catch { /* filtro inválido: ignora */ }
+  for (const f of Array.isArray(campos) ? campos.slice(0, 10) : []) {
+    const key = String(f.key || '');
+    if (!/^[a-z0-9_]{1,60}$/.test(key)) continue;
+    const v = key === 'cidade' ? sql`${contacts.city}` : sql`(${contacts.customAttributes} ->> ${key})`;
+    if (f.valor && String(f.valor).trim()) conds.push(sql`${v} ILIKE ${`%${String(f.valor).replace(/[%_]/g, '').trim()}%`}`);
+    // datas: o valor pode estar como 2026-10-29(T…) ou 29/10/2026
+    const data = sql`(CASE WHEN ${v} ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN left(${v}, 10)
+      WHEN ${v} ~ '^[0-9]{2}/[0-9]{2}/[0-9]{4}' THEN substr(${v}, 7, 4) || '-' || substr(${v}, 4, 2) || '-' || substr(${v}, 1, 2) END)`;
+    if (dia(f.de)) conds.push(sql`${data} >= ${dia(f.de)}`);
+    if (dia(f.ate)) conds.push(sql`${data} <= ${dia(f.ate)}`);
   }
   return db.select({ c: pipelineCards }).from(pipelineCards)
     .innerJoin(pipelines, eq(pipelines.id, pipelineCards.pipelineId)).innerJoin(contacts, eq(contacts.id, pipelineCards.contactId))

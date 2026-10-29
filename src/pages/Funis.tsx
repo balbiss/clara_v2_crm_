@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronDown, LayoutGrid, MoreHorizontal, Search, Zap } from 'lucide-react'
+import { ChevronDown, LayoutGrid, MoreHorizontal, Search, SlidersHorizontal, X, Zap } from 'lucide-react'
 import api from '../api'
 import { Modal } from '../components/ui'
 import { toast } from '../components/ui2'
@@ -48,6 +48,83 @@ function LeadCard({ card, onOpen, onDragStart, onDragEnd, dragging }: { card: an
   )
 }
 
+// Filtro do quadro (Bel, 29/10): responsável, data de criação e o valor de campos do cadastro
+type CampoFiltro = { key: string; valor?: string; de?: string; ate?: string }
+type Filtro = { responsavel: string; criado_de: string; criado_ate: string; campos: CampoFiltro[] }
+const FILTRO_VAZIO: Filtro = { responsavel: '', criado_de: '', criado_ate: '', campos: [] }
+const temValor = (c: CampoFiltro) => !!(c.key && (c.valor?.trim() || c.de || c.ate))
+const ehData = (t?: string) => ['date', 'date_time', 'birthday'].includes(t || '')
+
+function PainelFiltro({ filtro, onChange, onClose }: { filtro: Filtro; onChange: (f: Filtro) => void; onClose: () => void }) {
+  const [agentes, setAgentes] = useState<any[]>([])
+  const [campos, setCampos] = useState<any[]>([])
+  useEffect(() => {
+    api.get('/agents').then(r => setAgentes(r.data.filter((a: any) => a.status !== 'blocked'))).catch(() => {})
+    api.get('/contact_custom_fields', { params: { all: 1 } }).then(r => setCampos([{ key: 'cidade', label: 'Cidade', type: 'text' },
+      ...r.data.filter((c: any) => !c.hidden && !['file', 'checkbox'].includes(c.type))])).catch(() => {})
+  }, [])
+  const set = (p: Partial<Filtro>) => onChange({ ...filtro, ...p })
+  const setCampo = (i: number, p: Partial<CampoFiltro>) => set({ campos: filtro.campos.map((c, j) => j === i ? { ...c, ...p } : c) })
+  const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', color: K.muted, margin: '0 0 5px' }
+  const inp: React.CSSProperties = { ...kInput, width: '100%', boxSizing: 'border-box' }
+  return (
+    <div style={{ position: 'absolute', top: 'calc(100% + 1px)', left: 0, zIndex: 50, width: 'min(420px, calc(100vw - 32px))', maxHeight: '75vh', overflowY: 'auto', background: '#fff', border: `1px solid ${K.line}`, borderRadius: 3, boxShadow: '0 4px 16px rgba(0,0,0,.12)', padding: 16, fontFamily: K.font, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div>
+        <span style={lbl}>Responsável</span>
+        <select value={filtro.responsavel} onChange={e => set({ responsavel: e.target.value })} style={inp}>
+          <option value="">Todos</option>
+          <option value="nenhum">Sem responsável</option>
+          {agentes.map(a => <option key={a.id} value={a.id}>{a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim()}</option>)}
+        </select>
+      </div>
+      <div>
+        <span style={lbl}>Data de criação do lead</span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input type="date" value={filtro.criado_de} onChange={e => set({ criado_de: e.target.value })} style={inp} />
+          <span style={{ color: K.muted, fontSize: 13 }}>até</span>
+          <input type="date" value={filtro.criado_ate} onChange={e => set({ criado_ate: e.target.value })} style={inp} />
+        </div>
+      </div>
+      <div>
+        <span style={lbl}>Campos do cadastro</span>
+        {filtro.campos.map((c, i) => {
+          const def = campos.find(x => x.key === c.key)
+          return (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0', borderTop: i ? `1px solid ${K.line}` : 'none' }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <select value={c.key} onChange={e => setCampo(i, { key: e.target.value, valor: '', de: '', ate: '' })} style={inp}>
+                  <option value="">Escolha o campo…</option>
+                  {campos.map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
+                </select>
+                <button onClick={() => set({ campos: filtro.campos.filter((_, j) => j !== i) })} title="Tirar" style={{ border: 'none', background: 'none', color: K.muted, cursor: 'pointer', display: 'flex', alignItems: 'center' }}><X size={16} /></button>
+              </div>
+              {c.key && (ehData(def?.type) ? (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input type="date" value={c.de || ''} onChange={e => setCampo(i, { de: e.target.value })} style={inp} />
+                  <span style={{ color: K.muted, fontSize: 13 }}>até</span>
+                  <input type="date" value={c.ate || ''} onChange={e => setCampo(i, { ate: e.target.value })} style={inp} />
+                </div>
+              ) : def?.options?.length ? (
+                <select value={c.valor || ''} onChange={e => setCampo(i, { valor: e.target.value })} style={inp}>
+                  <option value="">Qualquer</option>
+                  {def.options.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input value={c.valor || ''} onChange={e => setCampo(i, { valor: e.target.value })} placeholder="Contém…" style={inp} />
+              ))}
+            </div>
+          )
+        })}
+        <button onClick={() => set({ campos: [...filtro.campos, { key: '' }] })} style={{ border: 'none', background: 'none', color: K.link, fontFamily: K.font, fontSize: 14, cursor: 'pointer', padding: '4px 0' }}>+ Filtrar por um campo</button>
+      </div>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button onClick={() => onChange(FILTRO_VAZIO)} style={kBtn('ghost')}>Limpar</button>
+        <button onClick={onClose} style={kBtn('blue')}>Pronto</button>
+      </div>
+    </div>
+  )
+}
+
 export default function Funis() {
   const { slug } = useParams()
   const navigate = useNavigate()
@@ -60,7 +137,10 @@ export default function Funis() {
   const [over, setOver] = useState<string | null>(null)
   const [novo, setNovo] = useState<{ stageId?: number } | null>(null)
   const [perda, setPerda] = useState<{ cardId: number } | null>(null)
+  const [filtro, setFiltro] = useState<Filtro>(FILTRO_VAZIO)
+  const [abrirFiltro, setAbrirFiltro] = useState(false)
   const menuRef = useClickOutside<HTMLDivElement>(() => setMenu(false), menu)
+  const filtroRef = useClickOutside<HTMLDivElement>(() => setAbrirFiltro(false), abrirFiltro)
 
   // Consignado é funil de sistema (etapas = status da régua) — a tela dele é /funil
   const funis = pipes.filter(p => !p.system)
@@ -70,19 +150,31 @@ export default function Funis() {
   const lost = pipe?.pipeline_stages.find((s: any) => s.kind === 'lost')
 
   const loadPipes = async () => { const { data } = await api.get('/pipelines'); setPipes(data); return data.filter((p: any) => !p.system) }
-  const loadCards = async (p = pipe) => { if (!p) return; const { data } = await api.get(`/pipelines/${p.id}/pipeline_cards`); setCards(data) }
+  // busca e filtro rodam no servidor (o texto procura também dentro das conversas e dos campos do cadastro)
+  const params = () => ({ q: q.trim() || undefined, responsavel: filtro.responsavel || undefined, criado_de: filtro.criado_de || undefined, criado_ate: filtro.criado_ate || undefined,
+    campos: filtro.campos.some(temValor) ? JSON.stringify(filtro.campos.filter(temValor)) : undefined })
+  const pedido = useRef(0)
+  const loadCards = async (p = pipe) => {
+    if (!p) return
+    const n = ++pedido.current
+    const { data } = await api.get(`/pipelines/${p.id}/pipeline_cards`, { params: params() })
+    if (n === pedido.current) setCards(data) // ignora resposta atrasada de uma busca anterior
+  }
   useEffect(() => { loadPipes().then(d => { if (!slug && d[0]) navigate(`/pipelines/${d[0].slug}`, { replace: true }) }).finally(() => setLoading(false)) }, [])
   useEffect(() => { if (pipe) { setCards([]); loadCards(pipe) } }, [pipe?.id])
+  const primeiraBusca = useRef(true)
+  useEffect(() => {
+    if (primeiraBusca.current) { primeiraBusca.current = false; return }
+    const t = window.setTimeout(() => loadCards(), 400)
+    return () => clearTimeout(t)
+  }, [q, filtro])
 
   const byStage = useMemo(() => {
-    const s = q.trim().toLowerCase()
     const m: Record<number, any[]> = {}
-    cards.forEach(c => {
-      if (s && !(`${c.contact?.name || ''} ${c.contact?.phone || ''}`.toLowerCase().includes(s))) return
-      ;(m[c.pipeline_stage_id] ||= []).push(c)
-    })
+    cards.forEach(c => { (m[c.pipeline_stage_id] ||= []).push(c) })
     return m
-  }, [cards, q])
+  }, [cards])
+  const nFiltros = (filtro.responsavel ? 1 : 0) + (filtro.criado_de || filtro.criado_ate ? 1 : 0) + filtro.campos.filter(temValor).length
   const ativos = stages.flatMap((s: any) => byStage[s.id] || [])
   const totalAtivo = ativos.reduce((n: number, c: any) => n + (c.value || 0), 0)
 
@@ -138,10 +230,15 @@ export default function Funis() {
           )}
         </div>
         <LayoutGrid size={16} color={K.blue} />
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, borderLeft: `1px solid ${K.line}`, paddingLeft: 16, height: '100%' }}>
+        <div ref={filtroRef} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, borderLeft: `1px solid ${K.line}`, paddingLeft: 16, height: '100%', position: 'relative' }}>
+          <button onClick={() => setAbrirFiltro(a => !a)} title="Filtro" style={{ border: 'none', background: nFiltros ? '#fcf0f3' : 'none', borderRadius: 3, padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 4, color: nFiltros ? K.text : K.muted, fontFamily: K.font, fontSize: 13, cursor: 'pointer' }}>
+            <SlidersHorizontal size={16} />{nFiltros > 0 && <b>{nFiltros}</b>}
+          </button>
           <Search size={16} color={K.muted} />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Pesquisar e filtrar" style={{ border: 'none', outline: 'none', flex: 1, fontFamily: K.font, fontSize: 15, color: K.text, background: 'none' }} />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Pesquisar: nome, telefone, campo ou trecho da conversa" style={{ border: 'none', outline: 'none', flex: 1, minWidth: 120, fontFamily: K.font, fontSize: 15, color: K.text, background: 'none' }} />
+          {(nFiltros > 0 || q) && <button onClick={() => { setQ(''); setFiltro(FILTRO_VAZIO) }} style={{ border: 'none', background: 'none', color: K.link, fontFamily: K.font, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>Limpar filtro</button>}
           <span style={{ color: K.muted, fontSize: 15, whiteSpace: 'nowrap' }}>{ativos.length} leads: <b style={{ color: K.text, fontWeight: 400 }}>{brlK(totalAtivo)}</b></span>
+          {abrirFiltro && <PainelFiltro filtro={filtro} onChange={setFiltro} onClose={() => setAbrirFiltro(false)} />}
         </div>
         <button title="Mais" style={kBtn('flat', { padding: '0 8px' })}><MoreHorizontal size={18} /></button>
         {isOwner() && <button onClick={() => navigate(`/pipelines/${pipe.slug}/automatize`)} style={kBtn('ghost')}><Zap size={15} color="#f5a623" fill="#f5a623" /> Automatize</button>}

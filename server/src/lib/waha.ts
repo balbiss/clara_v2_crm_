@@ -109,7 +109,8 @@ export class WahaService {
         let { data, contentType, filename } = attachment;
         // WhatsApp não entrega nota de voz que não seja ogg/opus (o navegador grava webm):
         // converte com ffmpeg; se falhar, segue com o original (mesmo comportamento da v1).
-        if (contentType.startsWith('audio/') && !contentType.includes('ogg')) {
+        // (ogg também passa: o arquivo pode ter vindo de outro programa com o mesmo defeito)
+        if (contentType.startsWith('audio/')) {
           const converted = await convertToOggOpus(data);
           if (converted) {
             data = converted;
@@ -308,7 +309,10 @@ async function convertToMp4(input: Buffer): Promise<Buffer | null> {
 function convertToOggOpus(input: Buffer): Promise<Buffer | null> {
   return new Promise(resolve => {
     try {
-      const ff = spawn('ffmpeg', ['-y', '-i', 'pipe:0', '-c:a', 'libopus', '-f', 'ogg', 'pipe:1']);
+      // igual à nota de voz gravada no celular (mono, 16 kHz, ~24k): sem -avoid_negative_ts o ogg começava
+      // em -0,0005 s e o WhatsApp do celular dizia "há algo errado com o arquivo de áudio"
+      const ff = spawn('ffmpeg', ['-y', '-i', 'pipe:0', '-vn', '-map_metadata', '-1', '-ac', '1', '-ar', '16000',
+        '-c:a', 'libopus', '-b:a', '24k', '-application', 'voip', '-avoid_negative_ts', 'make_zero', '-f', 'ogg', 'pipe:1']);
       const chunks: Buffer[] = [];
       ff.stdout.on('data', c => chunks.push(c));
       ff.on('error', () => resolve(null));

@@ -159,6 +159,7 @@ export async function moveCard(card: Card, stageId: number, chainDepth = 0, pipe
  * cada card recebe no máximo uma vez por permanência na etapa (mesma chave do gatilho normal).
  */
 export async function aplicarAosQueJaEstao(t: Trigger) {
+  if (t.event === 'agent_message' || t.event === 'client_reply') return aplicarMensagemAosQueJaEstao(t);
   if (t.event !== 'enter') return 0;
   const cards = await db.select().from(pipelineCards).where(eq(pipelineCards.pipelineStageId, t.pipelineStageId));
   for (const card of cards) {
@@ -167,6 +168,31 @@ export async function aplicarAosQueJaEstao(t: Trigger) {
       pipelineTriggerId: t.id, pipelineCardId: card.id, runKey: `enter:${card.stageEnteredAt.toISOString()}`, runAt: quando, chainDepth: 0,
     }).onConflictDoNothing();
   }
+  return cards.length;
+}
+
+/**
+ * Mesmo botão nos gatilhos de mensagem (Bel, 29/10 — Novo Lead → Primeiro contato): roda nos cards da etapa
+ * cuja conversa já tem mensagem da equipe (qualquer época; nota interna e disparo não contam) ou, em
+ * "quando o cliente responder", resposta do cliente desde que o card entrou na etapa. Marca o card igual
+ * ao gatilho normal, então ninguém recebe duas vezes. Roda em segundo plano (pode ter centenas de leads).
+ */
+async function aplicarMensagemAosQueJaEstao(t: Trigger) {
+  const agente = t.event === 'agent_message';
+  const coluna = agente ? pipelineCards.agentMessageTriggeredAt : pipelineCards.replyTriggeredAt;
+  const temMensagem = agente
+    ? sql`EXISTS (SELECT 1 FROM messages m JOIN conversations cv ON cv.id = m.conversation_id WHERE cv.contact_id = ${pipelineCards.contactId}
+        AND m.sender_type = 'User' AND NOT coalesce(m.is_private, false) AND m.broadcast_id IS NULL)`
+    : sql`EXISTS (SELECT 1 FROM messages m JOIN conversations cv ON cv.id = m.conversation_id WHERE cv.contact_id = ${pipelineCards.contactId}
+        AND m.sender_type = 'Contact' AND m.created_at > ${pipelineCards.stageEnteredAt})`;
+  const cards = await db.select().from(pipelineCards).where(and(eq(pipelineCards.pipelineStageId, t.pipelineStageId), sql`${coluna} IS NULL`, temMensagem));
+  void (async () => {
+    for (const card of cards) {
+      const claimed = await db.update(pipelineCards).set(agente ? { agentMessageTriggeredAt: new Date() } : { replyTriggeredAt: new Date() })
+        .where(and(eq(pipelineCards.id, card.id), eq(pipelineCards.pipelineStageId, t.pipelineStageId), sql`${coluna} IS NULL`)).returning({ id: pipelineCards.id });
+      if (claimed.length) await execute(t, card, 0);
+    }
+  })().catch(e => console.error('Aplicar gatilho de mensagem aos que já estão falhou —', (e as Error).message));
   return cards.length;
 }
 

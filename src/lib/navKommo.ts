@@ -58,8 +58,9 @@ export function kommoNavFor(role: string, pipelines: { slug: string; name: strin
     if (g.id === 'pipelines' && !consignadoVisivel) children = children.filter(c => c.path !== '/funil') // "Funis que vê" sem o Consignado
     if (g.id === 'pipelines') children = [...children, ...pipelines.map(p => ({ path: `/pipelines/${p.slug}`, label: p.name, rule: 'all' as NavRule }))]
     if (g.id === 'comunicacoes') {
-      // cada número de WhatsApp (só os que a pessoa acessa) logo abaixo de Conversas, com a cor da caixa
-      const caixas: KNavLeaf[] = inboxes.filter(i => ['waha', 'baileys'].includes(i.provider || '') || !!i.call_session_id) // + caixa só de ligação (ex.: Teste ligação).map(i => ({
+      // cada número de WhatsApp (só os que a pessoa acessa) logo abaixo de Conversas, com a cor da caixa;
+      // também a caixa só de ligação (ex.: Teste ligação)
+      const caixas: KNavLeaf[] = inboxes.filter(i => ['waha', 'baileys'].includes(i.provider || '') || !!i.call_session_id).map(i => ({
         path: `/conversas/inbox/${i.id}`, label: i.badge_short || i.name, rule: 'all' as NavRule, color: i.badge_color, sub: true, offline: i.connected === false,
       }))
       const at = children.findIndex(c => c.path === '/conversas') + 1

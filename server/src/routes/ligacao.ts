@@ -47,7 +47,7 @@ ligacaoRouter.post('/ligacao/ligar', async (req, res) => {
   let callId: string;
   try {
     callId = (await astra<{ call: { callId: string } }>('POST', `/api/sessions/${encodeURIComponent(inbox.callSessionId)}/calls`,
-      { phone: telefone, duration_ms: 3_600_000, record: false, video: false }, clienteDe(u.id))).call.callId;
+      { phone: telefone, duration_ms: 3_600_000, record: true, video: false }, clienteDe(u.id))).call.callId;
   } catch (e) {
     travarNumero(inbox.id, false);
     return erro(res, 502, 'Não consegui ligar: ' + (e instanceof AstraErro ? e.message : 'tente de novo'));
@@ -73,7 +73,7 @@ ligacaoRouter.post('/ligacao/:callId/sdp', async (req, res) => {
 ligacaoRouter.post('/ligacao/:callId/atender', async (req, res) => {
   const c = minha(req, res); if (!c) return;
   if (c.direcao !== 'entrada') return erro(res, 400, 'Essa ligação não é recebida.');
-  try { await astra('POST', `/api/sessions/${encodeURIComponent(c.sid)}/calls/${encodeURIComponent(c.callId)}/accept`, { record: false }, clienteDe(req.user!.id), 20_000) }
+  try { await astra('POST', `/api/sessions/${encodeURIComponent(c.sid)}/calls/${encodeURIComponent(c.callId)}/accept`, { record: true }, clienteDe(req.user!.id), 20_000) }
   catch (e) {
     if (e instanceof AstraErro && e.status === 409) return erro(res, 409, 'Outra pessoa já atendeu essa ligação.');
     return erro(res, 502, 'Não consegui atender: ' + (e as Error).message);

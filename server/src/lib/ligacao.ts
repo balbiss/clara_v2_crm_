@@ -3,7 +3,8 @@ import { db } from '../db/client.js';
 import { contacts, inboxes, users } from '../db/schema.js';
 import { broadcastLigacao, broadcastConversations } from './realtime.js';
 import { findOrCreateConversation } from './conversations.js';
-import { createMessage } from './messages.js';
+import { createMessage, rebroadcast } from './messages.js';
+import { attach } from './storage.js';
 import { mesmoTelefoneSql } from './mesclarContatos.js';
 import { cache } from './cache.js';
 
@@ -147,11 +148,32 @@ export async function encerrou(c: Chamada, motivo = '') {
     ? (atendida ? `Ligação feita por ${c.userNome || 'atendente'} (${duracao(seg)})` : `Ligação de ${c.userNome || 'atendente'} não atendida`)
     : (atendida ? `Ligação recebida, atendida por ${c.userNome || 'atendente'} (${duracao(seg)})` : 'Ligação perdida');
   try {
-    await createMessage(c.direcao === 'saida'
+    const msg = await createMessage(c.direcao === 'saida'
       ? { accountId: c.accountId, conversationId: c.conversationId, senderType: 'User', senderId: c.userId, text: texto, isPrivate: true }
       : { accountId: c.accountId, conversationId: c.conversationId, senderType: 'Contact', senderId: c.contactId, text: texto, isPrivate: false } as any);
+    // gravação (as duas vozes num MP3): o AstraCalls termina de gerar logo depois — vai anexada no registro
+    if (atendida) void guardarGravacao(c.callId, msg.id)
     if (c.direcao === 'entrada' && !atendida) broadcastConversations(c.accountId, { event: 'conversation_updated', conversation: { id: c.conversationId, status: 'open' } });
   } catch (e) { console.warn('[Ligação] registrar', (e as Error).message) }
+}
+
+/** Baixa o MP3 da ligação do AstraCalls e anexa na mensagem de registro (fica no armazenamento do CRM). */
+async function guardarGravacao(callId: string, messageId: number) {
+  for (let tentativa = 0; tentativa < 12; tentativa++) {
+    await new Promise(r => setTimeout(r, 5000));
+    try {
+      const r = await fetch(`${URL_ASTRA}/recordings/${encodeURIComponent(callId)}.mp3`, { headers: { 'X-API-Key': CHAVE }, signal: AbortSignal.timeout(30_000) });
+      if (r.status === 404) continue; // ainda gerando (ou ligação curta demais, menos de 3 s)
+      if (!r.ok) continue;
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length < 1000) continue;
+      const quando = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(/[: ]/g, '-').slice(0, 16);
+      await attach('Message', messageId, 'attachment', buf, `gravacao-ligacao-${quando}.mp3`, 'audio/mpeg');
+      await rebroadcast(messageId);
+      return;
+    } catch { /* tenta de novo */ }
+  }
+  console.warn('[Ligação] gravação não encontrada', callId);
 }
 
 export async function nomeDoUsuario(userId: number) {

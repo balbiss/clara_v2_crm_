@@ -50,7 +50,7 @@ export const KOMMO_SETTINGS: KNavLeaf[] = [
 ]
 
 /** Menu filtrado pelo perfil; grupos que ficam vazios somem. */
-type NavInbox = { id: number; name: string; provider?: string; badge_short?: string; badge_color?: string; connected?: boolean }
+type NavInbox = { id: number; name: string; provider?: string; badge_short?: string; badge_color?: string; connected?: boolean; call_session_id?: string | null }
 export function kommoNavFor(role: string, pipelines: { slug: string; name: string }[], inboxes: NavInbox[] = [], perms?: Record<string, unknown> | null, consignadoVisivel = true) {
   return KOMMO_NAV.map(g => {
     if (!g.children) return allowed(g.rule || 'all', role, perms) ? g : null
@@ -59,7 +59,7 @@ export function kommoNavFor(role: string, pipelines: { slug: string; name: strin
     if (g.id === 'pipelines') children = [...children, ...pipelines.map(p => ({ path: `/pipelines/${p.slug}`, label: p.name, rule: 'all' as NavRule }))]
     if (g.id === 'comunicacoes') {
       // cada número de WhatsApp (só os que a pessoa acessa) logo abaixo de Conversas, com a cor da caixa
-      const caixas: KNavLeaf[] = inboxes.filter(i => ['waha', 'baileys'].includes(i.provider || '')).map(i => ({
+      const caixas: KNavLeaf[] = inboxes.filter(i => ['waha', 'baileys'].includes(i.provider || '') || !!i.call_session_id) // + caixa só de ligação (ex.: Teste ligação).map(i => ({
         path: `/conversas/inbox/${i.id}`, label: i.badge_short || i.name, rule: 'all' as NavRule, color: i.badge_color, sub: true, offline: i.connected === false,
       }))
       const at = children.findIndex(c => c.path === '/conversas') + 1

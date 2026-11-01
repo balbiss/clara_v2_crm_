@@ -41,6 +41,7 @@ import { confirmBox } from '../components/ui2'
 import { isFullPortfolio } from '../config/roles'
 import { inboxesStore } from '../store/inboxes'
 import { fmtPhone } from './SettingsInboxDetail'
+import { pickWhatsappInbox } from '../composables/useInboxPicker'
 
 // Porte de views/Conversas.vue (lógica da v1) no layout do Kommo: lista | card do lead | histórico.
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -751,6 +752,19 @@ export default function Conversas() {
   const inboxes = useSnapshot(inboxesStore) as Any
   // com mais de um número na conta, cada conversa mostra de qual número é (cor + apelido da caixa)
   const variasCaixas = inboxes.inboxes.filter((i: Any) => ['waha', 'baileys'].includes(i.provider)).length > 1
+  // cliente que só tem conversa por um número (ex.: veio pela Expansão) — abre/cria a conversa dela pelo número escolhido
+  const [trocandoNumero, setTrocandoNumero] = useState(false)
+  const trocarNumero = async () => {
+    const { inboxId, cancelled } = await pickWhatsappInbox('Usar este número')
+    if (cancelled || !inboxId || String(inboxId) === String(conv.inbox_id)) return
+    setTrocandoNumero(true)
+    try {
+      const nova = await conversationsStore.startConversation(conv.contact.id, inboxId)
+      await openSearchResult(nova.id)
+    } catch (e: Any) {
+      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Não foi possível trocar o número.', showConfirmButton: false, timer: 3500 })
+    } finally { setTrocandoNumero(false) }
+  }
   const tabs = [
     { id: 'all', label: 'Todas', n: store.sidebarFilteredConversations.length },
     { id: 'sem-resposta', label: 'Sem resposta', n: semResposta },
@@ -1350,6 +1364,7 @@ export default function Conversas() {
                 <div aria-label="Número de envio" style={{ margin: '0 clamp(8px, 2vw, 22px) -1px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: conv.inbox_color, color: '#fff', borderRadius: '3px 3px 0 0', padding: '6px 14px', fontSize: 13.5, flex: 'none' }}>
                   <span style={{ width: 14, height: 14, display: 'flex', background: '#fff', borderRadius: '50%', padding: 1 }}><WhatsappIcon source="whatsapp" /></span>
                   <span>Enviando pelo número <b style={{ textTransform: 'uppercase' }}>{conv.inbox_short}</b>{conv.inbox_phone ? ` · ${fmtPhone(conv.inbox_phone)}` : ''}</span>
+                  {variasCaixas && <button onClick={trocarNumero} disabled={trocandoNumero} style={{ marginLeft: 'auto', border: '1px solid rgba(255,255,255,.8)', background: 'rgba(255,255,255,.15)', color: '#fff', borderRadius: 12, padding: '2px 10px', fontFamily: K.font, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>{trocandoNumero ? 'Trocando…' : 'Trocar número'}</button>}
                 </div>
               )}
               {/* composer: "Bate-papo ▾ com Nome:" */}

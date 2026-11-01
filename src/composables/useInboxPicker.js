@@ -7,7 +7,7 @@ import { inboxesStore } from '../store/inboxes'
 // Consultores", 2026-09-25). Usado em todo botão "iniciar conversa"
 // (ContactDetails/RevendedorasAtivas/TarefasView/AtacadoView).
 /** @returns {Promise<{inboxId: any, cancelled: boolean}>} */
-export async function pickWhatsappInbox() {
+export async function pickWhatsappInbox(confirmText = 'Iniciar conversa') {
   if (!inboxesStore.isLoadedOnce) await inboxesStore.fetchInboxes()
 
   const whatsappInboxes = inboxesStore.inboxes.filter(i => ['baileys', 'waha'].includes(i.provider))
@@ -26,7 +26,7 @@ export async function pickWhatsappInbox() {
     title: 'Enviar por qual número?',
     html,
     showCancelButton: true,
-    confirmButtonText: 'Iniciar conversa',
+    confirmButtonText: confirmText,
     cancelButtonText: 'Cancelar',
     confirmButtonColor: '#c8506a',
     preConfirm: () => {

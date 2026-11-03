@@ -765,6 +765,25 @@ export default function Conversas() {
       Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Não foi possível trocar o número.', showConfirmButton: false, timer: 3500 })
     } finally { setTrocandoNumero(false) }
   }
+  // conversa de um número que ela não usa (ex.: histórico da Expansão): abre conversa nova pelo número
+  // dela, em vez de responder nesta (Bel, 2026-11-03). Uma vez por conversa, pra não ficar em loop.
+  const redirecionadas = useRef(new Set<number>())
+  useEffect(() => {
+    if (!conv?.id || conv.can_send !== false || redirecionadas.current.has(conv.id)) return
+    redirecionadas.current.add(conv.id)
+    const de = conv.inbox_short || conv.inbox_name || 'outro número'
+    ;(async () => {
+      const { inboxId, cancelled } = await pickWhatsappInbox('Abrir conversa')
+      if (cancelled) return
+      try {
+        const nova = await conversationsStore.startConversation(conv.contact.id, inboxId)
+        await openSearchResult(nova.id)
+        Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: `Essa conversa era pelo número ${String(de).toUpperCase()}, que você não usa. Abrimos a conversa pelo seu número.`, showConfirmButton: false, timer: 5000 })
+      } catch (e: Any) {
+        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Não foi possível abrir a conversa pelo seu número.', showConfirmButton: false, timer: 4000 })
+      }
+    })()
+  }, [conv?.id, conv?.can_send])
   const tabs = [
     { id: 'all', label: 'Todas', n: store.sidebarFilteredConversations.length },
     { id: 'sem-resposta', label: 'Sem resposta', n: semResposta },

@@ -5,7 +5,7 @@ import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { conversations, contacts, inboxes, messages, scheduledMessages, conversationTags, tags, accounts, users } from '../db/schema.js';
 import { requireAuth, isOwner, isFullPortfolio, visibleContactsWhere, type User } from '../middleware/auth.js';
-import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, type Conversation } from '../lib/conversations.js';
+import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, sendableInboxIds, canSendThrough, type Conversation } from '../lib/conversations.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
 import { entrarNoFunilDaCaixa, onAgentMessage } from '../lib/pipelines.js';
 import { createMessage, messageStatusValue, messagePayload, rebroadcast } from '../lib/messages.js';
@@ -27,6 +27,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100
 const WHATSAPP_PROVIDERS = ['waha'];
 const id = (req: Request, key = 'id') => Number(req.params[key]);
 const notFound = (res: Response) => res.status(404).json({ error: 'not_found' });
+const SEM_ACESSO_CAIXA = { error: 'caixa_sem_acesso', message: 'Você não tem acesso a esse número. Abra a conversa pelo seu número.' };
 
 async function loadVisible(req: Request, res: Response, key = 'id'): Promise<Conversation | null> {
   const conv = await findVisibleConversation(req.user!, id(req, key));
@@ -79,13 +80,17 @@ conversationsRouter.post('/conversations', async (req, res) => {
   }
 
   let inbox: typeof inboxes.$inferSelect | undefined;
+  const allowed = await sendableInboxIds(u);
   if (req.body.inbox_id) {
     [inbox] = await db.select().from(inboxes).where(and(eq(inboxes.accountId, u.accountId!), inArray(inboxes.provider, WHATSAPP_PROVIDERS), eq(inboxes.id, Number(req.body.inbox_id)))).limit(1);
+    // consultora não abre conversa por caixa de que não é membro: cai na caixa dela (abaixo)
+    if (inbox && !canSendThrough(allowed, inbox.id)) inbox = undefined;
   }
   if (!inbox) {
     // pick_inbox_for: caixa liberada pro usuário, senão a primeira de WhatsApp da conta
     const mine = (await assignedInboxes(u.id)).find(i => WHATSAPP_PROVIDERS.includes(i.provider ?? ''));
     if (mine) [inbox] = await db.select().from(inboxes).where(eq(inboxes.id, mine.id));
+    else if (allowed) return res.status(422).json({ error: 'sem_caixa_liberada', message: 'Você não tem nenhum número de WhatsApp liberado. Peça pra gerência liberar em Gerenciar acesso.' });
     else [inbox] = await db.select().from(inboxes).where(and(eq(inboxes.accountId, u.accountId!), inArray(inboxes.provider, WHATSAPP_PROVIDERS))).orderBy(asc(inboxes.id)).limit(1);
   }
   if (!inbox) return res.status(422).json({ error: 'sem_caixa_conectada', message: 'Nenhuma caixa de WhatsApp conectada nesta conta ainda.' });
@@ -142,9 +147,13 @@ conversationsRouter.get('/conversations/:id', async (req, res) => {
   const outras = await db.select({ id: conversations.id, inboxId: conversations.inboxId, last: conversations.lastActivityAt, name: inboxes.name, phone: inboxes.phoneNumber, color: inboxes.color, shortName: inboxes.shortName })
     .from(conversations).leftJoin(contacts, eq(contacts.id, conversations.contactId)).innerJoin(inboxes, eq(inboxes.id, conversations.inboxId))
     .where(and(await visibleConversationsWhere(req.user!), eq(conversations.contactId, conv.contactId), ne(conversations.id, conv.id)));
+  // can_send=false: a conversa é de uma caixa de que ela não é membro — a tela abre uma conversa nova
+  // pelo número dela em vez de responder nesta (e não oferece "abrir pelo outro número" dessas caixas)
+  const allowed = await sendableInboxIds(req.user!);
   res.json({
     ...(await formatConversation(conv, req.user!.accountId!)),
-    other_conversations: outras.map(o => ({ conversation_id: o.id, inbox_id: o.inboxId, inbox_name: o.name, inbox_phone: o.phone, inbox_short: inboxBadge({ id: o.inboxId!, name: o.name, color: o.color, shortName: o.shortName }).short, inbox_color: inboxBadge({ id: o.inboxId!, name: o.name, color: o.color, shortName: o.shortName }).color, last_activity_at: o.last })),
+    can_send: canSendThrough(allowed, conv.inboxId),
+    other_conversations: outras.filter(o => canSendThrough(allowed, o.inboxId)).map(o => ({ conversation_id: o.id, inbox_id: o.inboxId, inbox_name: o.name, inbox_phone: o.phone, inbox_short: inboxBadge({ id: o.inboxId!, name: o.name, color: o.color, shortName: o.shortName }).short, inbox_color: inboxBadge({ id: o.inboxId!, name: o.name, color: o.color, shortName: o.shortName }).color, last_activity_at: o.last })),
   });
 });
 
@@ -337,6 +346,7 @@ conversationsRouter.post('/conversations/:conversation_id/messages', upload.sing
   const conv = await loadVisible(req, res, 'conversation_id');
   if (!conv) return;
   const isPrivate = String(req.body.is_private) === 'true';
+  if (!isPrivate && !canSendThrough(await sendableInboxIds(u), conv.inboxId)) return res.status(403).json(SEM_ACESSO_CAIXA);
 
   // anexo: upload novo ou cópia do anexo de uma mensagem encaminhada (cópia, não o mesmo blob)
   let file: { data: Buffer; filename: string; contentType: string } | null = null;
@@ -433,6 +443,7 @@ conversationsRouter.get('/conversations/:conversation_id/scheduled_messages', as
 conversationsRouter.post('/conversations/:conversation_id/scheduled_messages', upload.single('attachment'), async (req, res) => {
   const conv = await loadVisible(req, res, 'conversation_id');
   if (!conv) return;
+  if (!canSendThrough(await sendableInboxIds(req.user!), conv.inboxId)) return res.status(403).json(SEM_ACESSO_CAIXA);
   const sendAt = req.body.send_at ? new Date(String(req.body.send_at)) : null;
   if (!sendAt || isNaN(sendAt.getTime())) return res.status(422).json({ errors: ['Send at inválido'] });
   const [m] = await db.insert(scheduledMessages).values({ conversationId: conv.id, text: req.body.text ?? null, sendAt, status: 'pending' }).returning();

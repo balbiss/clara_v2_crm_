@@ -33,6 +33,19 @@ export async function assignedInboxes(userId: number) {
 }
 
 /**
+ * Caixas pelas quais o usuário pode MANDAR mensagem: null = qualquer uma (gerente/diretoria/financeiro,
+ * ou quem não tem caixa em Gerenciar Acesso — mesma regra do GET /inboxes). Consultora só manda pelas
+ * caixas de que é membro, mesmo enxergando conversa de outra caixa (Bel, 2026-11-03: Ana Clara mandou
+ * pela Expansão, caixa que ela nem tem acesso).
+ */
+export async function sendableInboxIds(u: User): Promise<Set<number> | null> {
+  if (isFullPortfolio(u) || isFinance(u)) return null;
+  const mine = await assignedInboxes(u.id);
+  return mine.length ? new Set(mine.map(i => i.id)) : null;
+}
+export const canSendThrough = (allowed: Set<number> | null, inboxId: number | null) => !allowed || (inboxId != null && allowed.has(inboxId));
+
+/**
  * ConversationsController#visible_conversations_scope (condição SQL; exige join com contacts).
  * Gerente/diretoria/financeiro/permissão admin: tudo. Consultor: conversas em que é atendente,
  * dos times de vendas dele, das caixas liberadas sem carteira, e das caixas com carteira só

@@ -41,7 +41,11 @@ export async function messagePayload(m: Message, attachment?: Blob | null) {
 }
 
 export async function broadcastMessage(m: Message) {
-  broadcastConversations(m.accountId, { event: 'message_created', conversation_id: m.conversationId, message: await messagePayload(m) });
+  // a lista usa is_group/archived pra não recarregar tudo a cada mensagem de grupo/arquivada que ela não mostra
+  const [k] = await db.select({ archivedAt: conversations.archivedAt, status: contacts.status, jid: contacts.jid })
+    .from(conversations).leftJoin(contacts, eq(contacts.id, conversations.contactId)).where(eq(conversations.id, m.conversationId)).limit(1);
+  broadcastConversations(m.accountId, { event: 'message_created', conversation_id: m.conversationId, message: await messagePayload(m),
+    is_group: !!k && (k.status === 'grupo' || String(k.jid ?? '').endsWith('@g.us')), archived: !!k?.archivedAt });
 }
 
 /** Message#rebroadcast — reenvia depois que anexo/texto terminaram de ser processados. */

@@ -51,6 +51,8 @@ export const conversationsStore = proxy({
   currentFilter: 'todos', // todos, minhas, nao-atribuidos, sem-resposta
   sidebarFilter: 'all',
   sidebarInboxId: null,
+  // qual lista: 'principal' (clientes), 'grupos' ou 'arquivadas' (Bel, 2026-11-03: grupos de aquecimento lotavam a lista)
+  view: 'principal',
   // paginação da lista (100 por vez; "carregar mais" ao rolar até o fim)
   page: 1,
   hasMore: false,
@@ -78,7 +80,7 @@ export const conversationsStore = proxy({
 
     // se o funil (filtro avançado) já escolhe status, ele manda — não soma com o ⇅
     const advancedStatus = state.advancedFilters?.some(f => f.attribute === 'status' && f.operator && f.value)
-    if (!advancedStatus && state.sortStatus !== 'all') filtered = filtered.filter(c => c.status === state.sortStatus)
+    if (!advancedStatus && state.sortStatus !== 'all' && state.view !== 'arquivadas') filtered = filtered.filter(c => c.status === state.sortStatus)
 
     if (state.sortType === 'unread') filtered = filtered.filter(c => c.unread > 0)
     else if (state.sortType === 'mentions') filtered = filtered.filter(() => false)
@@ -138,7 +140,7 @@ export const conversationsStore = proxy({
 
   async fetchConversations() {
     try {
-      const response = await api.get('/conversations', { params: { inbox_id: this.sidebarInboxId || undefined, per_page: 100 } })
+      const response = await api.get('/conversations', { params: { inbox_id: this.sidebarInboxId || undefined, per_page: 100, view: this.view === 'principal' ? undefined : this.view } })
       this.page = 1
       this.hasMore = response.data.length === 100
       // mantém a conversa aberta mesmo se ela não estiver entre as 100 mais recentes
@@ -238,6 +240,38 @@ export const conversationsStore = proxy({
 
   setFilter(filterType) { this.currentFilter = filterType },
 
+  /** Troca entre a lista de clientes, Grupos e Arquivadas (busca de novo no servidor). */
+  setView(view) {
+    if (this.view === view) return
+    this.view = view
+    this.conversations = []
+    this.activeConversationId = null
+    this.fetchConversations()
+  },
+
+  /** A conversa pertence à lista que está na tela? (usado pelos eventos em tempo real) */
+  belongsToView(isGroup, archived) {
+    if (this.view === 'arquivadas') return !!archived
+    if (archived) return false
+    return this.view === 'grupos' ? !!isGroup : !isGroup
+  },
+
+  /** Arquivar / desarquivar: some desta lista e vai pra outra. */
+  async setArchived(conversationId, archived) {
+    await api.put(`/conversations/${conversationId}`, { conversation: { archived } })
+    const idx = this.conversations.findIndex(c => c.id === conversationId)
+    if (idx === -1) return
+    const conv = this.conversations[idx]
+    conv.archived = archived
+    if (this.belongsToView(conv.is_group, archived)) return
+    this.conversations.splice(idx, 1)
+    if (this.activeConversationId === conversationId) {
+      const lista = this.sidebarFilteredConversations
+      this.activeConversationId = lista[Math.min(idx, lista.length - 1)]?.id || null
+      if (this.activeConversationId) this.loadFullConversation(this.activeConversationId)
+    }
+  },
+
   setSidebarFilter(filterType) {
     const trocouCaixa = this.sidebarInboxId != null
     this.sidebarFilter = filterType
@@ -260,7 +294,7 @@ export const conversationsStore = proxy({
     if (this.loadingMore || !this.hasMore) return
     this.loadingMore = true
     try {
-      const { data } = await api.get('/conversations', { params: { inbox_id: this.sidebarInboxId || undefined, per_page: 100, page: this.page + 1 } })
+      const { data } = await api.get('/conversations', { params: { inbox_id: this.sidebarInboxId || undefined, per_page: 100, page: this.page + 1, view: this.view === 'principal' ? undefined : this.view } })
       const ids = new Set(this.conversations.map(c => c.id))
       this.conversations.push(...data.filter(c => !ids.has(c.id)))
       this.page += 1
@@ -403,7 +437,8 @@ export const conversationsStore = proxy({
             conv.messages[existingIdx] = { ...conv.messages[existingIdx], ...newMsg }
             conv.preview = newMsg.text
           }
-        } else {
+        } else if (payload.is_group === undefined || this.belongsToView(payload.is_group, payload.archived)) {
+          // conversa nova desta lista; grupo/arquivada que a lista não mostra é ignorada (sem recarregar tudo)
           this.fetchConversations()
         }
       } else if (payload.event === 'inbox_updated') {
@@ -420,7 +455,13 @@ export const conversationsStore = proxy({
           Object.assign(conv, rest)
           // payload completo (com histórico) substitui; parcial mantém as mensagens atuais
           if (messages_loaded && messages) { conv.messages = messages; conv.messages_loaded = true }
-        } else {
+          // desarquivada (cliente respondeu) ou arquivada em outra tela: sai desta lista
+          if ('archived' in rest && !this.belongsToView(conv.is_group, conv.archived) && conv.id !== this.activeConversationId) {
+            this.conversations = this.conversations.filter(c => c.id !== conv.id)
+          }
+        } else if (payload.conversation?.archived === false && this.view === 'principal') {
+          this.fetchConversations()
+        } else if (!('archived' in (payload.conversation || {}))) {
           this.fetchConversations()
         }
       } else if (payload.event === 'snooze_expired') {

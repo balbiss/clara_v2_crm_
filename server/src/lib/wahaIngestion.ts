@@ -244,6 +244,12 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
 
 /** Mensagem do cliente reabre a conversa fechada ou adiada (o que o motor de IA da v1 fazia só com IA ligada). */
 async function reabrirSeFechada(conversation: typeof conversations.$inferSelect, contact: Contact) {
+  // arquivada volta pra lista quando a cliente manda mensagem (grupo nem chega aqui)
+  if (conversation.archivedAt) {
+    await db.update(conversations).set({ archivedAt: null }).where(eq(conversations.id, conversation.id));
+    conversation.archivedAt = null;
+    broadcastConversations(conversation.accountId, { event: 'conversation_updated', conversation: { id: conversation.id, archived: false } });
+  }
   const status = conversation.status;
   if (status === convStatusValue('resolved')) {
     await db.update(conversations).set({ status: 0 }).where(eq(conversations.id, conversation.id));

@@ -32,6 +32,9 @@ export async function assignedInboxes(userId: number) {
     .where(eq(inboxMembers.userId, userId)).orderBy(asc(inboxes.id));
 }
 
+/** Conversa de grupo do WhatsApp (contato com status 'grupo' ou jid @g.us) — exige join com contacts. */
+export const isGroupSql = sql`(coalesce(${contacts.status}, '') = 'grupo' OR coalesce(${contacts.jid}, '') LIKE '%@g.us')`;
+
 /**
  * Caixas pelas quais o usuário pode MANDAR mensagem: null = qualquer uma (gerente/diretoria/financeiro,
  * ou quem não tem caixa em Gerenciar Acesso — mesma regra do GET /inboxes). Consultora só manda pelas
@@ -190,6 +193,8 @@ export async function formatConversations(convs: Conversation[], accountId: numb
       assignee_id: conv.userId,
       status: convStatusName(conv.status),
       snoozed_until: conv.snoozedUntil,
+      archived: !!conv.archivedAt,
+      is_group: c.status === 'grupo' || String(c.jid ?? '').endsWith('@g.us'),
       tags: (tagsBy.get(conv.id) ?? []).map(t => ({ id: t.id, name: t.name, color: t.color })),
     };
   });

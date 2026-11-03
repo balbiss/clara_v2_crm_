@@ -1,11 +1,11 @@
 import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
 import crypto from 'node:crypto';
-import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { conversations, contacts, inboxes, messages, scheduledMessages, conversationTags, tags, accounts, users } from '../db/schema.js';
 import { requireAuth, isOwner, isFullPortfolio, visibleContactsWhere, type User } from '../middleware/auth.js';
-import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, sendableInboxIds, canSendThrough, type Conversation } from '../lib/conversations.js';
+import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, sendableInboxIds, canSendThrough, isGroupSql, type Conversation } from '../lib/conversations.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
 import { entrarNoFunilDaCaixa, onAgentMessage } from '../lib/pipelines.js';
 import { createMessage, messageStatusValue, messagePayload, rebroadcast } from '../lib/messages.js';
@@ -38,12 +38,20 @@ async function loadVisible(req: Request, res: Response, key = 'id'): Promise<Con
 
 // GET /conversations — mais recentes visíveis, por página (só a última mensagem de cada; ver formatConversations).
 // inbox_id: só daquela caixa (com vários números, as 100 mais recentes da conta escondiam as conversas de cada caixa)
+// ?view= — padrão: só clientes não arquivadas; 'grupos': grupos não arquivados; 'arquivadas': tudo que foi arquivado
+function viewWhere(view: string) {
+  if (view === 'arquivadas') return isNotNull(conversations.archivedAt);
+  if (view === 'grupos') return and(isNull(conversations.archivedAt), isGroupSql);
+  if (view === 'todas') return undefined;
+  return and(isNull(conversations.archivedAt), sql`NOT ${isGroupSql}`);
+}
+
 conversationsRouter.get('/conversations', async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(500, Math.max(1, Number(req.query.per_page) || 100));
   const rows = await db.select({ c: conversations }).from(conversations)
     .leftJoin(contacts, eq(contacts.id, conversations.contactId))
-    .where(and(await visibleConversationsWhere(req.user!), req.query.inbox_id ? eq(conversations.inboxId, Number(req.query.inbox_id)) : undefined))
+    .where(and(await visibleConversationsWhere(req.user!), req.query.inbox_id ? eq(conversations.inboxId, Number(req.query.inbox_id)) : undefined, viewWhere(String(req.query.view ?? ''))))
     .orderBy(sql`${conversations.lastActivityAt} DESC NULLS LAST`, desc(conversations.id))
     .offset((page - 1) * limit).limit(limit);
   res.json(await formatConversations(rows.map(r => r.c), req.user!.accountId!, { fullMessages: false }));
@@ -183,6 +191,7 @@ async function updateConversation(req: Request, res: Response) {
   // consultora só atribui a si mesma ou tira (Bel, 26/10: a lista inteira confundia); transferir com nota segue liberado
   if ('user_id' in p && set.userId && set.userId !== u.id && !isFullPortfolio(u) && !req.body.transfer_note) return res.status(403).json({ error: 'forbidden', message: 'Você só pode atribuir a conversa a você mesma. Pra passar pra outra pessoa, use Transferir.' });
   if ('snoozed_until' in p) set.snoozedUntil = p.snoozed_until ? new Date(String(p.snoozed_until)) : null;
+  if ('archived' in p) set.archivedAt = p.archived ? new Date() : null;
   let current = conv;
   if (Object.keys(set).length) [current] = await db.update(conversations).set({ ...set, updatedAt: new Date() }).where(eq(conversations.id, conv.id)).returning();
 

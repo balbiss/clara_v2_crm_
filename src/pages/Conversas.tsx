@@ -6,7 +6,7 @@ import EmojiPicker, { EmojiStyle } from 'emoji-picker-react'
 import {
   Filter, ArrowDownUp, MoreVertical, Paperclip, Smile, CheckCheck, Send, Info, X, ExternalLink, Mail, Phone, Copy, MessageCircle,
   Edit2, GitMerge, Trash2, Minus, Plus, ChevronDown, Sparkles, Loader2, BotOff, Bot, Mic, Pencil, Forward,
-  Search, MoreHorizontal, ChevronLeft, Clock,
+  Search, MoreHorizontal, ChevronLeft, Clock, Archive, ArchiveRestore, Users,
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import SnoozeModal from '../components/SnoozeModal'
@@ -979,7 +979,7 @@ export default function Conversas() {
           {!isSearchActive && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: `1px solid ${K.line}`, flex: 'none', position: 'relative' }}>
               <button onClick={() => setListMenu(m => !m)} title="Trocar filtro" style={{ fontFamily: K.font, fontSize: 13, padding: '2px 8px', border: '1px solid #b9d98a', background: '#e6f2d2', color: '#4f6b25', borderRadius: 2, cursor: 'pointer' }}>
-                {(tabs.find(t => t.id === store.currentFilter) || tabs[0]).id === 'all' ? 'Conversas abertas' : tabs.find(t => t.id === store.currentFilter)?.label}
+                {store.view === 'grupos' ? 'Grupos' : store.view === 'arquivadas' ? 'Arquivadas' : (tabs.find(t => t.id === store.currentFilter) || tabs[0]).id === 'all' ? 'Conversas abertas' : tabs.find(t => t.id === store.currentFilter)?.label}
                 {store.advancedFilters.length > 0 && ` + ${store.advancedFilters.length} filtro(s)`}
               </button>
               {params.inboxId && (() => { const cx = inboxes.inboxes.find((i: Any) => String(i.id) === String(params.inboxId)); return cx ? <span title={cx.name} style={{ fontSize: 11.5, fontWeight: 700, padding: '1px 8px', borderRadius: 10, background: cx.badge_color, color: '#fff', textTransform: 'uppercase', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cx.badge_short || cx.name}</span> : null })()}
@@ -990,10 +990,13 @@ export default function Conversas() {
                 <div style={{ ...menuK, top: '100%', right: 10 }} onClick={stop}>
                   <div style={{ padding: '4px 16px', fontSize: 11.5, fontWeight: 700, color: K.muted, textTransform: 'uppercase' }}>Mostrar</div>
                   {tabs.map(t => (
-                    <button key={t.id} onClick={() => { conversationsStore.setFilter(t.id); setListMenu(false) }} style={{ ...menuItemK, background: (store.currentFilter === t.id || (t.id === 'all' && !tabs.some(x => x.id === store.currentFilter))) ? '#fcf0f3' : 'none' }}>
-                      <span style={{ flex: 1 }}>{t.id === 'all' ? 'Conversas abertas' : t.label}</span><span style={{ color: K.muted }}>{t.n}</span>
+                    <button key={t.id} onClick={() => { conversationsStore.setView('principal'); conversationsStore.setFilter(t.id); setListMenu(false) }} style={{ ...menuItemK, background: store.view === 'principal' && (store.currentFilter === t.id || (t.id === 'all' && !tabs.some(x => x.id === store.currentFilter))) ? '#fcf0f3' : 'none' }}>
+                      <span style={{ flex: 1 }}>{t.id === 'all' ? 'Conversas abertas' : t.label}</span><span style={{ color: K.muted }}>{store.view === 'principal' ? t.n : ''}</span>
                     </button>
                   ))}
+                  <div style={{ borderTop: `1px solid ${K.line}`, margin: '6px 0' }} />
+                  <button onClick={() => { conversationsStore.setFilter('all'); conversationsStore.setView('grupos'); setListMenu(false) }} style={{ ...menuItemK, background: store.view === 'grupos' ? '#fcf0f3' : 'none' }}><Users size={14} /> Grupos</button>
+                  <button onClick={() => { conversationsStore.setFilter('all'); conversationsStore.setView('arquivadas'); setListMenu(false) }} style={{ ...menuItemK, background: store.view === 'arquivadas' ? '#fcf0f3' : 'none' }}><Archive size={14} /> Arquivadas</button>
                   <div style={{ borderTop: `1px solid ${K.line}`, margin: '6px 0' }} />
                   <button onClick={() => { setListMenu(false); s.isFilterPopoverOpen = true }} style={menuItemK}><Filter size={14} /> Filtro avançado</button>
                   <button onClick={() => { setListMenu(false); s.isSortPopoverOpen = true }} style={menuItemK}><ArrowDownUp size={14} /> Ordenar</button>
@@ -1344,6 +1347,7 @@ export default function Conversas() {
                     </>) : (
                       <button onClick={() => conversationsStore.updateConversationStatus(conv.id, 'open')} style={kSmallBtn}>{conv.status === 'snoozed' ? 'Em espera — reabrir' : 'Fechada — reabrir'}</button>
                     )}
+                    <button onClick={async () => { const era = !!conv.archived; try { await conversationsStore.setArchived(conv.id, !era); Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: era ? 'Conversa voltou pra lista.' : 'Conversa arquivada. Ela fica em ••• › Arquivadas.', showConfirmButton: false, timer: 3000 }) } catch (e: Any) { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Não foi possível arquivar.', showConfirmButton: false, timer: 3500 }) } }} style={{ ...kSmallBtn, display: 'flex', alignItems: 'center', gap: 5 }}>{conv.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />} {conv.archived ? 'Desarquivar' : 'Arquivar'}</button>
                     <button onClick={generateSummary} disabled={v.isGeneratingSummary} style={{ ...kSmallBtn, display: 'flex', alignItems: 'center', gap: 5 }}>{v.isGeneratingSummary ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={13} />} Resumo</button>
                     <span style={{ flex: 1 }} />
                     <span style={{ fontSize: 14, fontWeight: 700, color: '#7dbb2d', whiteSpace: 'nowrap', marginLeft: 'auto' }}>Nº {convNo(conv)}</span>

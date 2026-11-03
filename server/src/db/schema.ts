@@ -203,6 +203,8 @@ export const conversations = pgTable('conversations', {
   inboxId: bigint('inbox_id', { mode: 'number' }).references((): AnyPgColumn => inboxes.id),
   lastActivityAt: timestamp('last_activity_at', { precision: 6, mode: 'date' }),
   snoozedUntil: timestamp('snoozed_until', { precision: 6, mode: 'date' }),
+  // arquivada (Bel, 2026-11-03): some da lista; mensagem nova do cliente desarquiva (grupo não)
+  archivedAt: timestamp('archived_at', { precision: 6, mode: 'date' }),
   source: varchar('source'),
   status: integer('status').default(0),
   unreadCount: integer('unread_count').default(0),

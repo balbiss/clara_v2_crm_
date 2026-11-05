@@ -243,7 +243,7 @@ function TriggerForm({ pipes, pipe, stage, trigger, tags, agents, flows, fields,
           {sel(cfg.tipo || 'manual_acompanhamento', v => set('tipo', v), Object.entries(TIPOS_TAREFA))}
           <input value={cfg.titulo || ''} onChange={e => set('titulo', e.target.value)} placeholder="Título da tarefa" style={kInput} />
           <textarea value={cfg.descricao || ''} onChange={e => set('descricao', e.target.value)} placeholder="Descrição (opcional) — uma orientação por linha" rows={3} style={{ ...kInput, height: 'auto', padding: 10 }} />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ fontSize: 14, color: K.muted }}>Prazo:</span><input type="number" min={0} value={cfg.prazo_horas || 0} onChange={e => set('prazo_horas', Number(e.target.value))} style={{ ...kInput, width: 90 }} /><span style={{ fontSize: 14, color: K.muted }}>horas</span></div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ fontSize: 14, color: K.muted }}>Prazo:</span><input type="number" min={0} value={cfg.prazo_horas || 0} onChange={e => set('prazo_horas', Number(e.target.value))} style={{ ...kInput, width: 90 }} /><span style={{ fontSize: 14, color: K.muted }}>horas (0 = até o fim do dia)</span></div>
         </>)}
         {action === 'advance_field' && (<>
           {sel(cfg.field_key || '', v => set('field_key', v), [['', 'Escolha o campo…'], ...fields.map((f: any) => [f.key, f.label])])}

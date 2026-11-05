@@ -2,6 +2,7 @@ import { and, eq, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { contacts, resellerPhones, contactAuditEvents, conversations, inboxes, users } from '../db/schema.js';
 import { broadcastConversations } from './realtime.js';
+import { entregarTarefasSemDono } from './tarefasDono.js';
 
 // Porte do model Contact da v1: constantes, buscas e TODOS os callbacks de save
 // (régua, telefones adicionais, auditoria, broadcast, gatilhos da régua, atendente da conversa).
@@ -128,7 +129,7 @@ async function afterSave(c: Contact, changed: Set<string>, telefones?: Telefone[
   if (changed.has('status') && c.status) {
     await reguaTriggerRunner(c).catch(e => console.error('Régua triggers:', e.message));
   }
-  if (changed.has('userId') && c.userId) await syncConversationsUserId(c);
+  if (changed.has('userId') && c.userId) { await syncConversationsUserId(c); await entregarTarefasSemDono(c.id); }
 }
 
 /** Contact.create! com os callbacks. */

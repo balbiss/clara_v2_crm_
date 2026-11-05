@@ -115,7 +115,13 @@ async function updateInbox(req: Request, res: Response) {
 inboxesRouter.put('/inboxes/:id', requirePerm('config.canais'), updateInbox);
 inboxesRouter.patch('/inboxes/:id', requirePerm('config.canais'), updateInbox);
 
-inboxesRouter.get('/inboxes/:id/qr_code', requirePerm('config.canais'), async (req, res) => {
+// QR: quem configura canais, ou quem tem 'Reconectar os números dela' e é membro desta caixa (Bel, 05/11)
+inboxesRouter.get('/inboxes/:id/qr_code', async (req, res, next) => {
+  const u = req.user!;
+  if (pode(u, 'config.canais')) return next();
+  if (pode(u, 'canais.reconectar') && (await assignedInboxes(u.id)).some(i => i.id === Number(req.params.id))) return next();
+  return res.status(403).json({ error: 'forbidden', message: 'Seu perfil de acesso não permite reconectar este número. Fale com a diretoria.' });
+}, async (req, res) => {
   const i = await loadInbox(req, res);
   if (!i) return;
   const service = messagingService(i);

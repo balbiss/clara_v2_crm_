@@ -434,7 +434,12 @@ export function taskDeadline(c: Record<string, any>): Date {
     case '3d': return new Date(Date.now() + 72 * 3600_000);
     case 'end_of_week': { const sp = new Date(Date.now() - 3 * 3600_000); const toSun = (7 - sp.getUTCDay()) % 7; return new Date(startOfDaySP(toSun + 1).getTime() - 60_000) }
     case 'now': return new Date();
-    default: return new Date(Date.now() + Math.min(Math.max(Number(c.prazo_horas) || 0, 0), 24 * 90) * 3600_000);
+    default: {
+      // prazo 0 (era o padrão dos gatilhos vindos do Kommo) = até o fim do dia; antes vencia no mesmo
+      // minuto e toda tarefa já nascia atrasada (Bel, 2026-11-04). "Imediatamente" de verdade é deadline 'now'.
+      const h = Math.min(Math.max(Number(c.prazo_horas) || 0, 0), 24 * 90);
+      return h > 0 ? new Date(Date.now() + h * 3600_000) : new Date(startOfDaySP(1).getTime() - 60_000);
+    }
   }
 }
 

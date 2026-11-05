@@ -22,6 +22,7 @@ import { kommoNavFor } from '../lib/navKommo'
 import { firstSettingsPath } from './SettingsLayout'
 import { K } from '../lib/kommo'
 import { LogoMark } from './Logo'
+import QrConnectModal from './QrConnectModal'
 
 // Casca do app no visual do Kommo (menu lateral no rosa da marca da Clara, hsl(347 52% 88%), igual ao login — a equipe já conhece o Kommo),
 // com toda a lógica do DashboardLayout da Clara v1: notificações, banners de caixa caída e de
@@ -82,6 +83,8 @@ export function AppShell() {
     return () => ro.disconnect()
   }, [])
   const [dismissed, setDismissed] = useState<Set<number>>(new Set())
+  // QR direto do aviso pra quem tem "Reconectar os números dela" e é membro da caixa (Bel, 05/11)
+  const [qrInbox, setQrInbox] = useState<any>(null)
   const [iosBanner, setIosBanner] = useState(false)
   const [androidDismissed, setAndroidDismissed] = useState(localStorage.getItem('android_install_banner_dismissed') === 'true')
   const { subscribe: subscribePush } = usePushNotifications()
@@ -431,11 +434,12 @@ export function AppShell() {
             // aviso no rosa do menu (combina com o resto); o alerta fica no ícone
             <div className="k-alert-bar" style={{ ...banner(SB.bg, SB.strong), borderBottom: menuTheme === 'light' ? `1px solid ${SB.line}` : 'none', flexWrap: 'wrap' }}>
               <span style={{ flex: '1 1 260px', display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={15} color={menuTheme === 'light' ? '#c98a00' : '#a14a00'} style={{ flex: 'none' }} />O WhatsApp "{disconnected.name}" está desconectado. As mensagens não estão sendo enviadas nem recebidas.</span>
-              {can('config.canais') && <button onClick={() => navigate('/settings/inboxes')} style={{ padding: '6px 14px', border: 'none', borderRadius: 3, background: '#8e2a46', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Reconectar</button>}
+              {(can('config.canais') || (can('canais.reconectar') && disconnected.member)) && <button onClick={() => can('config.canais') ? navigate('/settings/inboxes') : setQrInbox(disconnected)} style={{ padding: '6px 14px', border: 'none', borderRadius: 3, background: '#8e2a46', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Reconectar</button>}
               <button title="Fechar aviso" onClick={() => setDismissed(prev => new Set(prev).add(disconnected.id))} style={{ border: 'none', background: 'none', color: SB.muted, cursor: 'pointer', display: 'flex' }}><X size={15} /></button>
             </div>
           )}
         </div>
+        {qrInbox && <QrConnectModal inbox={qrInbox} reconnect onClose={() => { setQrInbox(null); inboxesStore.fetchInboxes() }} />}
         <main className="app-main" style={{ flex: 1, padding: 24, minWidth: 0 }}>
           <Outlet />
         </main>

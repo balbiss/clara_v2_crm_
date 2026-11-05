@@ -7,7 +7,8 @@ import { conversations, contacts, inboxes, messages, scheduledMessages, conversa
 import { requireAuth, pode, visibleContactsWhere, type User } from '../middleware/auth.js';
 import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, sendableInboxIds, canSendThrough, isGroupSql, type Conversation } from '../lib/conversations.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
-import { entrarNoFunilDaCaixa, onAgentMessage } from '../lib/pipelines.js';
+import { onAgentMessage } from '../lib/pipelines.js';
+import { entrarSeSemFunil } from '../lib/funilEntrada.js';
 import { createMessage, messageStatusValue, messagePayload, rebroadcast } from '../lib/messages.js';
 import { triggerOnConversationClosed } from '../lib/salesbot.js';
 import { messagingService } from '../lib/waha.js';
@@ -106,7 +107,8 @@ conversationsRouter.post('/conversations', async (req, res) => {
     }
   }
 
-  if (contatoNovo) await entrarNoFunilDaCaixa(inbox, contact.id).catch(e => console.error('Funil de entrada —', e.message));
+  // contato novo ou já cadastrado mas "Sem funil" (lib/funilEntrada)
+  await entrarSeSemFunil(inbox, contact.id).catch(e => console.error('Funil de entrada —', e.message));
 
   let [conv] = await db.select().from(conversations).where(and(eq(conversations.contactId, contact.id), eq(conversations.inboxId, inbox.id))).orderBy(asc(conversations.id)).limit(1);
   if (!conv) {
@@ -388,7 +390,9 @@ conversationsRouter.post('/conversations/:conversation_id/messages', upload.sing
 
   const [inbox] = conv.inboxId ? await db.select().from(inboxes).where(eq(inboxes.id, conv.inboxId)) : [];
   // gatilho "quando a equipe mandar mensagem" (ex.: Novo Lead → Primeiro contato)
-  if (!isPrivate) void onAgentMessage(conv.contactId).catch(e => console.error('Gatilho agent_message falhou —', (e as Error).message));
+  // contato "Sem funil" falando por caixa com etapa de entrada: entra agora (Novo Lead) e esta mensagem não move o card
+  const entrouAgora = !isPrivate && !!inbox && await entrarSeSemFunil(inbox, conv.contactId).catch(e => { console.error('Funil de entrada —', (e as Error).message); return false; });
+  if (!isPrivate && !entrouAgora) void onAgentMessage(conv.contactId).catch(e => console.error('Gatilho agent_message falhou —', (e as Error).message));
   if (!isPrivate && inbox && WHATSAPP_PROVIDERS.includes(inbox.provider ?? '')) {
     // envio em segundo plano: a tela não fica esperando o WhatsApp (com a caixa lenta/caída o campo
     // ficava travado com o texto); se falhar, a mensagem vira "Não enviada" na conversa

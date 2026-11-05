@@ -8,7 +8,8 @@ import { fotoPrecisaAtualizar, salvarFotoPerfil } from './avatars.js';
 import { createMessage, rebroadcast, messageStatusValue, type Message } from './messages.js';
 import { createContact, findByAnyPhone, setJidIfFree, updateContact, likeEscape, type Contact } from './contacts.js';
 import { broadcastConversations } from './realtime.js';
-import { onAgentMessage, onClientReply, entrarNoFunilDaCaixa } from './pipelines.js';
+import { onAgentMessage, onClientReply } from './pipelines.js';
+import { entrarSeSemFunil } from './funilEntrada.js';
 import { conversationTagsOf, findOrCreateConversation, findOrCreateTag, addConversationTag, convStatusValue } from './conversations.js';
 
 // Porte do WahaMessageIngestion da v1 — compartilhado entre o webhook (tempo real) e o
@@ -188,7 +189,8 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
   }
 
   // contato novo que chegou por esta caixa: cai no funil de entrada dela
-  if (contatoNovo && !isGroup) void entrarNoFunilDaCaixa(inbox, contact.id).catch(e => console.error('Funil de entrada —', e.message));
+  // (vale pra quem já tinha cadastro mas está "Sem funil" — lib/funilEntrada; qualquer caixa com etapa de entrada)
+  const entrouAgora = !isGroup && await entrarSeSemFunil(inbox, contact.id).catch(e => { console.error('Funil de entrada —', e.message); return false; });
 
   if (mediaInBackground) {
     // download em background, com tentativas e timeout curto (nunca segura o webhook)
@@ -227,9 +229,10 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
   if (!fromMe && !isGroup) void respostaDisparo(contact.id, conversation.id, text).catch(e => console.error('Resposta de disparo —', e.message));
 
   // Gatilhos 'quando o cliente responder' dos funis — em segundo plano, nunca atrasa o recebimento.
-  if (!fromMe && !isGroup) void onClientReply(contact.id).catch(e => console.error('Gatilho client_reply falhou —', e.message));
+  // (a mensagem que acabou de pôr o contato no funil não move o card: ele fica em Novo Lead até a próxima)
+  if (!fromMe && !isGroup && !entrouAgora) void onClientReply(contact.id).catch(e => console.error('Gatilho client_reply falhou —', e.message));
   // funcionária respondeu pelo celular: gatilho "quando a equipe mandar mensagem"
-  if (humanReplyViaPhone && !isGroup) void onAgentMessage(contact.id).catch(e => console.error('Gatilho agent_message falhou —', e.message));
+  if (humanReplyViaPhone && !isGroup && !entrouAgora) void onAgentMessage(contact.id).catch(e => console.error('Gatilho agent_message falhou —', e.message));
 
   // Fluxos (resposta pendente ou gatilho por palavra-chave). Grupo nunca aciona Fluxo nem IA.
   const flowHandled = !humanReplyViaPhone && !fromMe && !isGroup && (

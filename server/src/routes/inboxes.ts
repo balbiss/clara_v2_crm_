@@ -72,10 +72,12 @@ inboxesRouter.get('/inboxes', async (req, res) => {
   // só restringe quem JÁ tem caixa configurada em Gerenciar Acesso (senão vê todas, igual à v1)
   const mine = await assignedInboxes(u.id);
   if (pode(u, 'conversas.enviar_qualquer_numero') || !mine.length) {
-    res.json((await db.select().from(inboxes).where(eq(inboxes.accountId, u.accountId!)).orderBy(asc(inboxes.id))).map(toJson));
+    // member: a pessoa é membro desta caixa (é por ela que abre a conversa da cliente — Bel, 05/11)
+    const ids = new Set(mine.map(i => i.id));
+    res.json((await db.select().from(inboxes).where(eq(inboxes.accountId, u.accountId!)).orderBy(asc(inboxes.id))).map(i => ({ ...toJson(i), member: ids.has(i.id) })));
   } else {
     const rows = await db.select({ i: inboxes }).from(inboxMembers).innerJoin(inboxes, eq(inboxes.id, inboxMembers.inboxId)).where(eq(inboxMembers.userId, u.id)).orderBy(asc(inboxes.id));
-    res.json(rows.map(r => toJson(r.i)));
+    res.json(rows.map(r => ({ ...toJson(r.i), member: true })));
   }
 });
 

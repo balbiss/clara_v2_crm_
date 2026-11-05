@@ -32,6 +32,21 @@ export async function assignedInboxes(userId: number) {
     .where(eq(inboxMembers.userId, userId)).orderBy(asc(inboxes.id));
 }
 
+/**
+ * Cada número é um WhatsApp separado (Bel, 2026-11-05): sem escolher caixa, a pessoa só vê as conversas
+ * dos números de que é membro — o financeiro não cai na conversa das consultoras e responde por lá.
+ * Gerente/diretoria (conversas.ver = todos) veem outro número quando escolhem aquela caixa (e respondem
+ * por ela). Quem não é membro de caixa nenhuma continua vendo como antes.
+ */
+export async function caixaWhere(u: User, inboxId?: number | null): Promise<SQL | undefined> {
+  const mine = (await assignedInboxes(u.id)).map(i => i.id);
+  if (inboxId) {
+    if (escopo(u, 'conversas.ver') === 'todos' || !mine.length || mine.includes(inboxId)) return eq(conversations.inboxId, inboxId);
+    return sql`false`;
+  }
+  return mine.length ? inArray(conversations.inboxId, mine) : undefined;
+}
+
 /** Conversa de grupo do WhatsApp (contato com status 'grupo' ou jid @g.us) — exige join com contacts. */
 export const isGroupSql = sql`(coalesce(${contacts.status}, '') = 'grupo' OR coalesce(${contacts.jid}, '') LIKE '%@g.us')`;
 

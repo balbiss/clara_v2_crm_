@@ -3,7 +3,7 @@ import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { contacts, conversations, lifecycleEvents, notifications, pedidos, tarefas, users } from '../db/schema.js';
 import { requireAuth, pode, visibleContactsWhere } from '../middleware/auth.js';
-import { visibleConversationsWhere } from '../lib/conversations.js';
+import { caixaWhere, visibleConversationsWhere } from '../lib/conversations.js';
 import { visibleTarefasWhere } from './tarefas.js';
 import { ACTIVE_STATUSES } from '../lib/contacts.js';
 import { hojeSP } from '../lib/pedidos.js';
@@ -25,7 +25,8 @@ inicioRouter.get('/inicio', requireAuth, async (req, res) => {
   const [, fimHoje] = diaSP(hoje);
   const visC = await visibleContactsWhere(u);
   const visT = await visibleTarefasWhere(u);
-  const visConv = await visibleConversationsWhere(u);
+  // só os números dela (cada número é um WhatsApp separado — Bel, 05/11)
+  const visConv = and(await visibleConversationsWhere(u), await caixaWhere(u))!;
   const time = pode(u, 'inicio.equipe');
 
   // 1) tarefas de hoje + atrasadas

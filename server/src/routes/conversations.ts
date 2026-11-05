@@ -5,7 +5,7 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql } from 'dri
 import { db } from '../db/client.js';
 import { conversations, contacts, inboxes, messages, scheduledMessages, conversationTags, tags, accounts, users } from '../db/schema.js';
 import { requireAuth, pode, visibleContactsWhere, type User } from '../middleware/auth.js';
-import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, sendableInboxIds, canSendThrough, isGroupSql, type Conversation } from '../lib/conversations.js';
+import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, sendableInboxIds, canSendThrough, isGroupSql, caixaWhere, type Conversation } from '../lib/conversations.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
 import { onAgentMessage } from '../lib/pipelines.js';
 import { entrarSeSemFunil } from '../lib/funilEntrada.js';
@@ -52,7 +52,7 @@ conversationsRouter.get('/conversations', async (req, res) => {
   const limit = Math.min(500, Math.max(1, Number(req.query.per_page) || 100));
   const rows = await db.select({ c: conversations }).from(conversations)
     .leftJoin(contacts, eq(contacts.id, conversations.contactId))
-    .where(and(await visibleConversationsWhere(req.user!), req.query.inbox_id ? eq(conversations.inboxId, Number(req.query.inbox_id)) : undefined, viewWhere(String(req.query.view ?? ''))))
+    .where(and(await visibleConversationsWhere(req.user!), await caixaWhere(req.user!, Number(req.query.inbox_id) || null), viewWhere(String(req.query.view ?? ''))))
     .orderBy(sql`${conversations.lastActivityAt} DESC NULLS LAST`, desc(conversations.id))
     .offset((page - 1) * limit).limit(limit);
   res.json(await formatConversations(rows.map(r => r.c), req.user!.accountId!, { fullMessages: false }));
@@ -122,7 +122,9 @@ conversationsRouter.get('/conversations/search', async (req, res) => {
   const u = req.user!;
   const termo = String(req.query.q ?? '').trim();
   if (termo.length < 2) return res.json({ conversations: [], messages: [] });
-  const visibleIds = db.select({ id: conversations.id }).from(conversations).leftJoin(contacts, eq(contacts.id, conversations.contactId)).where(await visibleConversationsWhere(u));
+  // busca também respeita "cada número é separado": só os números dela, ou a caixa escolhida (?inbox_id)
+  const visibleIds = db.select({ id: conversations.id }).from(conversations).leftJoin(contacts, eq(contacts.id, conversations.contactId))
+    .where(and(await visibleConversationsWhere(u), await caixaWhere(u, Number(req.query.inbox_id) || null)));
   const usersMap = await accountUsersMap(u.accountId!);
 
   const contactIds = db.select({ id: contacts.id }).from(contacts).where(and(eq(contacts.accountId, u.accountId!), searchByNameOrPhoneWhere(termo)));

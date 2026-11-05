@@ -10,9 +10,13 @@ import { inboxesStore } from '../store/inboxes'
 export async function pickWhatsappInbox(confirmText = 'Iniciar conversa') {
   if (!inboxesStore.isLoadedOnce) await inboxesStore.fetchInboxes()
 
-  const whatsappInboxes = inboxesStore.inboxes.filter(i => ['baileys', 'waha'].includes(i.provider))
+  const todas = inboxesStore.inboxes.filter(i => ['baileys', 'waha'].includes(i.provider))
+  // cada número é um WhatsApp separado (Bel, 05/11): abre/manda pelo número de quem está usando —
+  // só os números de que a pessoa é membro; com um só, nem pergunta. Sem caixa nenhuma, todas (como antes).
+  const minhas = todas.filter(i => i.member)
+  const whatsappInboxes = minhas.length ? minhas : todas
   if (whatsappInboxes.length <= 1) {
-    return { inboxId: null, cancelled: false }
+    return { inboxId: whatsappInboxes[0]?.id ?? null, cancelled: false }
   }
 
   // cada número com a cor e o apelido da caixa (os mesmos da lista de conversas), nada pré-marcado

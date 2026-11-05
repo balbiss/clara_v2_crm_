@@ -230,7 +230,7 @@ export default function Conversas() {
       const seq = ++searchSeq.current
       s.isSearching = true
       try {
-        const { data } = await api.get('/conversations/search', { params: { q: q.trim() } })
+        const { data } = await api.get('/conversations/search', { params: { q: q.trim(), inbox_id: params.inboxId || undefined } })
         if (seq === searchSeq.current) s.searchResults = data
       } catch (e) {
         console.error('Erro na pesquisa:', e)
@@ -240,7 +240,7 @@ export default function Conversas() {
       }
     }, 400)
     return () => clearTimeout(t)
-  }, [v.searchQuery, s])
+  }, [v.searchQuery, s, params.inboxId])
 
   const clearSearch = () => { s.searchQuery = ''; s.searchResults = null }
 
@@ -772,19 +772,7 @@ export default function Conversas() {
   const inboxes = useSnapshot(inboxesStore) as Any
   // com mais de um número na conta, cada conversa mostra de qual número é (cor + apelido da caixa)
   const variasCaixas = inboxes.inboxes.filter((i: Any) => ['waha', 'baileys'].includes(i.provider)).length > 1
-  // cliente que só tem conversa por um número (ex.: veio pela Expansão) — abre/cria a conversa dela pelo número escolhido
-  const [trocandoNumero, setTrocandoNumero] = useState(false)
-  const trocarNumero = async () => {
-    const { inboxId, cancelled } = await pickWhatsappInbox('Usar este número')
-    if (cancelled || !inboxId || String(inboxId) === String(conv.inbox_id)) return
-    setTrocandoNumero(true)
-    try {
-      const nova = await conversationsStore.startConversation(conv.contact.id, inboxId)
-      await openSearchResult(nova.id)
-    } catch (e: Any) {
-      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Não foi possível trocar o número.', showConfirmButton: false, timer: 3500 })
-    } finally { setTrocandoNumero(false) }
-  }
+  // "Trocar número" saiu (Bel, 05/11): cada número é um WhatsApp separado; quem abre a cliente abre pelo número dela
   // conversa de um número que ela não usa (ex.: histórico da Expansão): abre conversa nova pelo número
   // dela, em vez de responder nesta (Bel, 2026-11-03). Uma vez por conversa, pra não ficar em loop.
   const redirecionadas = useRef(new Set<number>())
@@ -848,11 +836,12 @@ export default function Conversas() {
   const me = store.currentUser || {}
   const canCreateTask = can('tarefas.gerenciar')
 
-  // tarefas pendentes do contato (aparecem no topo do histórico, igual ao Kommo)
+  // tarefas pendentes do contato (aparecem no topo do histórico, igual ao Kommo) — só as de quem está
+  // logado: tarefa é da pessoa, não do número (Bel, 05/11: financeiro via as tarefas das consultoras)
   const [tasks, setTasks] = useState<Any[]>([])
   const [taskResult, setTaskResult] = useState<Record<number, string>>({})
   const contactId = conv?.contact?.id
-  const loadTasks = async (id = contactId) => { if (!id) return setTasks([]); try { setTasks((await api.get('/tarefas', { params: { contact_id: id, status: 'pendente' } })).data) } catch { setTasks([]) } }
+  const loadTasks = async (id = contactId) => { if (!id) return setTasks([]); try { setTasks((await api.get('/tarefas', { params: { contact_id: id, status: 'pendente', user_id: store.currentUser?.id } })).data) } catch { setTasks([]) } }
   useEffect(() => { loadTasks() }, [contactId])
   const completeTask = async (t: Any) => {
     try { await api.patch(`/tarefas/${t.id}/complete`, { resultado: taskResult[t.id] || null }); setTasks(ts => ts.filter(x => x.id !== t.id)); Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Tarefa concluída.', showConfirmButton: false, timer: 2500 }) }
@@ -865,7 +854,10 @@ export default function Conversas() {
   useEffect(() => { if (contactId) api.get('/pipeline_cards', { params: { contact_id: contactId } }).then(r => setCards(r.data)).catch(() => setCards([])) }, [contactId])
   useEffect(() => { api.get('/pipelines').then(r => setPipes(r.data)).catch(() => {}) }, [])
   // o card do Consignado (funil de sistema) é a própria régua — aqui vale o card dos outros funis
-  const card = cards.find(c => !pipes.find(p => p.id === c.pipeline_id)?.system)
+  // a cliente pode estar em vários funis (um por setor/número — Bel, 05/11): mostra o do número desta conversa
+  const entradaDaCaixa = inboxes.inboxes.find((i: Any) => String(i.id) === String(conv?.inbox_id))?.entry_stage_id
+  const funilDaCaixa = entradaDaCaixa && pipes.find(p => p.pipeline_stages?.some((st: Any) => st.id === entradaDaCaixa))?.id
+  const card = (funilDaCaixa && cards.find(c => c.pipeline_id === funilDaCaixa)) || cards.find(c => !pipes.find(p => p.id === c.pipeline_id)?.system)
   const cardPipe = card && pipes.find(p => p.id === card.pipeline_id)
   const reguaKeys = [...Object.keys(ACTIVE_STATUS_LABELS), ...Object.keys(INACTIVE_STATUS_LABELS)]
   // revendedora = tem cadastro no Jueri ou status da régua (igual à v1); contato comum do WhatsApp não
@@ -919,7 +911,8 @@ export default function Conversas() {
   const createTask = async () => {
     if (!taskForm.titulo.trim() || !contactId) return
     try {
-      await api.post('/tarefas', { tarefa: { contact_id: contactId, tipo: taskForm.tipo, titulo: taskForm.titulo, vencimento_em: taskForm.vencimento ? new Date(taskForm.vencimento).toISOString() : new Date().toISOString() } })
+      // tarefa é de quem cria (o histórico só mostra as tarefas de quem está logado)
+      await api.post('/tarefas', { tarefa: { contact_id: contactId, user_id: store.currentUser?.id, tipo: taskForm.tipo, titulo: taskForm.titulo, vencimento_em: taskForm.vencimento ? new Date(taskForm.vencimento).toISOString() : new Date().toISOString() } })
       setTaskForm(f => ({ ...f, titulo: '', vencimento: '' })); setMode('chat'); loadTasks()
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Tarefa criada.', showConfirmButton: false, timer: 2500 })
     } catch (e: Any) { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || e.response?.data?.error || 'Não foi possível criar a tarefa.', showConfirmButton: false, timer: 3500 }) }
@@ -1407,7 +1400,7 @@ export default function Conversas() {
                 <div aria-label="Número de envio" style={{ margin: '0 clamp(8px, 2vw, 22px) -1px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: conv.inbox_color, color: '#fff', borderRadius: '3px 3px 0 0', padding: '6px 14px', fontSize: 13.5, flex: 'none' }}>
                   <span style={{ width: 14, height: 14, display: 'flex', background: '#fff', borderRadius: '50%', padding: 1 }}><WhatsappIcon source="whatsapp" /></span>
                   <span>Enviando pelo número <b style={{ textTransform: 'uppercase' }}>{conv.inbox_short}</b>{conv.inbox_phone ? ` · ${fmtPhone(conv.inbox_phone)}` : ''}</span>
-                  {variasCaixas && <button onClick={trocarNumero} disabled={trocandoNumero} style={{ marginLeft: 'auto', border: '1px solid rgba(255,255,255,.8)', background: 'rgba(255,255,255,.15)', color: '#fff', borderRadius: 12, padding: '2px 10px', fontFamily: K.font, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>{trocandoNumero ? 'Trocando…' : 'Trocar número'}</button>}
+                  
                 </div>
               )}
               {/* composer: "Bate-papo ▾ com Nome:" */}
@@ -1473,7 +1466,8 @@ export default function Conversas() {
                         <button title="Anexar arquivo" onClick={() => fileInputRef.current?.click()} style={{ border: 'none', background: 'none', color: K.muted, padding: 6, display: 'flex', cursor: 'pointer' }}><Paperclip size={17} /></button>
                         <div style={{ position: 'relative' }}>
                           <button title="Emojis" onClick={e => { stop(e); s.isEmojiPickerOpen = !s.isEmojiPickerOpen }} style={{ border: 'none', background: 'none', color: K.muted, padding: 6, display: 'flex', cursor: 'pointer' }}><Smile size={17} /></button>
-                          {v.isEmojiPickerOpen && <div onClick={stop} style={{ position: 'absolute', bottom: 36, left: 0, zIndex: 30 }}><EmojiPicker emojiStyle={EmojiStyle.NATIVE} onEmojiClick={e => { s.newMessageText += e.emoji }} lazyLoadEmojis /></div>}
+                          {v.isEmojiPickerOpen && <div onClick={stop} style={{ position: 'absolute', bottom: 36, left: 0, zIndex: 30 }}><EmojiPicker emojiStyle={EmojiStyle.NATIVE} onEmojiClick={e => { s.newMessageText += e.emoji }} lazyLoadEmojis
+                            emojiData={() => import('emoji-picker-react/data/emojis-pt')} labels={{ searchPlaceholder: 'Buscar emoji (ex.: coração)' }} /></div>}
                         </div>
                         {!v.newMessageText.trim() && !v.selectedFile && <button title="Gravar áudio" onClick={startRecording} style={{ border: 'none', background: 'none', color: K.muted, padding: 6, display: 'flex', cursor: 'pointer' }}><Mic size={17} /></button>}
                       </>}

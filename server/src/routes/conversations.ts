@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { conversations, contacts, inboxes, messages, scheduledMessages, conversationTags, tags, accounts, users } from '../db/schema.js';
-import { requireAuth, isOwner, isFullPortfolio, visibleContactsWhere, type User } from '../middleware/auth.js';
+import { requireAuth, pode, visibleContactsWhere, type User } from '../middleware/auth.js';
 import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, sendableInboxIds, canSendThrough, isGroupSql, type Conversation } from '../lib/conversations.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
 import { entrarNoFunilDaCaixa, onAgentMessage } from '../lib/pipelines.js';
@@ -60,33 +60,8 @@ conversationsRouter.get('/conversations', async (req, res) => {
 // POST /conversations — inicia conversa com revendedora existente (contact_id) ou número novo (phone)
 conversationsRouter.post('/conversations', async (req, res) => {
   const u = req.user!;
-  let contact: typeof contacts.$inferSelect | null = null;
-  let contatoNovo = false;
-  if (req.body.contact_id) {
-    // da carteira dela ou sem responsável (a conversa fica com quem iniciou)
-    [contact] = await db.select().from(contacts).where(and(eq(contacts.id, Number(req.body.contact_id)), or(await visibleContactsWhere(u), and(eq(contacts.accountId, u.accountId!), isNull(contacts.userId))))).limit(1);
-    if (!contact) return res.status(404).json({ error: 'not_found', message: 'Revendedora não encontrada ou fora da sua carteira.' });
-  } else {
-    let digitos = String(req.body.phone ?? '').replace(/\D/g, '');
-    if (digitos.length >= 10 && digitos.length <= 11) digitos = '55' + digitos;
-    if (digitos.length < 12 || digitos.length > 13) {
-      return res.status(422).json({ error: 'telefone_invalido', message: 'Telefone inválido. Use DDD + número, ex: (16) 99323-5750.' });
-    }
-    // mesmo número = termina com os mesmos 8 dígitos (sem grupo: grupo antigo tem o número de quem criou dentro do id)
-    const fim = '%' + digitos.slice(-8);
-    const [existente] = await db.select().from(contacts).where(and(eq(contacts.accountId, u.accountId!),
-      sql`coalesce(${contacts.status}, '') <> 'grupo' AND coalesce(${contacts.jid}, '') NOT LIKE '%@g.us'`,
-      sql`(regexp_replace(coalesce(${contacts.phone}, ''), '\\D', '', 'g') LIKE ${fim} OR EXISTS (SELECT 1 FROM reseller_phones rp WHERE rp.contact_id = ${contacts.id} AND regexp_replace(rp.phone, '\\D', '', 'g') LIKE ${fim}))`)).limit(1);
-    if (existente) {
-      const [vis] = await db.select({ id: contacts.id }).from(contacts).where(and(await visibleContactsWhere(u), eq(contacts.id, existente.id))).limit(1);
-      if (!vis && existente.userId) return res.status(403).json({ error: 'fora_da_carteira', message: `Esse número já é de ${existente.name || 'uma revendedora'}, que está em outra carteira.` });
-      contact = existente;
-    } else {
-      contatoNovo = true;
-      contact = await createContact({ accountId: u.accountId!, phone: `+${digitos}`, name: String(req.body.name ?? '').trim() || `+${digitos}`, userId: u.id, source: 'WhatsApp' });
-    }
-  }
-
+  // número primeiro: em número SEM carteira (Prospecção, Gerência, Financeiro…) qualquer pessoa liberada
+  // nele fala com qualquer revendedora, mesmo de outra carteira (dona, 2026-11-04)
   let inbox: typeof inboxes.$inferSelect | undefined;
   const allowed = await sendableInboxIds(u);
   if (req.body.inbox_id) {
@@ -102,11 +77,40 @@ conversationsRouter.post('/conversations', async (req, res) => {
     else [inbox] = await db.select().from(inboxes).where(and(eq(inboxes.accountId, u.accountId!), inArray(inboxes.provider, WHATSAPP_PROVIDERS))).orderBy(asc(inboxes.id)).limit(1);
   }
   if (!inbox) return res.status(422).json({ error: 'sem_caixa_conectada', message: 'Nenhuma caixa de WhatsApp conectada nesta conta ainda.' });
+  const semCarteira = !inbox.restrictByPortfolio;
+  let contact: typeof contacts.$inferSelect | null = null;
+  let contatoNovo = false;
+  if (req.body.contact_id) {
+    // da carteira dela ou sem responsável (a conversa fica com quem iniciou)
+    const daConta = and(eq(contacts.id, Number(req.body.contact_id)), eq(contacts.accountId, u.accountId!));
+    [contact] = await db.select().from(contacts).where(semCarteira ? daConta : and(daConta, or(await visibleContactsWhere(u), isNull(contacts.userId)))).limit(1);
+    if (!contact) return res.status(404).json({ error: 'not_found', message: 'Revendedora não encontrada ou fora da sua carteira.' });
+  } else {
+    let digitos = String(req.body.phone ?? '').replace(/\D/g, '');
+    if (digitos.length >= 10 && digitos.length <= 11) digitos = '55' + digitos;
+    if (digitos.length < 12 || digitos.length > 13) {
+      return res.status(422).json({ error: 'telefone_invalido', message: 'Telefone inválido. Use DDD + número, ex: (16) 99323-5750.' });
+    }
+    // mesmo número = termina com os mesmos 8 dígitos (sem grupo: grupo antigo tem o número de quem criou dentro do id)
+    const fim = '%' + digitos.slice(-8);
+    const [existente] = await db.select().from(contacts).where(and(eq(contacts.accountId, u.accountId!),
+      sql`coalesce(${contacts.status}, '') <> 'grupo' AND coalesce(${contacts.jid}, '') NOT LIKE '%@g.us'`,
+      sql`(regexp_replace(coalesce(${contacts.phone}, ''), '\\D', '', 'g') LIKE ${fim} OR EXISTS (SELECT 1 FROM reseller_phones rp WHERE rp.contact_id = ${contacts.id} AND regexp_replace(rp.phone, '\\D', '', 'g') LIKE ${fim}))`)).limit(1);
+    if (existente) {
+      const [vis] = await db.select({ id: contacts.id }).from(contacts).where(and(await visibleContactsWhere(u), eq(contacts.id, existente.id))).limit(1);
+      if (!vis && existente.userId && !semCarteira) return res.status(403).json({ error: 'fora_da_carteira', message: `Esse número já é de ${existente.name || 'uma revendedora'}, que está em outra carteira.` });
+      contact = existente;
+    } else {
+      contatoNovo = true;
+      contact = await createContact({ accountId: u.accountId!, phone: `+${digitos}`, name: String(req.body.name ?? '').trim() || `+${digitos}`, userId: u.id, source: 'WhatsApp' });
+    }
+  }
+
   if (contatoNovo) await entrarNoFunilDaCaixa(inbox, contact.id).catch(e => console.error('Funil de entrada —', e.message));
 
   let [conv] = await db.select().from(conversations).where(and(eq(conversations.contactId, contact.id), eq(conversations.inboxId, inbox.id))).orderBy(asc(conversations.id)).limit(1);
   if (!conv) {
-    [conv] = await db.insert(conversations).values({ accountId: u.accountId!, contactId: contact.id, inboxId: inbox.id, status: 0, userId: contact.userId || u.id, source: 'whatsapp' }).returning();
+    [conv] = await db.insert(conversations).values({ accountId: u.accountId!, contactId: contact.id, inboxId: inbox.id, status: 0, userId: semCarteira ? u.id : (contact.userId || u.id), source: 'whatsapp' }).returning();
   }
   res.status(201).json(await formatConversation(conv, u.accountId!));
 });
@@ -189,7 +193,7 @@ async function updateConversation(req: Request, res: Response) {
   }
   if ('user_id' in p) set.userId = p.user_id === null || p.user_id === '' ? null : Number(p.user_id);
   // consultora só atribui a si mesma ou tira (Bel, 26/10: a lista inteira confundia); transferir com nota segue liberado
-  if ('user_id' in p && set.userId && set.userId !== u.id && !isFullPortfolio(u) && !req.body.transfer_note) return res.status(403).json({ error: 'forbidden', message: 'Você só pode atribuir a conversa a você mesma. Pra passar pra outra pessoa, use Transferir.' });
+  if ('user_id' in p && set.userId && set.userId !== u.id && !pode(u, 'conversas.atribuir_outros') && !req.body.transfer_note) return res.status(403).json({ error: 'forbidden', message: 'Você só pode atribuir a conversa a você mesma. Pra passar pra outra pessoa, use Transferir.' });
   if ('snoozed_until' in p) set.snoozedUntil = p.snoozed_until ? new Date(String(p.snoozed_until)) : null;
   if ('archived' in p) set.archivedAt = p.archived ? new Date() : null;
   let current = conv;
@@ -262,7 +266,7 @@ async function handleResolveSideEffects(req: Request, conversation: Conversation
 // DELETE /conversations/:id — apaga só a conversa e as mensagens (a revendedora fica)
 // Kommo: consultor não exclui (perfil sem "Excluir") — só gerência/diretoria
 conversationsRouter.delete('/conversations/:id', async (req, res) => {
-  if (!isFullPortfolio(req.user!)) return res.status(403).json({ error: 'forbidden', message: 'Só gerência e diretoria podem excluir conversas.' });
+  if (!pode(req.user!, 'conversas.excluir')) return res.status(403).json({ error: 'forbidden', message: 'Seu perfil de acesso não permite excluir conversas.' });
   const conv = await loadVisible(req, res);
   if (!conv) return;
   await deleteConversationCascade(conv.id);
@@ -486,7 +490,7 @@ conversationsRouter.post('/conversations/:conversation_id/tags', async (req, res
   let [tag] = await db.select().from(tags).where(and(eq(tags.accountId, u.accountId!), eq(tags.name, name))).limit(1);
   if (!tag) {
     // anexar etiqueta existente: qualquer um; criar etiqueta nova no catálogo: só diretoria
-    if (!isOwner(u)) return res.status(403).json({ error: 'forbidden', message: 'Só a diretoria pode criar etiquetas novas. Escolha uma já existente.' });
+    if (!pode(u, 'etiquetas.criar')) return res.status(403).json({ error: 'forbidden', message: 'Só a diretoria pode criar etiquetas novas. Escolha uma já existente.' });
     [tag] = await db.insert(tags).values({ accountId: u.accountId!, name, color: req.body.color || '#6b7280' }).returning();
   }
   const atuais = await conversationTagsOf(conv.id);

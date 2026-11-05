@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { WebSocketServer, WebSocket } from 'ws';
 import { db } from '../db/client.js';
 import { contacts, inboxes, users } from '../db/schema.js';
-import { requireAuth, requireOwner } from '../middleware/auth.js';
+import { requireAuth, requirePerm } from '../middleware/auth.js';
 import { verifyToken } from '../lib/jwt.js';
 import { findVisibleConversation } from '../lib/conversations.js';
 import { broadcastLigacao } from '../lib/realtime.js';
@@ -120,7 +120,7 @@ async function caixaDaConta(req: Request, res: Response) {
   return i;
 }
 
-ligacaoRouter.get('/inboxes/:id/ligacao', requireOwner, async (req, res) => {
+ligacaoRouter.get('/inboxes/:id/ligacao', requirePerm('config.canais'), async (req, res) => {
   const i = await caixaDaConta(req, res); if (!i) return;
   if (!ligacaoConfigurada()) return res.json({ configurada: false });
   if (!i.callSessionId) return res.json({ configurada: true, ligada: false });
@@ -131,7 +131,7 @@ ligacaoRouter.get('/inboxes/:id/ligacao', requireOwner, async (req, res) => {
 });
 
 /** Liga a ligação nesta caixa: cria a sessão no AstraCalls (se não tiver) e começa o QR. */
-ligacaoRouter.post('/inboxes/:id/ligacao/conectar', requireOwner, async (req, res) => {
+ligacaoRouter.post('/inboxes/:id/ligacao/conectar', requirePerm('config.canais'), async (req, res) => {
   const i = await caixaDaConta(req, res); if (!i) return;
   try {
     let sid = i.callSessionId;
@@ -153,7 +153,7 @@ ligacaoRouter.post('/inboxes/:id/ligacao/conectar', requireOwner, async (req, re
 });
 
 /** Desliga a ligação desta caixa (desconecta o aparelho de ligação do WhatsApp). */
-ligacaoRouter.delete('/inboxes/:id/ligacao', requireOwner, async (req, res) => {
+ligacaoRouter.delete('/inboxes/:id/ligacao', requirePerm('config.canais'), async (req, res) => {
   const i = await caixaDaConta(req, res); if (!i) return;
   if (i.callSessionId) {
     await astra('POST', `/api/sessions/${encodeURIComponent(i.callSessionId)}/logout`).catch(() => {});

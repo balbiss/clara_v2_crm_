@@ -697,6 +697,20 @@ export const tarefas = pgTable('tarefas', {
   index('index_tarefas_on_user_id').on(t.userId),
 ]);
 
+/** Perfis de acesso (Configurações › Perfis de acesso). sistema = os 4 perfis-base (um por role). */
+export const accessProfiles = pgTable('access_profiles', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  accountId: bigint('account_id', { mode: 'number' }).notNull().references((): AnyPgColumn => accounts.id),
+  name: varchar('name').notNull(),
+  baseRole: integer('base_role').default(0).notNull(),
+  permissions: jsonb('permissions').default({}).notNull(),
+  sistema: boolean('sistema').default(false).notNull(),
+  createdAt: timestamp('created_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { precision: 6, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  index('index_access_profiles_on_account_id').on(t.accountId),
+]);
+
 export const users = pgTable('users', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
   accountId: bigint('account_id', { mode: 'number' }),
@@ -710,6 +724,8 @@ export const users = pgTable('users', {
   jueriGerenteId: varchar('jueri_gerente_id'),
   lastName: varchar('last_name'),
   permissions: jsonb('permissions').default({}),
+  // perfil de acesso escolhido no cadastro (Configurações › Perfis de acesso); null = perfil-base do role
+  accessProfileId: bigint('access_profile_id', { mode: 'number' }),
   phone: varchar('phone'),
   queuePosition: integer('queue_position'),
   rememberCreatedAt: timestamp('remember_created_at', { precision: 6, mode: 'date' }),

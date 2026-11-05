@@ -5,7 +5,7 @@ import { db } from '../db/client.js';
 import { broadcastRecipients, broadcasts, contactTags, contacts, flows, inboxes, users } from '../db/schema.js';
 import { createContact } from '../lib/contacts.js';
 import { findOrCreateTag } from '../lib/conversations.js';
-import { isFullPortfolio, requireAuth, requireBroadcast } from '../middleware/auth.js';
+import { pode, requireAuth, requireBroadcast } from '../middleware/auth.js';
 import { attach, blobFor, blobUrl } from '../lib/storage.js';
 import { messagingService } from '../lib/waha.js';
 import { assignedInboxes, inboxBadge } from '../lib/conversations.js';
@@ -17,7 +17,7 @@ export const disparosRouter = Router();
 disparosRouter.use('/broadcasts', requireAuth, requireBroadcast);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 16 * 1024 * 1024 } });
 const acc = (req: Request) => req.user!.accountId!;
-const restrito = (req: Request) => !isFullPortfolio(req.user!);
+const restrito = (req: Request) => !pode(req.user!, 'disparos.todas_revendedoras');
 /** Filtros do público; pra consultora a carteira é sempre a dela (fica gravado no disparo e vale no envio). */
 const filtrosDe = (req: Request, raw: unknown): Filtros => {
   const f = cleanFiltros(raw);

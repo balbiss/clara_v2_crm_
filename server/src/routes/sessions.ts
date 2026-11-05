@@ -7,10 +7,18 @@ import { users, accounts } from '../db/schema.js';
 import { signToken } from '../lib/jwt.js';
 import { avatarUrl } from '../lib/users.js';
 import { requireAuth, roleName, type User } from '../middleware/auth.js';
+import { carregarAcesso, perfisDaConta, perfilDe } from '../lib/acesso.js';
 
 // Users::SessionsController da v1 (Devise + devise-jwt): POST /users/sign_in devolve o token
 // no header Authorization e o usuário no corpo; DELETE /users/sign_out revoga trocando o jti.
 export const sessionsRouter = Router();
+
+/** O que a tela usa pra montar menu e botões: permissões já resolvidas + nome do perfil. */
+export async function acessoJson(u: User) {
+  const access = await carregarAcesso(u);
+  const perfis = u.accountId ? await perfisDaConta(u.accountId) : [];
+  return { access, access_profile_id: u.accessProfileId ?? null, access_profile_name: perfilDe(u, perfis)?.name ?? null };
+}
 
 export async function serializeSessionUser(u: User) {
   const [acc] = u.accountId ? await db.select({ name: accounts.name }).from(accounts).where(eq(accounts.id, u.accountId)) : [];
@@ -18,6 +26,7 @@ export async function serializeSessionUser(u: User) {
     id: u.id, email: u.email, first_name: u.firstName, last_name: u.lastName,
     role: roleName(u.role), account_id: u.accountId, account_name: acc?.name ?? null,
     permissions: u.permissions, avatar_url: await avatarUrl(u.id),
+    ...(await acessoJson(u)),
   };
 }
 

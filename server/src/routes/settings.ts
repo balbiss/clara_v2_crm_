@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { and, eq, lt, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { accounts, conversations, users } from '../db/schema.js';
-import { requireAuth, requireOwner, roleName } from '../middleware/auth.js';
+import { requireAuth, requirePerm, roleName } from '../middleware/auth.js';
+import { acessoJson } from './sessions.js';
 import { broadcastConversations } from '../lib/realtime.js';
 import { triggerOnConversationClosed } from '../lib/salesbot.js';
 
@@ -31,7 +32,7 @@ const settingsOf = async (accountId: number) => {
 
 settingsRouter.get('/workspace_settings', requireAuth, async (req, res) => res.json(await settingsOf(req.user!.accountId!)));
 
-settingsRouter.put('/workspace_settings', requireAuth, requireOwner, async (req, res) => {
+settingsRouter.put('/workspace_settings', requireAuth, requirePerm('config.trabalho'), async (req, res) => {
   const p = (req.body?.settings ?? {}) as Record<string, unknown>;
   const cur = (await settingsOf(req.user!.accountId!)).settings as Record<string, unknown>;
   const next: Record<string, unknown> = { ...cur };
@@ -52,7 +53,7 @@ settingsRouter.put('/workspace_settings', requireAuth, requireOwner, async (req,
 // --- perfil do próprio usuário ------------------------------------------------------------------
 settingsRouter.get('/profile', requireAuth, async (req, res) => {
   const u = req.user!;
-  res.json({ id: u.id, first_name: u.firstName, last_name: u.lastName, email: u.email, phone: u.phone, role: roleName(u.role), permissions: u.permissions ?? {} });
+  res.json({ id: u.id, first_name: u.firstName, last_name: u.lastName, email: u.email, phone: u.phone, role: roleName(u.role), permissions: u.permissions ?? {}, ...(await acessoJson(u)) });
 });
 settingsRouter.put('/profile', requireAuth, async (req, res) => {
   const p = req.body?.profile ?? {};

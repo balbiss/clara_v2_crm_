@@ -22,7 +22,8 @@ const STEPS = [
 export default function NewInbox() {
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
-  const [form, setForm] = useState({ name: '', phone_number: '' })
+  // carteira: escolha obrigatória (dona, 2026-11-04) — só o número das Consultoras tem carteira
+  const [form, setForm] = useState<{ name: string; phone_number: string; carteira: '' | 'sim' | 'nao' }>({ name: '', phone_number: '', carteira: '' })
   const [creating, setCreating] = useState(false)
   const [created, setCreated] = useState<any>(null)
   const [agents, setAgents] = useState<any[]>([])
@@ -34,9 +35,10 @@ export default function NewInbox() {
   const create = async () => {
     if (creating) return // evita duas caixas com duplo clique
     if (!form.name.trim() || form.phone_number.replace(/\D/g, '').length < 10) return toast('warning', 'Informe o nome e o número com DDD.')
+    if (!form.carteira) return toast('warning', 'Escolha de quem é esse número (Consultoras ou outro).')
     setCreating(true)
     try {
-      const { data } = await api.post('/inboxes', { inbox: { name: form.name.trim(), phone_number: form.phone_number, provider: 'waha' } })
+      const { data } = await api.post('/inboxes', { inbox: { name: form.name.trim(), phone_number: form.phone_number, provider: 'waha', restrict_by_portfolio: form.carteira === 'sim' } })
       setCreated(data)
       inboxesStore.fetchInboxes()
       setStep(3)
@@ -86,7 +88,18 @@ export default function NewInbox() {
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex.: Comercial Consultoras" style={{ ...inputStyle, marginBottom: 14 }} />
               <span style={labelStyle}>Número de telefone</span>
               <input value={form.phone_number} onChange={e => setForm({ ...form, phone_number: e.target.value })} placeholder="Com DDD, ex.: 5516999999999" style={inputStyle} />
-              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '6px 0 18px' }}>É o número do WhatsApp que será conectado. Duas caixas não podem usar o mesmo número.</p>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '6px 0 14px' }}>É o número do WhatsApp que será conectado. Duas caixas não podem usar o mesmo número.</p>
+              <span style={labelStyle}>Esse número é de quem?</span>
+              <div style={{ display: 'grid', gap: 8, margin: '0 0 18px' }}>
+                <label style={{ display: 'flex', gap: 10, padding: '10px 12px', border: '1px solid ' + (form.carteira === 'sim' ? 'var(--terra)' : 'var(--line)'), background: form.carteira === 'sim' ? 'var(--terraSoft)' : 'var(--card)', borderRadius: 10, cursor: 'pointer' }}>
+                  <input type="radio" name="carteira" checked={form.carteira === 'sim'} onChange={() => setForm({ ...form, carteira: 'sim' })} style={{ marginTop: 3 }} />
+                  <span><b style={{ display: 'block', fontSize: 13.5 }}>Consultoras (com carteira)</b><span style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 }}>Cada consultora só vê e fala com as revendedoras da própria carteira.</span></span>
+                </label>
+                <label style={{ display: 'flex', gap: 10, padding: '10px 12px', border: '1px solid ' + (form.carteira === 'nao' ? 'var(--terra)' : 'var(--line)'), background: form.carteira === 'nao' ? 'var(--terraSoft)' : 'var(--card)', borderRadius: 10, cursor: 'pointer' }}>
+                  <input type="radio" name="carteira" checked={form.carteira === 'nao'} onChange={() => setForm({ ...form, carteira: 'nao' })} style={{ marginTop: 3 }} />
+                  <span><b style={{ display: 'block', fontSize: 13.5 }}>Prospecção, Gerência, Financeiro ou outro (sem carteira)</b><span style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 }}>Quem for liberada neste número fala com qualquer revendedora, mesmo de outra carteira.</span></span>
+                </label>
+              </div>
               <button onClick={create} disabled={creating} style={btn('primary')}>{creating ? 'Criando…' : 'Criar caixa do WhatsApp'}</button>
             </>
           )}

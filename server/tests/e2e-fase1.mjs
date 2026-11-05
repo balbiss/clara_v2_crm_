@@ -111,7 +111,9 @@ console.log('Nova conversa por número');
 const nc = await call(cons.token, 'POST', '/conversations', { phone: '(11) 98888-' + String(Date.now()).slice(-4) });
 check('consultor inicia conversa com número novo', nc.status === 201 && nc.json.assignee_id === cons.user.id, JSON.stringify(nc.json).slice(0, 200));
 const nc2 = await call(cons.token, 'POST', '/conversations', { phone: cliente.slice(2) });
-check('número de outra carteira é recusado', nc2.status === 403, `status ${nc2.status}`);
+// número SEM carteira (Comercial Teste): fala com revendedora de outra carteira (dona, 2026-11-04); a trava de
+// carteira nos números das Consultoras está em tests/e2e-perfis-acesso.mjs
+check('número sem carteira: chama revendedora de outra carteira', nc2.status === 201, `status ${nc2.status}`);
 
 console.log('Transcrição/arquivo');
 const tx = await call(dir.token, 'GET', `/conversations/${conv.id}/transcript`);

@@ -16,6 +16,7 @@ import { internalChatStore } from '../store/internalChat'
 import { conversationsStore } from '../store/conversations'
 import { resetSocket } from '../lib/realtime'
 import { useWindowEvent, readUser } from '../lib/hooks'
+import { can } from '../lib/acesso'
 import { allowed, ROLE_LABEL, ini } from '../lib/nav'
 import { kommoNavFor } from '../lib/navKommo'
 import { firstSettingsPath } from './SettingsLayout'
@@ -87,12 +88,18 @@ export function AppShell() {
   const { canInstall, isInstalled, isStandalone, promptInstall } = useInstallPrompt()
 
   // perfil e permissões podem mudar depois do login (ex.: diretoria liga "Fazer disparos"): atualiza ao abrir
+  // (também ao voltar pra aba e a cada 2 min: mudança em Perfis de acesso chega sem precisar sair e entrar)
   useEffect(() => {
-    api.get('/profile').then(({ data }) => setCurrentUser(u => {
-      const n = { ...u, role: data.role, permissions: data.permissions }
+    const atualizar = () => api.get('/profile').then(({ data }) => setCurrentUser(u => {
+      const n = { ...u, role: data.role, permissions: data.permissions, access: data.access, access_profile_id: data.access_profile_id, access_profile_name: data.access_profile_name }
       localStorage.setItem('user', JSON.stringify(n))
       return n
     })).catch(() => {})
+    atualizar()
+    const onFocus = () => { if (document.visibilityState === 'visible') atualizar() }
+    window.addEventListener('focus', onFocus)
+    const t = setInterval(atualizar, 120000)
+    return () => { window.removeEventListener('focus', onFocus); clearInterval(t) }
   }, [])
   const role = currentUser.role || 'consultor'
   const meNome = `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim() || currentUser.email || 'Usuário'
@@ -372,7 +379,7 @@ export function AppShell() {
                 )}
               </div>
               <button onClick={logout} style={{ ...kMenuItem, color: '#f86161' }}><LogOut size={16} /> Sair</button>
-              {role === 'diretoria' && (<>
+              {can('config.trabalho') && (<>
                 <div style={{ height: 1, background: K.line, margin: '8px 0' }} />
                 <div style={{ padding: '2px 16px 8px' }}>
                   <div style={{ fontSize: 15 }}>{currentUser.account_name || brand.name}</div>
@@ -424,7 +431,7 @@ export function AppShell() {
             // aviso no rosa do menu (combina com o resto); o alerta fica no ícone
             <div className="k-alert-bar" style={{ ...banner(SB.bg, SB.strong), borderBottom: menuTheme === 'light' ? `1px solid ${SB.line}` : 'none', flexWrap: 'wrap' }}>
               <span style={{ flex: '1 1 260px', display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={15} color={menuTheme === 'light' ? '#c98a00' : '#a14a00'} style={{ flex: 'none' }} />O WhatsApp "{disconnected.name}" está desconectado. As mensagens não estão sendo enviadas nem recebidas.</span>
-              {role === 'diretoria' && <button onClick={() => navigate('/settings/inboxes')} style={{ padding: '6px 14px', border: 'none', borderRadius: 3, background: '#8e2a46', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Reconectar</button>}
+              {can('config.canais') && <button onClick={() => navigate('/settings/inboxes')} style={{ padding: '6px 14px', border: 'none', borderRadius: 3, background: '#8e2a46', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Reconectar</button>}
               <button title="Fechar aviso" onClick={() => setDismissed(prev => new Set(prev).add(disconnected.id))} style={{ border: 'none', background: 'none', color: SB.muted, cursor: 'pointer', display: 'flex' }}><X size={15} /></button>
             </div>
           )}

@@ -78,7 +78,7 @@ export default function SettingsInboxes() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--muted)' }}>
                   <span>{fmtPhone(i.phone_number) || 'Sem número'}</span>
                   <Badge tone={tone}>{i.connected === true ? 'Conectado' : i.connected === false ? 'Desconectado' : 'Verificando…'}</Badge>
-                  {i.restrict_by_portfolio && <Badge tone="blue">Por carteira</Badge>}
+                  {i.restrict_by_portfolio && <Badge tone="blue">Consultoras · por carteira</Badge>}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }} onClick={e => e.stopPropagation()}>

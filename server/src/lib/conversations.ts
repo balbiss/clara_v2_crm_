@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { conversations, contacts, inboxes, inboxMembers, messages, notes, pedidos, resellerPhones, lifecycleEvents, tags, conversationTags } from '../db/schema.js';
-import { isFinance, isFullPortfolio, hasPermission, accessibleJueriLiderIds, type User } from '../middleware/auth.js';
+import { pode, escopo, accessibleJueriLiderIds, type User } from '../middleware/auth.js';
 import { blobsFor, blobUrl } from './storage.js';
 import { accountUsersMap } from './users.js';
 import { messageStatusName } from './messages.js';
@@ -42,7 +42,7 @@ export const isGroupSql = sql`(coalesce(${contacts.status}, '') = 'grupo' OR coa
  * pela Expansão, caixa que ela nem tem acesso).
  */
 export async function sendableInboxIds(u: User): Promise<Set<number> | null> {
-  if (isFullPortfolio(u) || isFinance(u)) return null;
+  if (pode(u, 'conversas.enviar_qualquer_numero')) return null;
   const mine = await assignedInboxes(u.id);
   return mine.length ? new Set(mine.map(i => i.id)) : null;
 }
@@ -56,7 +56,7 @@ export const canSendThrough = (allowed: Set<number> | null, inboxId: number | nu
  */
 export async function visibleConversationsWhere(u: User): Promise<SQL> {
   const base = eq(conversations.accountId, u.accountId!);
-  if (isFullPortfolio(u) || isFinance(u) || hasPermission(u, 'admin')) return base;
+  if (escopo(u, 'conversas.ver') === 'todos') return base;
   const liderIds = await accessibleJueriLiderIds(u.id);
   const assigned = await assignedInboxes(u.id);
   const unrestricted = assigned.filter(i => !i.restrictByPortfolio).map(i => i.id);

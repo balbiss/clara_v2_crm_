@@ -6,7 +6,7 @@ import api from '../api'
 import { contactsStore } from '../store/contacts'
 import { agentsStore } from '../store/agents'
 import { ACTIVE_STATUS_LABELS, statusLabel } from '../constants/regua'
-import { isFullPortfolio as isFullPortfolioRole } from '../config/roles'
+import { can } from '../lib/acesso'
 import { nivelInfo, nivelLimpo, NIVEL_META } from '../constants/nivel'
 import { readUser } from '../lib/hooks'
 import { btn } from '../components/ui'
@@ -41,7 +41,7 @@ export default function RevendedorasAtivas() {
   const navigate = useNavigate()
   const store = useSnapshot(contactsStore) as any
   const agents = useSnapshot(agentsStore) as any
-  const isFull = isFullPortfolioRole(readUser())
+  const isFull = can('contatos.trocar_responsavel')
   const { start, busyId } = useStartConversation()
   const [loading, setLoading] = useState(!contactsStore.isLoadedOnce)
   const [q, setQ] = useState('')

@@ -2,7 +2,8 @@ import { useEffect, type FormEvent } from 'react'
 import { useSnapshot } from 'valtio'
 import Swal from 'sweetalert2'
 import { conversationsStore } from '../store/conversations'
-import { isFullPortfolio as isFullPortfolioRole, isCriticalConfig } from '../config/roles'
+import { isCriticalConfig } from '../config/roles'
+import { can } from '../lib/acesso'
 import { useContactFields } from '../composables/useContactFields'
 import { useLocal, readUser } from '../lib/hooks'
 import { Modal, btn, inputStyle, labelStyle, serif } from './ui'
@@ -21,8 +22,8 @@ export default function EditContactModal({ isOpen, contact, onClose }: { isOpen:
   const store = useSnapshot(conversationsStore)
   const currentUser = readUser()
   // só quem vê a carteira toda reatribui responsável; criar atributo: gerente+; remover: diretoria
-  const isFullPortfolio = isFullPortfolioRole(currentUser)
-  const canAddCustomField = isFullPortfolioRole(currentUser)
+  const isFullPortfolio = can('contatos.trocar_responsavel', currentUser)
+  const canAddCustomField = can('config.campos', currentUser)
   const canRemoveCustomField = isCriticalConfig(currentUser)
   const { allFields: REVENDA_FIELDS } = useContactFields()
   const reservedKeys = () => [...REVENDA_FIELDS.map((f: any) => f.key), ...CADASTRO_KEYS, ...JUERI_CADASTRO_KEYS, 'pedidos', 'telefones_adicionais']

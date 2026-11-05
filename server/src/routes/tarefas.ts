@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { and, asc, between, eq, gte, inArray, lt, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { tarefas, agendamentos, contacts, users } from '../db/schema.js';
-import { requireAuth, requireFullPortfolio, isFullPortfolio, isFinance, hasPermission, accessibleJueriLiderIds, type User } from '../middleware/auth.js';
+import { requireAuth, requirePerm, pode, escopo, accessibleJueriLiderIds, type User } from '../middleware/auth.js';
 import { railsJson } from '../lib/serialize.js';
 import { MANUAL_TIPOS, MANUAL_TIPO_LABELS, PRIORIDADES, diaSP, isUniqueViolation } from '../lib/tarefas.js';
 import { hojeSP } from '../lib/pedidos.js';
@@ -16,7 +16,7 @@ const nf = (res: Response, message: string) => res.status(404).json({ error: 'no
 /** Consultor só vê tarefas da própria carteira (+ times); gerência/financeiro/view_all vê tudo. */
 export async function visibleTarefasWhere(u: User): Promise<SQL> {
   const base = eq(tarefas.accountId, u.accountId!);
-  if (isFullPortfolio(u) || isFinance(u) || hasPermission(u, 'view_all_contacts')) return base;
+  if (escopo(u, 'tarefas.ver') === 'todos') return base;
   const liderIds = await accessibleJueriLiderIds(u.id);
   if (!liderIds.length) return and(base, eq(tarefas.userId, u.id))!;
   const doTime = sql`EXISTS (SELECT 1 FROM contacts c WHERE c.id = ${tarefas.contactId} AND c.custom_attributes ->> 'gerente_jueri_id' IN (${sql.join(liderIds.map(l => sql`${l}`), sql`, `)}))`;
@@ -75,7 +75,7 @@ tarefasRouter.patch('/tarefas/:id(\\d+)/complete', requireAuth, async (req, res)
   res.json({ ...railsJson(done), proxima_tarefa: proxima ? railsJson(proxima) : null });
 });
 
-tarefasRouter.post('/tarefas', requireAuth, requireFullPortfolio, async (req, res) => {
+tarefasRouter.post('/tarefas', requireAuth, requirePerm('tarefas.gerenciar'), async (req, res) => {
   const p = req.body.tarefa ?? {};
   const [c] = await db.select().from(contacts).where(and(eq(contacts.accountId, acc(req)), eq(contacts.id, Number(p.contact_id))));
   if (!c) return nf(res, 'Revendedora não encontrada.');
@@ -110,9 +110,9 @@ async function updateTarefa(req: Request, res: Response) {
   }
 }
 const TIPOS_OK = (t: unknown) => typeof t === 'string' && (MANUAL_TIPOS.includes(t) || ['terceiro_dia', 'decimo_dia', 'vigesimo_dia', 'atrasada'].includes(t));
-tarefasRouter.put('/tarefas/:id(\\d+)', requireAuth, requireFullPortfolio, updateTarefa);
-tarefasRouter.patch('/tarefas/:id(\\d+)', requireAuth, requireFullPortfolio, updateTarefa);
-tarefasRouter.delete('/tarefas/:id(\\d+)', requireAuth, requireFullPortfolio, async (req, res) => {
+tarefasRouter.put('/tarefas/:id(\\d+)', requireAuth, requirePerm('tarefas.gerenciar'), updateTarefa);
+tarefasRouter.patch('/tarefas/:id(\\d+)', requireAuth, requirePerm('tarefas.gerenciar'), updateTarefa);
+tarefasRouter.delete('/tarefas/:id(\\d+)', requireAuth, requirePerm('tarefas.gerenciar'), async (req, res) => {
   const t = await loadTarefa(req, res);
   if (!t) return;
   await db.delete(tarefas).where(eq(tarefas.id, t.id));
@@ -121,7 +121,7 @@ tarefasRouter.delete('/tarefas/:id(\\d+)', requireAuth, requireFullPortfolio, as
 
 // ---- agendamentos (calendário) -------------------------------------------------------------------
 const AG_TIPOS = ['reuniao', 'entrega_maleta', 'acerto', 'outro'];
-const visibleAg = (u: User) => (isFullPortfolio(u) ? eq(agendamentos.accountId, u.accountId!) : and(eq(agendamentos.accountId, u.accountId!), eq(agendamentos.userId, u.id))!);
+const visibleAg = (u: User) => (pode(u, 'agenda.equipe') ? eq(agendamentos.accountId, u.accountId!) : and(eq(agendamentos.accountId, u.accountId!), eq(agendamentos.userId, u.id))!);
 const noPeriodo = (de: Date, ate: Date) => sql`${agendamentos.inicioEm} <= ${ate.toISOString()} AND COALESCE(${agendamentos.fimEm}, ${agendamentos.inicioEm}) >= ${de.toISOString()}`; // ISO: o driver não aceita Date cru em sql``
 
 async function agJson(list: (typeof agendamentos.$inferSelect)[]) {
@@ -146,14 +146,14 @@ tarefasRouter.get('/agendamentos', requireAuth, async (req, res) => {
   const [m1, m2] = mesSP();
   const [de] = diaSP(validDate(req.query.de) ?? m1), [, ate] = diaSP(validDate(req.query.ate) ?? m2);
   const conds: SQL[] = [visibleAg(u), noPeriodo(de, ate)];
-  if (req.query.user_id && isFullPortfolio(u)) conds.push(eq(agendamentos.userId, Number(req.query.user_id)));
+  if (req.query.user_id && pode(u, 'agenda.equipe')) conds.push(eq(agendamentos.userId, Number(req.query.user_id)));
   res.json(await agJson(await db.select().from(agendamentos).where(and(...conds)).orderBy(asc(agendamentos.inicioEm))));
 });
 
 tarefasRouter.get('/agendamentos/resumo', requireAuth, async (req, res) => {
   const u = req.user!;
   const conds: SQL[] = [visibleAg(u)];
-  if (req.query.user_id && isFullPortfolio(u)) conds.push(eq(agendamentos.userId, Number(req.query.user_id)));
+  if (req.query.user_id && pode(u, 'agenda.equipe')) conds.push(eq(agendamentos.userId, Number(req.query.user_id)));
   const base = and(...conds)!;
   const n = async (w: SQL) => (await db.select({ n: sql<number>`count(*)::int` }).from(agendamentos).where(and(base, w)))[0].n;
   const hoje = hojeSP();
@@ -195,7 +195,7 @@ tarefasRouter.post('/agendamentos', requireAuth, async (req, res) => {
   const fim = v.out.fimEm as Date | null | undefined, ini = v.out.inicioEm as Date;
   if (fim && fim < ini) return res.status(422).json({ error: 'Fim em não pode ser antes do início' });
   // só gerente/diretoria cria compromisso em nome de outra pessoa
-  const userId = isFullPortfolio(u) ? (v.userId ? Number(v.userId) : u.id) : u.id;
+  const userId = pode(u, 'agenda.equipe') ? (v.userId ? Number(v.userId) : u.id) : u.id;
   const [a] = await db.insert(agendamentos).values({ ...v.out, accountId: acc(req), userId, tipo: (v.out.tipo as string) || 'outro' } as typeof agendamentos.$inferInsert).returning();
   res.status(201).json((await agJson([a]))[0]);
 });
@@ -208,7 +208,7 @@ async function updateAg(req: Request, res: Response) {
   const ini = (v.out.inicioEm as Date | undefined) ?? a.inicioEm, fim = 'fimEm' in v.out ? (v.out.fimEm as Date | null) : a.fimEm;
   if (fim && fim < ini) return res.status(422).json({ error: 'Fim em não pode ser antes do início' });
   const set: Record<string, unknown> = { ...v.out, updatedAt: new Date() };
-  if (isFullPortfolio(req.user!) && v.userId) set.userId = Number(v.userId);
+  if (pode(req.user!, 'agenda.equipe') && v.userId) set.userId = Number(v.userId);
   const [u] = await db.update(agendamentos).set(set).where(eq(agendamentos.id, a.id)).returning();
   res.json((await agJson([u]))[0]);
 }

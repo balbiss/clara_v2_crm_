@@ -3,6 +3,8 @@ import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
 import { verifyToken } from '../lib/jwt.js';
 import { db } from '../db/client.js';
 import { users, contacts, salesTeams, salesTeamMemberships } from '../db/schema.js';
+import { carregarAcesso, pode, escopo } from '../lib/acesso.js';
+export { pode, escopo } from '../lib/acesso.js';
 
 export type User = typeof users.$inferSelect;
 
@@ -36,6 +38,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   if (!user || user.jti !== claims.jti) return res.status(401).json({ error: 'Token revogado' });
   if (user.status !== 'active') return res.status(401).json({ error: 'Conta inativa' });
   req.user = user;
+  await carregarAcesso(user); // perfil de acesso (Configurações › Perfis de acesso)
   next();
 }
 
@@ -57,13 +60,24 @@ export function requireFullPortfolio(req: Request, res: Response, next: NextFunc
   if (!req.user || !isFullPortfolio(req.user)) return forbidden(res, 'Acesso restrito a gerência/diretoria.');
   next();
 }
-// Disparos: gerência/diretoria sempre; consultora só se a diretoria ligou "Fazer disparos" no usuário
-// (aí ela dispara só pra própria carteira e pelos números que atende — routes/disparos.ts)
-export const canBroadcast = (u: User) => isFullPortfolio(u) || hasPermission(u, 'broadcast');
-export function requireBroadcast(req: Request, res: Response, next: NextFunction) {
-  if (!req.user || !canBroadcast(req.user)) return forbidden(res, 'Disparos não liberados para este usuário.');
-  next();
+/** Middleware: exige uma permissão do perfil de acesso (lib/acesso.ts). */
+export function requirePerm(key: string, message = 'Seu perfil de acesso não permite isso. Fale com a diretoria.') {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user || !pode(req.user, key)) return forbidden(res, message);
+    next();
+  };
 }
+/** Exige UMA das permissões. */
+export function requireAnyPerm(keys: string[], message = 'Seu perfil de acesso não permite isso. Fale com a diretoria.') {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user || !keys.some(k => pode(req.user!, k))) return forbidden(res, message);
+    next();
+  };
+}
+// Disparos: perfil com "Fazer disparos" (ou a pessoa com a exceção "Fazer disparos" no cadastro);
+// sem "Disparar para qualquer revendedora" ela dispara só pra própria carteira (routes/disparos.ts)
+export const canBroadcast = (u: User) => pode(u, 'disparos.usar');
+export const requireBroadcast = requirePerm('disparos.usar', 'Disparos não liberados para este usuário.');
 export function requireFinance(req: Request, res: Response, next: NextFunction) {
   if (!req.user || !isFinance(req.user)) return forbidden(res, 'Acesso restrito ao financeiro/diretoria.');
   next();
@@ -82,7 +96,7 @@ export async function accessibleJueriLiderIds(userId: number): Promise<string[]>
  *  própria carteira + a dos times de vendas a que tem acesso. */
 export async function visibleContactsWhere(u: User): Promise<SQL> {
   const base = eq(contacts.accountId, u.accountId!);
-  if (isFullPortfolio(u) || isFinance(u) || hasPermission(u, 'view_all_contacts')) return base;
+  if (escopo(u, 'contatos.ver') === 'todos') return base;
   const liderIds = await accessibleJueriLiderIds(u.id);
   const own = eq(contacts.userId, u.id);
   if (!liderIds.length) return and(base, own)!;

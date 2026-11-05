@@ -10,18 +10,19 @@ type Item = { to: string; label: string; rule: NavRule }
 export const SETTINGS_MENU: { title: string; items: Item[] }[] = [
   { title: 'Perfil', items: [{ to: '/settings/perfil', label: 'Configurações de perfil', rule: 'all' }] },
   { title: 'Área de trabalho', items: [
-    { to: '/settings/trabalho', label: 'Configurações de trabalho', rule: 'critical' },
-    { to: '/settings/chat', label: 'Configurações de chat', rule: 'critical' },
-    { to: '/agentes', label: 'Gestão de usuários', rule: 'critical' },
-    { to: '/settings/times-de-vendas', label: 'Grupos de usuários', rule: 'fullPortfolio' },
-    { to: '/settings/campos-contato', label: 'Campos e grupos', rule: 'critical' },
-    { to: '/settings/tags', label: 'Tags', rule: 'critical' },
-    { to: '/settings/motivos-perda', label: 'Motivos de perda', rule: 'critical' },
-    { to: '/settings/modelos-mensagem', label: 'Modelos de mensagem', rule: 'critical' },
+    { to: '/settings/trabalho', label: 'Configurações de trabalho', rule: 'config.trabalho' },
+    { to: '/settings/chat', label: 'Configurações de chat', rule: 'config.trabalho' },
+    { to: '/agentes', label: 'Gestão de usuários', rule: 'config.usuarios' },
+    { to: '/settings/perfis-acesso', label: 'Perfis de acesso', rule: 'owner' },
+    { to: '/settings/times-de-vendas', label: 'Grupos de usuários', rule: 'config.grupos_usuarios' },
+    { to: '/settings/campos-contato', label: 'Campos e grupos', rule: 'config.campos' },
+    { to: '/settings/tags', label: 'Tags', rule: 'config.etiquetas' },
+    { to: '/settings/motivos-perda', label: 'Motivos de perda', rule: 'config.motivos_perda' },
+    { to: '/settings/modelos-mensagem', label: 'Modelos de mensagem', rule: 'config.modelos' },
   ] },
   { title: 'Integrações e canais', items: [
-    { to: '/settings/inboxes', label: 'Canais (WhatsApp)', rule: 'critical' },
-    { to: '/settings/integracoes', label: 'Central de integrações', rule: 'critical' },
+    { to: '/settings/inboxes', label: 'Canais (WhatsApp)', rule: 'config.canais' },
+    { to: '/settings/integracoes', label: 'Central de integrações', rule: 'config.integracoes' },
   ] },
 ]
 

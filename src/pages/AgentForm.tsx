@@ -26,7 +26,7 @@ const PERMS = [
   { key: 'delete_data', label: 'Apagar registros', desc: 'Pode excluir permanentemente contatos e negociações.' },
   { key: 'broadcast', label: 'Fazer disparos', desc: 'Libera Comunicações › Disparos. Consultora dispara só pra própria carteira e pelos números que atende. Gerência e diretoria já têm.' },
 ]
-const EMPTY = { first_name: '', last_name: '', email: '', phone: '', password: '', role: 'consultor', department: 'corretor', jueri_gerente_id: '', round_robin_group_id: null as number | null, status: 'active', permissions: { view_all_contacts: false, export_data: false, delete_data: false } as Record<string, boolean> }
+const EMPTY = { access_profile_id: null as number | null, first_name: '', last_name: '', email: '', phone: '', password: '', role: 'consultor', department: 'corretor', jueri_gerente_id: '', round_robin_group_id: null as number | null, status: 'active', permissions: { view_all_contacts: false, export_data: false, delete_data: false } as Record<string, boolean> }
 
 export default function AgentForm() {
   const navigate = useNavigate()
@@ -39,13 +39,17 @@ export default function AgentForm() {
   const [funis, setFunis] = useState<any[]>([])
   const [retro, setRetro] = useState(false)
   const set = (patch: any) => setForm((f: any) => ({ ...f, ...patch }))
+  // perfis de acesso (Configurações › Perfis de acesso): os 4 padrão + os criados pela diretoria
+  const [perfis, setPerfis] = useState<{ id: number; name: string; base_role: string; sistema: boolean }[]>([])
 
   useEffect(() => {
     api.get('/round_robin_groups').then(({ data }) => setGroups(data)).catch(e => console.error('Erro ao carregar grupos de rodízio', e))
     api.get('/pipelines').then(({ data }) => setFunis(data)).catch(() => {})
+    api.get('/access_profiles').then(({ data }) => setPerfis(data.perfis || [])).catch(() => {})
     if (!id) return
     api.get(`/agents/${id}`).then(({ data }) => {
       setForm({
+        access_profile_id: data.access_profile_id || null,
         first_name: data.first_name || '', last_name: data.last_name || '', email: data.email || '', phone: data.phone || '', password: '',
         role: data.role || 'consultor', department: data.department || 'corretor', jueri_gerente_id: data.jueri_gerente_id || '',
         round_robin_group_id: data.round_robin_group_id || null, status: data.status || 'active',
@@ -111,7 +115,16 @@ export default function AgentForm() {
               </span>
             </div>
           ))}
-          {field('Perfil de acesso', radioCard(ROLES, form.role, v => set({ role: v })))}
+          {field('Perfil de acesso', perfis.length ? (
+            <>
+              {radioCard(perfis.map(p => ({
+                value: 'p' + p.id, label: p.name,
+                desc: p.sistema ? (ROLES.find(r => r.value === p.base_role)?.desc || '') : `Perfil personalizado, baseado em ${ROLES.find(r => r.value === p.base_role)?.label || p.base_role}.`,
+              })), 'p' + (form.access_profile_id || perfis.find(p => p.sistema && p.base_role === form.role)?.id),
+              v => { const p = perfis.find(x => 'p' + x.id === v); if (p) set({ role: p.base_role, access_profile_id: p.sistema ? null : p.id }) })}
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '6px 0 0' }}>O que cada perfil vê e faz é definido em Configurações › Perfis de acesso.</p>
+            </>
+          ) : radioCard(ROLES, form.role, v => set({ role: v, access_profile_id: null })))}
           {(form.role === 'gerente' || form.role === 'consultor') && field(<>ID do gerente no Jueri (opcional)</>, (
             <>
               <input value={form.jueri_gerente_id} onChange={e => set({ jueri_gerente_id: e.target.value })} placeholder="Ex.: 42 (mais de um: 42, 57)" style={inputStyle} />
@@ -148,7 +161,7 @@ export default function AgentForm() {
           </Section>
         )}
 
-        <Section title="Permissões de acesso" description="O que esta pessoa pode ver ou fazer, além do perfil escolhido.">
+        <Section title="Exceções desta pessoa" description="Ligue só se esta pessoa precisar de algo a mais que o perfil dela (o perfil é ajustado em Configurações › Perfis de acesso).">
           {PERMS.map(p => (
             <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderTop: '1px solid var(--line)' }}>
               <Switch on={!!form.permissions[p.key]} onChange={v => set({ permissions: { ...form.permissions, [p.key]: v } })} />

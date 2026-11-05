@@ -6,6 +6,7 @@ import { Modal } from '../components/ui'
 import { toast } from '../components/ui2'
 import { ChatAvatar } from '../components/ChatAvatar'
 import { useClickOutside, readUser } from '../lib/hooks'
+import { can } from '../lib/acesso'
 import { K, brlK, kBtn, kInput } from '../lib/kommo'
 
 // Funis no visual do Kommo (Varejo, Onboarding, Atacado, Prospecção…): colunas por etapa com
@@ -13,7 +14,7 @@ import { K, brlK, kBtn, kInput } from '../lib/kommo'
 // Arrastar pra baixo mostra as zonas VENDA PERDIDA / VENDA GANHA / EXCLUIR, igual ao Kommo.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const isOwner = () => readUser()?.role === 'diretoria'
+const isOwner = () => can('funis.configurar')
 
 function TaskDot({ at }: { at?: string | null }) {
   if (!at) return <span title="Sem tarefas" style={{ width: 8, height: 8, borderRadius: '50%', background: K.red, opacity: 0.35 }} />
@@ -30,11 +31,14 @@ function LeadCard({ card, onOpen, onDragStart, onDragEnd, dragging }: { card: an
       style={{ background: K.card, border: `1px solid ${K.line}`, borderRadius: 3, padding: '9px 10px 8px', cursor: 'pointer', opacity: dragging ? 0.4 : 1, display: 'flex', gap: 9 }}>
       <ChatAvatar nome={nome} foto={c.avatar_url} size={36} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', gap: 6, fontSize: 13, color: K.text }}>
-          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.user?.name || c.phone || ''}</span>
-          <span style={{ color: K.muted, flex: 'none' }}>{new Date(card.stage_entered_at || card.created_at).toLocaleDateString('pt-BR')}</span>
+        {/* cliente em destaque; responsável menor embaixo (Bel, 2026-11-04) */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span title={nome} style={{ flex: 1, minWidth: 0, color: K.link, fontSize: 15, fontWeight: 700, lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nome}</span>
+          <span style={{ color: K.muted, flex: 'none', fontSize: 12 }}>{new Date(card.stage_entered_at || card.created_at).toLocaleDateString('pt-BR')}</span>
         </div>
-        <div style={{ color: K.link, fontSize: 15, lineHeight: 1.35, margin: '2px 0 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nome}</div>
+        <div title={card.user?.name ? `Responsável: ${card.user.name}` : undefined} style={{ fontSize: 12, color: K.muted, margin: '1px 0 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>
+          {card.user?.name ? String(card.user.name).toLowerCase() : (c.name ? c.phone || '' : 'Sem responsável')}
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
           {(c.tags || []).slice(0, 3).map((t: any) => (
             <span key={t.id} style={{ fontSize: 11, textTransform: 'uppercase', padding: '1px 6px', borderRadius: 2, border: `1px solid ${t.color || K.lineDark}`, color: t.color || K.muted, background: '#fff', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>

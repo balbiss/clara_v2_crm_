@@ -3,12 +3,12 @@ import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { accounts, users } from '../db/schema.js';
-import { requireAuth, requireOwner } from '../middleware/auth.js';
+import { requireAuth, requirePerm } from '../middleware/auth.js';
 
 // AccountsController da v1: configuração da conta (só diretoria) + troca da própria senha.
 export const accountRouter = Router();
 
-accountRouter.get('/account', requireAuth, requireOwner, async (req, res) => {
+accountRouter.get('/account', requireAuth, requirePerm('config.trabalho'), async (req, res) => {
   const u = req.user!;
   const [a] = await db.select().from(accounts).where(eq(accounts.id, u.accountId!));
   const base = (process.env.BACKEND_URL || process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
@@ -25,8 +25,8 @@ async function updateAccount(req: Request, res: Response) {
   await db.update(accounts).set({ ...(name !== undefined ? { name } : {}), updatedAt: new Date() }).where(eq(accounts.id, req.user!.accountId!));
   res.json({ message: 'Configurações atualizadas com sucesso!' });
 }
-accountRouter.put('/account', requireAuth, requireOwner, updateAccount);
-accountRouter.patch('/account', requireAuth, requireOwner, updateAccount);
+accountRouter.put('/account', requireAuth, requirePerm('config.trabalho'), updateAccount);
+accountRouter.patch('/account', requireAuth, requirePerm('config.trabalho'), updateAccount);
 
 // update_with_password do Devise: confere a atual, exige confirmação e mínimo de 6 caracteres
 accountRouter.put('/account/update_password', requireAuth, async (req, res) => {

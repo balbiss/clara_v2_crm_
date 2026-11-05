@@ -6,10 +6,10 @@ import { confirmBox, toast } from '../components/ui2'
 import { K, kBtn, kInput } from '../lib/kommo'
 import { ACTIVE_STATUS_LABELS, INACTIVE_STATUS_LABELS } from '../constants/regua'
 import { readUser } from '../lib/hooks'
-import { isFullPortfolio } from '../config/roles'
+import { can } from '../lib/acesso'
 
 // consultora com "Fazer disparos" ligado: só a própria carteira, só os disparos dela (o servidor garante)
-const ehConsultora = () => !isFullPortfolio(readUser())
+const ehConsultora = () => !can('disparos.todas_revendedoras')
 
 // Comunicações › Disparos: mensagem (ou robô) pra uma lista filtrada, saindo por um número escolhido,
 // um de cada vez, com intervalo aleatório, limite por dia e horário (motor em server/src/lib/disparos.ts).

@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { desc, eq, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { accounts, jueriWebhookEvents } from '../db/schema.js';
-import { requireAuth, requireOwner } from '../middleware/auth.js';
+import { requireAuth, requirePerm } from '../middleware/auth.js';
 import { aplicarEventoJueri, jueriConfigurado, ultimaSync } from '../lib/jueriSync.js';
 
 // Webhook do Jueri (Configurações › Webhooks no painel do Jueri). Por enquanto a v2 só RECEBE e
@@ -52,7 +52,7 @@ jueriRouter.post('/webhooks/jueri/:token', async (req: Request & { rawBody?: Buf
 });
 
 // tela Configurações › Jueri: URL, chave e os últimos eventos recebidos
-jueriRouter.get('/jueri/webhook', requireAuth, requireOwner, async (req, res) => {
+jueriRouter.get('/jueri/webhook', requireAuth, requirePerm('config.integracoes'), async (req, res) => {
   const accountId = req.user!.accountId!;
   const { token, chave } = await credenciais(accountId);
   const base = (process.env.PUBLIC_URL || process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
@@ -63,7 +63,7 @@ jueriRouter.get('/jueri/webhook', requireAuth, requireOwner, async (req, res) =>
   });
 });
 
-jueriRouter.delete('/jueri/webhook/eventos', requireAuth, requireOwner, async (req, res) => {
+jueriRouter.delete('/jueri/webhook/eventos', requireAuth, requirePerm('config.integracoes'), async (req, res) => {
   await db.delete(jueriWebhookEvents).where(eq(jueriWebhookEvents.accountId, req.user!.accountId!));
   res.status(204).end();
 });

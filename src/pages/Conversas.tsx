@@ -38,7 +38,7 @@ import ForwardMessageModal from '../components/ForwardMessageModal'
 import { serif, inputStyle, labelStyle, btn, Card, Field, PILL, Tag, Dropdown, MenuItem } from '../components/ui'
 import { ChatAvatar } from '../components/ChatAvatar'
 import { confirmBox } from '../components/ui2'
-import { isFullPortfolio } from '../config/roles'
+import { can } from '../lib/acesso'
 import { inboxesStore } from '../store/inboxes'
 import { fmtPhone } from './SettingsInboxDetail'
 import { pickWhatsappInbox } from '../composables/useInboxPicker'
@@ -826,7 +826,7 @@ export default function Conversas() {
   // colunas encolhem em tela menor (notebook) em vez de empurrar o histórico pra fora da tela
   const gridCols = isMobile ? '1fr' : conv && showDetails ? 'minmax(240px,340px) minmax(270px,330px) minmax(0,1fr)' : 'minmax(260px,365px) minmax(0,1fr)'
   const me = store.currentUser || {}
-  const canCreateTask = ['gerente', 'diretoria'].includes(me.role)
+  const canCreateTask = can('tarefas.gerenciar')
 
   // tarefas pendentes do contato (aparecem no topo do histórico, igual ao Kommo)
   const [tasks, setTasks] = useState<Any[]>([])
@@ -924,7 +924,7 @@ export default function Conversas() {
   const tabsK = v.contactFieldGroups.length
     ? v.contactFieldGroups.map((g: Any, i: number) => ({ id: i === 0 ? 'principal' : 'g' + g.id, label: g.name, group: g }))
     : [{ id: 'principal', label: 'Principal', group: null }]
-  const moreTabs = [{ id: 'configuracoes', label: 'Ajustes' }, ...(me.role === 'diretoria' ? [{ id: 'setup', label: 'Configurações' }] : [])]
+  const moreTabs = [{ id: 'configuracoes', label: 'Ajustes' }, ...(can('config.canais') ? [{ id: 'setup', label: 'Configurações' }] : [])]
   const activeTab = tabsK.find((x: Any) => x.id === v.activeDetailsTab)
   const fieldsOfGroup = (g: Any) => (g?.field_keys || []).map((k: string) => fieldOf(k)).filter((fd: Any) => fd && !fd.hidden)
   const saveField = async (key: string, value: Any) => {
@@ -1165,7 +1165,7 @@ export default function Conversas() {
                       <span style={{ width: '42%', flex: 'none', color: K.muted, fontSize: 14 }}>Usuário responsável</span>
                       <select value={conv.assignee_id || ''} onChange={e => handleAssign(e.target.value)} disabled={v.isAssigning} style={{ flex: 1, minWidth: 0, border: 'none', background: 'none', fontFamily: K.font, fontSize: 14, color: K.text, padding: 0, cursor: 'pointer' }}>
                         <option value="">Não atribuído</option>
-                        {isFullPortfolio(store.currentUser)
+                        {can('conversas.atribuir_outros')
                           ? agentsByDepartment.map(group => <optgroup key={group.dept} label={group.label}>{group.agents.map((agent: Any) => <option key={agent.id} value={agent.id}>{agent.first_name} {agent.last_name}</option>)}</optgroup>)
                           : <>
                               {/* consultora: só ela mesma (pra passar pra outra pessoa, usa Transferir) */}

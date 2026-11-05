@@ -4,8 +4,8 @@ import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { and, asc, desc, eq, inArray, isNull, isNotNull, max, or, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { tags, notifications, messageTemplates, pushSubscriptions, roundRobinGroups, users, contacts, inboxes, notes, agendamentos, conversations, tarefas, inboxMembers, salesTeamMemberships, internalMessages } from '../db/schema.js';
-import { requireAuth, requireOwner, isFullPortfolio, roleName, roleValue, ROLES } from '../middleware/auth.js';
+import { accessProfiles, tags, notifications, messageTemplates, pushSubscriptions, roundRobinGroups, users, contacts, inboxes, notes, agendamentos, conversations, tarefas, inboxMembers, salesTeamMemberships, internalMessages } from '../db/schema.js';
+import { requireAuth, requirePerm, pode, roleName, roleValue, ROLES } from '../middleware/auth.js';
 import { railsJson } from '../lib/serialize.js';
 import { attach, blobFor, blobUrl, purge, blobsFor } from '../lib/storage.js';
 import { avatarUrl } from '../lib/users.js';
@@ -23,7 +23,7 @@ const utf8 = (name: string) => Buffer.from(name, 'latin1').toString('utf8');
 basicsRouter.get('/tags', requireAuth, async (req, res) => {
   res.json((await db.select().from(tags).where(eq(tags.accountId, acc(req))).orderBy(asc(tags.name))).map(t => railsJson(t)));
 });
-basicsRouter.post('/tags', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.post('/tags', requireAuth, requirePerm('config.etiquetas'), async (req, res) => {
   const p = req.body.tag ?? {};
   if (!p.name) return res.status(422).json({ name: ["can't be blank"] });
   const [dup] = await db.select({ id: tags.id }).from(tags).where(and(eq(tags.accountId, acc(req)), eq(tags.name, p.name)));
@@ -40,9 +40,9 @@ async function updateTag(req: Request, res: Response) {
   if (!t) return nf(res);
   res.json(railsJson(t));
 }
-basicsRouter.put('/tags/:id', requireAuth, requireOwner, updateTag);
-basicsRouter.patch('/tags/:id', requireAuth, requireOwner, updateTag);
-basicsRouter.delete('/tags/:id', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.put('/tags/:id', requireAuth, requirePerm('config.etiquetas'), updateTag);
+basicsRouter.patch('/tags/:id', requireAuth, requirePerm('config.etiquetas'), updateTag);
+basicsRouter.delete('/tags/:id', requireAuth, requirePerm('config.etiquetas'), async (req, res) => {
   const [t] = await db.select().from(tags).where(and(eq(tags.accountId, acc(req)), eq(tags.id, Number(req.params.id))));
   if (!t) return nf(res);
   await db.execute(sql`DELETE FROM conversation_tags WHERE tag_id = ${t.id}`);
@@ -53,7 +53,7 @@ basicsRouter.delete('/tags/:id', requireAuth, requireOwner, async (req, res) => 
 
 // --- Notificações (sino) ------------------------------------------------------------------------
 const visibleNotifications = (req: Request) => {
-  const audiences = isFullPortfolio(req.user!) ? sql`(${notifications.audience} IS NULL OR ${notifications.audience} = 'owner_level')` : isNull(notifications.audience);
+  const audiences = pode(req.user!, 'avisos.gerencia') ? sql`(${notifications.audience} IS NULL OR ${notifications.audience} = 'owner_level')` : isNull(notifications.audience);
   return and(eq(notifications.accountId, acc(req)), audiences);
 };
 basicsRouter.get('/notifications', requireAuth, async (req, res) => {
@@ -86,7 +86,7 @@ const tplField = (body: Record<string, unknown>, k: string) => {
   const nested = body.message_template as Record<string, unknown> | undefined;
   return nested?.[k] ?? body[`message_template[${k}]`];
 };
-basicsRouter.post('/message_templates', requireAuth, requireOwner, upload.single('message_template[attachment]'), async (req, res) => {
+basicsRouter.post('/message_templates', requireAuth, requirePerm('config.modelos'), upload.single('message_template[attachment]'), async (req, res) => {
   const nome = tplField(req.body, 'nome') as string | undefined;
   const mensagem = tplField(req.body, 'mensagem') as string | undefined;
   if (!nome) return res.status(422).json({ nome: ["can't be blank"] });
@@ -108,9 +108,9 @@ async function updateTemplate(req: Request, res: Response) {
   const [u] = await db.update(messageTemplates).set(set).where(eq(messageTemplates.id, t.id)).returning();
   res.json(await serializeTemplate(u));
 }
-basicsRouter.put('/message_templates/:id', requireAuth, requireOwner, upload.single('message_template[attachment]'), updateTemplate);
-basicsRouter.patch('/message_templates/:id', requireAuth, requireOwner, upload.single('message_template[attachment]'), updateTemplate);
-basicsRouter.delete('/message_templates/:id', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.put('/message_templates/:id', requireAuth, requirePerm('config.modelos'), upload.single('message_template[attachment]'), updateTemplate);
+basicsRouter.patch('/message_templates/:id', requireAuth, requirePerm('config.modelos'), upload.single('message_template[attachment]'), updateTemplate);
+basicsRouter.delete('/message_templates/:id', requireAuth, requirePerm('config.modelos'), async (req, res) => {
   const [t] = await db.select().from(messageTemplates).where(and(eq(messageTemplates.accountId, acc(req)), eq(messageTemplates.id, Number(req.params.id))));
   if (!t) return nf(res);
   await purge('MessageTemplate', t.id, 'attachment');
@@ -146,10 +146,10 @@ basicsRouter.delete('/profile/avatar', requireAuth, async (req, res) => {
 });
 
 // --- Grupos de rodízio -------------------------------------------------------------------------
-basicsRouter.get('/round_robin_groups', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.get('/round_robin_groups', requireAuth, requirePerm('config.usuarios'), async (req, res) => {
   res.json((await db.select().from(roundRobinGroups).where(eq(roundRobinGroups.accountId, acc(req))).orderBy(asc(roundRobinGroups.name))).map(g => railsJson(g)));
 });
-basicsRouter.post('/round_robin_groups', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.post('/round_robin_groups', requireAuth, requirePerm('config.usuarios'), async (req, res) => {
   const name = req.body.round_robin_group?.name;
   if (!name) return res.status(422).json({ name: ["can't be blank"] });
   const [g] = await db.insert(roundRobinGroups).values({ accountId: acc(req), name }).returning();
@@ -162,9 +162,9 @@ async function updateGroup(req: Request, res: Response) {
   if (!g) return nf(res);
   res.json(railsJson(g));
 }
-basicsRouter.put('/round_robin_groups/:id', requireAuth, requireOwner, updateGroup);
-basicsRouter.patch('/round_robin_groups/:id', requireAuth, requireOwner, updateGroup);
-basicsRouter.delete('/round_robin_groups/:id', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.put('/round_robin_groups/:id', requireAuth, requirePerm('config.usuarios'), updateGroup);
+basicsRouter.patch('/round_robin_groups/:id', requireAuth, requirePerm('config.usuarios'), updateGroup);
+basicsRouter.delete('/round_robin_groups/:id', requireAuth, requirePerm('config.usuarios'), async (req, res) => {
   const id = Number(req.params.id);
   const [g] = await db.select().from(roundRobinGroups).where(and(eq(roundRobinGroups.accountId, acc(req)), eq(roundRobinGroups.id, id)));
   if (!g) return nf(res);
@@ -189,7 +189,7 @@ const AGENT_FIELDS: Record<string, keyof typeof users.$inferInsert> = {
   first_name: 'firstName', last_name: 'lastName', email: 'email', phone: 'phone', status: 'status',
   department: 'department', round_robin_group_id: 'roundRobinGroupId', jueri_gerente_id: 'jueriGerenteId', permissions: 'permissions',
 };
-async function agentParams(body: Record<string, unknown>) {
+async function agentParams(body: Record<string, unknown>, accountId: number) {
   const p = (body.agent ?? {}) as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const [k, col] of Object.entries(AGENT_FIELDS)) if (k in p) out[col] = col === 'roundRobinGroupId' ? (p[k] ? Number(p[k]) : null) : p[k];
@@ -201,6 +201,14 @@ async function agentParams(body: Record<string, unknown>) {
   if (p.role) {
     if (!ROLES.includes(p.role as typeof ROLES[number])) throw new RangeError(`Perfil inválido. Use: ${ROLES.join(', ')}.`);
     out.role = roleValue(String(p.role));
+    out.accessProfileId = null; // perfil-base do tipo escolhido
+  }
+  // perfil de acesso (Configurações › Perfis de acesso): define também o tipo (role) da pessoa
+  if ('access_profile_id' in p && p.access_profile_id) {
+    const [perfil] = await db.select().from(accessProfiles).where(and(eq(accessProfiles.id, Number(p.access_profile_id)), eq(accessProfiles.accountId, accountId))).limit(1);
+    if (!perfil) throw new RangeError('Perfil de acesso inválido.');
+    out.role = perfil.baseRole;
+    out.accessProfileId = perfil.sistema ? null : perfil.id;
   }
   return out;
 }
@@ -228,9 +236,9 @@ function handleAgentError(res: Response, e: unknown) {
   return res.status(422).json({ error: msg });
 }
 
-basicsRouter.post('/agents', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.post('/agents', requireAuth, requirePerm('config.usuarios'), async (req, res) => {
   try {
-    const v = await agentParams(req.body);
+    const v = await agentParams(req.body, acc(req));
     if (!v.email) return res.status(422).json({ email: ["can't be blank"] });
     if (!v.encryptedPassword) return res.status(422).json({ password: ["can't be blank"] });
     const [u] = await db.insert(users).values({ role: 0, ...v, accountId: acc(req), jti: crypto.randomUUID() } as typeof users.$inferInsert).returning();
@@ -242,26 +250,26 @@ async function updateAgent(req: Request, res: Response) {
   const u = await loadAgent(req, res);
   if (!u) return;
   try {
-    const v = await agentParams(req.body);
+    const v = await agentParams(req.body, acc(req));
     const [updated] = await db.update(users).set({ ...v, updatedAt: new Date() }).where(eq(users.id, u.id)).returning();
     res.json(agentJson(updated));
   } catch (e) { handleAgentError(res, e); }
 }
-basicsRouter.put('/agents/:id', requireAuth, requireOwner, updateAgent);
-basicsRouter.patch('/agents/:id', requireAuth, requireOwner, updateAgent);
-basicsRouter.patch('/agents/:id/block', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.put('/agents/:id', requireAuth, requirePerm('config.usuarios'), updateAgent);
+basicsRouter.patch('/agents/:id', requireAuth, requirePerm('config.usuarios'), updateAgent);
+basicsRouter.patch('/agents/:id/block', requireAuth, requirePerm('config.usuarios'), async (req, res) => {
   const u = await loadAgent(req, res);
   if (!u) return;
   await db.update(users).set({ status: 'blocked', updatedAt: new Date() }).where(eq(users.id, u.id));
   res.json({ message: 'Agent blocked' });
 });
-basicsRouter.patch('/agents/:id/unblock', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.patch('/agents/:id/unblock', requireAuth, requirePerm('config.usuarios'), async (req, res) => {
   const u = await loadAgent(req, res);
   if (!u) return;
   await db.update(users).set({ status: 'active', updatedAt: new Date() }).where(eq(users.id, u.id));
   res.json({ message: 'Agent unblocked' });
 });
-basicsRouter.patch('/agents/:id/toggle_roundrobin', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.patch('/agents/:id/toggle_roundrobin', requireAuth, requirePerm('config.usuarios'), async (req, res) => {
   const u = await loadAgent(req, res);
   if (!u) return;
   let updated: UserRow;
@@ -273,7 +281,7 @@ basicsRouter.patch('/agents/:id/toggle_roundrobin', requireAuth, requireOwner, a
   }
   res.json(agentJson(updated));
 });
-basicsRouter.post('/agents/:id/assign_unassigned_by_gerente', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.post('/agents/:id/assign_unassigned_by_gerente', requireAuth, requirePerm('config.usuarios'), async (req, res) => {
   const u = await loadAgent(req, res);
   if (!u) return;
   if (!u.jueriGerenteId) return res.status(422).json({ error: 'sem_gerente_id', message: 'Esse agente não tem "ID do Gerente no Jueri" preenchido.' });
@@ -284,7 +292,7 @@ basicsRouter.post('/agents/:id/assign_unassigned_by_gerente', requireAuth, requi
   const updated = await db.update(contacts).set({ userId: u.id }).where(where).returning({ id: contacts.id });
   res.json({ assigned_count: updated.length });
 });
-basicsRouter.delete('/agents/:id', requireAuth, requireOwner, async (req, res) => {
+basicsRouter.delete('/agents/:id', requireAuth, requirePerm('config.usuarios'), async (req, res) => {
   const u = await loadAgent(req, res);
   if (!u) return;
   try {

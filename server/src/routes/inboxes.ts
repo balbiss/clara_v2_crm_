@@ -3,7 +3,7 @@ import multer from 'multer';
 import { and, asc, count, countDistinct, eq, ne, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { inboxes, inboxMembers, users, conversations } from '../db/schema.js';
-import { requireAuth, requireOwner, isFullPortfolio, isFinance } from '../middleware/auth.js';
+import { requireAuth, requirePerm, pode } from '../middleware/auth.js';
 import { assignedInboxes, inboxBadge } from '../lib/conversations.js';
 import { messagingService } from '../lib/waha.js';
 import { railsJson } from '../lib/serialize.js';
@@ -71,7 +71,7 @@ inboxesRouter.get('/inboxes', async (req, res) => {
   const u = req.user!;
   // só restringe quem JÁ tem caixa configurada em Gerenciar Acesso (senão vê todas, igual à v1)
   const mine = await assignedInboxes(u.id);
-  if (isFullPortfolio(u) || isFinance(u) || !mine.length) {
+  if (pode(u, 'conversas.enviar_qualquer_numero') || !mine.length) {
     res.json((await db.select().from(inboxes).where(eq(inboxes.accountId, u.accountId!)).orderBy(asc(inboxes.id))).map(toJson));
   } else {
     const rows = await db.select({ i: inboxes }).from(inboxMembers).innerJoin(inboxes, eq(inboxes.id, inboxMembers.inboxId)).where(eq(inboxMembers.userId, u.id)).orderBy(asc(inboxes.id));
@@ -84,9 +84,10 @@ inboxesRouter.get('/inboxes/:id', async (req, res) => {
   if (i) res.json(toJson(i));
 });
 
-inboxesRouter.post('/inboxes', requireOwner, async (req, res) => {
+inboxesRouter.post('/inboxes', requirePerm('config.canais'), async (req, res) => {
   // regra geral da Clara: toda caixa nasce "por carteira" (cada consultora só vê o que é dela)
-  const values = { restrictByPortfolio: true, ...inboxParams(req.body), accountId: req.user!.accountId! };
+  // número novo nasce SEM carteira, salvo se escolherem "Consultoras" na criação (dona, 2026-11-04)
+  const values = { restrictByPortfolio: false, ...inboxParams(req.body), accountId: req.user!.accountId! };
   if (await phoneTaken(values.accountId, values)) return res.status(422).json({ phone_number: ['já está em uso'] });
   const [inbox] = await db.insert(inboxes).values(values).returning();
   if (inbox.provider === 'waha') await messagingService(inbox).createConnection(webhookUrlFor(inbox)).catch(() => {});
@@ -109,10 +110,10 @@ async function updateInbox(req: Request, res: Response) {
   if (updated.restrictByPortfolio && !i.restrictByPortfolio) await syncAtendentesDaCarteira(updated.id);
   res.json(toJson(updated));
 }
-inboxesRouter.put('/inboxes/:id', requireOwner, updateInbox);
-inboxesRouter.patch('/inboxes/:id', requireOwner, updateInbox);
+inboxesRouter.put('/inboxes/:id', requirePerm('config.canais'), updateInbox);
+inboxesRouter.patch('/inboxes/:id', requirePerm('config.canais'), updateInbox);
 
-inboxesRouter.get('/inboxes/:id/qr_code', requireOwner, async (req, res) => {
+inboxesRouter.get('/inboxes/:id/qr_code', requirePerm('config.canais'), async (req, res) => {
   const i = await loadInbox(req, res);
   if (!i) return;
   const service = messagingService(i);
@@ -134,7 +135,7 @@ inboxesRouter.get('/inboxes/:id/status', async (req, res) => {
 });
 
 // desloga o WhatsApp mas mantém a caixa e todo o histórico
-inboxesRouter.post('/inboxes/:id/disconnect', requireOwner, async (req, res) => {
+inboxesRouter.post('/inboxes/:id/disconnect', requirePerm('config.canais'), async (req, res) => {
   const i = await loadInbox(req, res);
   if (!i) return;
   if (await messagingService(i).deleteConnection()) return res.json({ disconnected: true });
@@ -142,7 +143,7 @@ inboxesRouter.post('/inboxes/:id/disconnect', requireOwner, async (req, res) => 
 });
 
 // apaga a caixa; conversas ficam com inbox_id nulo (histórico preservado)
-inboxesRouter.delete('/inboxes/:id', requireOwner, async (req, res) => {
+inboxesRouter.delete('/inboxes/:id', requirePerm('config.canais'), async (req, res) => {
   const i = await loadInbox(req, res);
   if (!i) return;
   const [{ n: convCount }] = await db.select({ n: count() }).from(conversations).where(eq(conversations.inboxId, i.id));
@@ -174,7 +175,7 @@ inboxesRouter.delete('/inboxes/:id', requireOwner, async (req, res) => {
 });
 
 // Gerador de prompt da IA (mesmo texto da v1, herdado da VisitaIA) — usado na aba do Agente de IA
-inboxesRouter.post('/inboxes/:id/generate_prompt', requireOwner, async (req, res) => {
+inboxesRouter.post('/inboxes/:id/generate_prompt', requirePerm('config.canais'), async (req, res) => {
   const i = await loadInbox(req, res);
   if (!i) return;
   const d = (req.body.prompt_data ?? {}) as Record<string, string | boolean | undefined>;
@@ -214,7 +215,7 @@ Certifique-se de que o prompt instrua a IA a ser natural, não robótica, e segu
 });
 
 // Extrai o texto de um PDF pra base de conhecimento (não salva sozinho)
-inboxesRouter.post('/inboxes/:id/extract_knowledge_base_pdf', requireOwner, upload.single('file'), async (req, res) => {
+inboxesRouter.post('/inboxes/:id/extract_knowledge_base_pdf', requirePerm('config.canais'), upload.single('file'), async (req, res) => {
   const i = await loadInbox(req, res);
   if (!i) return;
   const file = req.file;
@@ -241,7 +242,7 @@ inboxesRouter.get('/inboxes/:inbox_id/members', async (req, res) => {
   res.json(all.map(u => ({ id: u.id, email: u.email, name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(), is_member: members.has(u.id) })));
 });
 
-inboxesRouter.post('/inboxes/:inbox_id/members', requireOwner, async (req, res) => {
+inboxesRouter.post('/inboxes/:inbox_id/members', requirePerm('config.canais'), async (req, res) => {
   const i = await loadInbox(req, res, 'inbox_id');
   if (!i) return;
   const [u] = await db.select().from(users).where(and(eq(users.accountId, req.user!.accountId!), eq(users.id, Number(req.body.user_id))));
@@ -250,7 +251,7 @@ inboxesRouter.post('/inboxes/:inbox_id/members', requireOwner, async (req, res) 
   res.json({ success: true });
 });
 
-inboxesRouter.delete('/inboxes/:inbox_id/members/:id', requireOwner, async (req, res) => {
+inboxesRouter.delete('/inboxes/:inbox_id/members/:id', requirePerm('config.canais'), async (req, res) => {
   const i = await loadInbox(req, res, 'inbox_id');
   if (!i) return;
   await db.delete(inboxMembers).where(and(eq(inboxMembers.inboxId, i.id), eq(inboxMembers.userId, Number(req.params.id))));

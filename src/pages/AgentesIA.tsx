@@ -5,13 +5,14 @@ import api from '../api'
 import { Switch, toast, confirmBox } from '../components/ui2'
 import { K, kBtn, kInput } from '../lib/kommo'
 import { readUser } from '../lib/hooks'
+import { can } from '../lib/acesso'
 
 // Agente de IA (menu próprio, como no Kommo): sem agentes mostra a vitrine "Conheça a IA que te
 // entende" com "Construir meu Agente de IA"; com agentes mostra a lista NOME · CANAIS · TOKENS
 // USADOS · USO ESTIMADO · ÚLTIMA ALTERAÇÃO · STATUS, com copiar/excluir. Tudo roda na OpenAI.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const isOwner = () => readUser()?.role === 'diretoria'
+const isOwner = () => can('config.agente_ia')
 const dataBR = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
 function Construir({ onClose, onCreated }: { onClose: () => void; onCreated: (id: number) => void }) {

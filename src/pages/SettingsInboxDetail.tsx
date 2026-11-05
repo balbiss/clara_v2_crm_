@@ -129,7 +129,7 @@ export default function SettingsInboxDetail() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 3, fontSize: 12.5, color: 'var(--muted)' }}>
             <span>{fmtPhone(inbox.phone_number) || 'Sem número'}</span>
             <Badge tone={connected === true ? 'green' : connected === false ? 'red' : 'muted'}>{connected === true ? 'Conectado' : connected === false ? 'Desconectado' : 'Verificando…'}</Badge>
-            {inbox.restrict_by_portfolio && <Badge tone="blue">Por carteira</Badge>}
+            {inbox.restrict_by_portfolio && <Badge tone="blue">Consultoras · por carteira</Badge>}
             {hist?.status === 'importando' && <Badge tone="muted">Puxando conversas do WhatsApp: {hist.chats} de {hist.total}</Badge>}
             {hist?.status === 'concluido' && <Badge tone="green">{hist.total} conversas do WhatsApp importadas</Badge>}
           </div>
@@ -189,8 +189,8 @@ export default function SettingsInboxDetail() {
             </Panel>
             <Panel icon={<ShieldCheck size={16} />} title="Regras de atendimento" description="Quem enxerga o quê e como as mensagens saem para a revendedora." footer={saveBtn('Salvar alterações')}>
               {toggleList(<>
-                <Toggle on={!!inbox.restrict_by_portfolio} onChange={v => set({ restrict_by_portfolio: v })} title="Restringir por carteira">
-                  Ligado: quem tem acesso a esta caixa só vê as conversas das revendedoras da própria carteira, ou que ainda não têm responsável. Desligado: vê todas as conversas da caixa (use assim em caixas como Marketing ou Gerência).
+                <Toggle on={!!inbox.restrict_by_portfolio} onChange={v => set({ restrict_by_portfolio: v })} title="Número das Consultoras (com carteira)">
+                  Ligado: cada consultora só vê e fala com as revendedoras da própria carteira (ou sem responsável). Desligado: quem for liberada neste número fala com qualquer revendedora, mesmo de outra carteira — use assim em Prospecção, Gerência e Financeiro.
                 </Toggle>
                 <Toggle on={!!inbox.sign_messages} onChange={v => set({ sign_messages: v })} title="Assinar mensagens com o nome de quem respondeu">
                   A revendedora recebe o primeiro nome de quem respondeu em negrito, em cima da mensagem (ex.: <b>*Bel:*</b>). Só vale para mensagens digitadas no CRM — IA, follow-up e mensagens agendadas não são assinadas.

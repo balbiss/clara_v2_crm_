@@ -3,7 +3,7 @@ import multer from 'multer';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { aiAgentLogs, aiAgents, aiAgentSessions, aiAgentSources, contacts, conversations, flows, globalSettings, inboxes, pipelineStages, pipelines, tags, users } from '../db/schema.js';
-import { requireAuth, requireOwner } from '../middleware/auth.js';
+import { requireAuth, requirePerm } from '../middleware/auth.js';
 import { chatWithTools, openaiApiKey, type ChatMsg } from '../lib/openai.js';
 import { DO_LABELS, MODEL, WHEN_LABELS, applicableActions, runAgentTurn, type AgentAction } from '../lib/aiAgent.js';
 import { allFieldsOf } from '../lib/customFields.js';
@@ -117,7 +117,7 @@ aiAgentsRouter.get('/ai_agents/options', async (req, res) => {
 
 // --- criar / gerar -------------------------------------------------------------------------------
 const DEFAULT_PERSONA = { role: '', tone: 'friendly', length: 'medium', language: 'auto', delay_seconds: 10, guidelines: [] as string[] };
-aiAgentsRouter.post('/ai_agents', requireOwner, async (req, res) => {
+aiAgentsRouter.post('/ai_agents', requirePerm('config.agente_ia'), async (req, res) => {
   const { error, values } = cleanAgentInput({ name: req.body?.name || 'Agente de IA', persona: req.body?.persona || DEFAULT_PERSONA, actions: req.body?.actions || [], settings: req.body?.settings || {}, channels: req.body?.channels || [] });
   if (error) return res.status(422).json({ error });
   const [a] = await db.insert(aiAgents).values({ accountId: acc(req), ...values } as any).returning();
@@ -139,7 +139,7 @@ export async function fetchSiteText(url: string) {
 }
 
 // "Construir meu Agente de IA": a OpenAI monta nome, persona, diretrizes e ações iniciais
-aiAgentsRouter.post('/ai_agents/generate', requireOwner, async (req, res) => {
+aiAgentsRouter.post('/ai_agents/generate', requirePerm('config.agente_ia'), async (req, res) => {
   const b = req.body || {};
   if (!(await openaiApiKey())) return res.status(422).json({ error: 'Configure a chave da OpenAI em Agente de IA › Chave da OpenAI antes de gerar.' });
   let info = '', source: { title: string; content: string; kind: string; url?: string } | null = null;
@@ -176,7 +176,7 @@ aiAgentsRouter.get('/ai_agents/:id(\\d+)', async (req, res) => {
   res.json(fmt(a, { sources: sources.map(s => ({ id: s.id, kind: s.kind, title: s.title, content: s.content, url: s.url, chars: s.content.length, updated_at: s.updatedAt.toISOString() })) }));
 });
 
-aiAgentsRouter.put('/ai_agents/:id(\\d+)', requireOwner, async (req, res) => {
+aiAgentsRouter.put('/ai_agents/:id(\\d+)', requirePerm('config.agente_ia'), async (req, res) => {
   const a = await loadAgent(req); if (!a) return res.status(404).json({ error: 'Agente não encontrado.' });
   const { error, values } = cleanAgentInput(req.body || {});
   if (error) return res.status(422).json({ error });
@@ -190,7 +190,7 @@ aiAgentsRouter.put('/ai_agents/:id(\\d+)', requireOwner, async (req, res) => {
   res.json(fmt(u));
 });
 
-aiAgentsRouter.post('/ai_agents/:id(\\d+)/duplicate', requireOwner, async (req, res) => {
+aiAgentsRouter.post('/ai_agents/:id(\\d+)/duplicate', requirePerm('config.agente_ia'), async (req, res) => {
   const a = await loadAgent(req); if (!a) return res.status(404).json({ error: 'Agente não encontrado.' });
   const [c] = await db.insert(aiAgents).values({ accountId: a.accountId, name: `${a.name} (cópia)`.slice(0, 80), active: false, persona: a.persona, actions: a.actions, settings: a.settings, channels: a.channels }).returning();
   const srcs = await db.select().from(aiAgentSources).where(eq(aiAgentSources.agentId, a.id));
@@ -198,7 +198,7 @@ aiAgentsRouter.post('/ai_agents/:id(\\d+)/duplicate', requireOwner, async (req, 
   res.status(201).json(fmt(c));
 });
 
-aiAgentsRouter.delete('/ai_agents/:id(\\d+)', requireOwner, async (req, res) => {
+aiAgentsRouter.delete('/ai_agents/:id(\\d+)', requirePerm('config.agente_ia'), async (req, res) => {
   const a = await loadAgent(req); if (!a) return res.status(404).json({ error: 'Agente não encontrado.' });
   await db.delete(aiAgents).where(eq(aiAgents.id, a.id));
   res.status(204).end();
@@ -206,7 +206,7 @@ aiAgentsRouter.delete('/ai_agents/:id(\\d+)', requireOwner, async (req, res) => 
 
 // --- Fontes --------------------------------------------------------------------------------------
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
-aiAgentsRouter.post('/ai_agents/:id(\\d+)/sources', requireOwner, upload.single('file'), async (req, res) => {
+aiAgentsRouter.post('/ai_agents/:id(\\d+)/sources', requirePerm('config.agente_ia'), upload.single('file'), async (req, res) => {
   const a = await loadAgent(req); if (!a) return res.status(404).json({ error: 'Agente não encontrado.' });
   const b = req.body || {};
   const kind = ['text', 'faq', 'url', 'file'].includes(b.kind) ? b.kind : 'text';
@@ -235,7 +235,7 @@ async function loadSource(req: Request) {
   const [s] = await db.select({ s: aiAgentSources }).from(aiAgentSources).innerJoin(aiAgents, eq(aiAgents.id, aiAgentSources.agentId)).where(and(eq(aiAgentSources.id, num(req.params.id)), eq(aiAgents.accountId, acc(req))));
   return s?.s ?? null;
 }
-aiAgentsRouter.put('/ai_agent_sources/:id(\\d+)', requireOwner, async (req, res) => {
+aiAgentsRouter.put('/ai_agent_sources/:id(\\d+)', requirePerm('config.agente_ia'), async (req, res) => {
   const s = await loadSource(req); if (!s) return res.status(404).json({ error: 'Fonte não encontrada.' });
   const title = req.body?.title !== undefined ? String(req.body.title).trim().slice(0, 120) : s.title;
   const content = req.body?.content !== undefined ? String(req.body.content).trim() : s.content;
@@ -243,13 +243,13 @@ aiAgentsRouter.put('/ai_agent_sources/:id(\\d+)', requireOwner, async (req, res)
   const [u] = await db.update(aiAgentSources).set({ title, content, updatedAt: new Date() }).where(eq(aiAgentSources.id, s.id)).returning();
   res.json({ id: u.id, kind: u.kind, title: u.title, content: u.content, url: u.url, chars: u.content.length });
 });
-aiAgentsRouter.post('/ai_agent_sources/:id(\\d+)/sync', requireOwner, async (req, res) => {
+aiAgentsRouter.post('/ai_agent_sources/:id(\\d+)/sync', requirePerm('config.agente_ia'), async (req, res) => {
   const s = await loadSource(req); if (!s) return res.status(404).json({ error: 'Fonte não encontrada.' });
   if (s.kind !== 'url' || !s.url) return res.status(422).json({ error: 'Só fontes de site podem ser sincronizadas.' });
   try { const t = await fetchSiteText(s.url); await db.update(aiAgentSources).set({ content: t.text, updatedAt: new Date() }).where(eq(aiAgentSources.id, s.id)); res.json({ ok: true, chars: t.text.length }) }
   catch (e) { res.status(422).json({ error: (e as Error).message }) }
 });
-aiAgentsRouter.delete('/ai_agent_sources/:id(\\d+)', requireOwner, async (req, res) => {
+aiAgentsRouter.delete('/ai_agent_sources/:id(\\d+)', requirePerm('config.agente_ia'), async (req, res) => {
   const s = await loadSource(req); if (!s) return res.status(404).json({ error: 'Fonte não encontrada.' });
   await db.delete(aiAgentSources).where(eq(aiAgentSources.id, s.id));
   res.status(204).end();
@@ -340,7 +340,7 @@ aiAgentsRouter.get('/ai_settings', async (_req, res) => {
   const key = await openaiApiKey();
   res.json({ has_key: !!key, key_hint: key ? `${key.slice(0, 3)}…${key.slice(-4)}` : null, model: MODEL() });
 });
-aiAgentsRouter.put('/ai_settings', requireOwner, async (req, res) => {
+aiAgentsRouter.put('/ai_settings', requirePerm('config.agente_ia'), async (req, res) => {
   const key = String(req.body?.openai_api_key || '').trim();
   if (!/^sk-[A-Za-z0-9_\-]{20,}$/.test(key)) return res.status(422).json({ error: 'Chave inválida — ela começa com "sk-".' });
   await db.insert(globalSettings).values({ key: 'openai_api_key', value: key } as any).onConflictDoUpdate({ target: globalSettings.key, set: { value: key, updatedAt: new Date() } as any });

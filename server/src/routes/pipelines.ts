@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { and, asc, eq, inArray, max, sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { contacts, contactTags, flows, lossReasons, pipelineCards, pipelineStages, pipelineTriggers, pipelines, tags, tarefas, users } from '../db/schema.js';
-import { requireAuth, requireOwner, isFullPortfolio, isOwner, hasPermission, type User } from '../middleware/auth.js';
+import { requireAuth, requirePerm, isOwner, pode, escopo, type User } from '../middleware/auth.js';
 import { railsJson } from '../lib/serialize.js';
 import { createContact, updateContact } from '../lib/contacts.js';
 import { aplicarAosQueJaEstao, execute, moveCard, runEnterTriggers, validateTrigger } from '../lib/pipelines.js';
@@ -60,7 +60,7 @@ pipelinesRouter.get('/pipelines', async (req, res) => {
   })));
 });
 
-pipelinesRouter.post('/pipelines', requireOwner, async (req, res) => {
+pipelinesRouter.post('/pipelines', requirePerm('funis.configurar'), async (req, res) => {
   const name = String(req.body.pipeline?.name ?? req.body.name ?? '').trim();
   if (!name) return res.status(422).json({ message: 'Dê um nome pro funil.' });
   const existing = (await db.select({ slug: pipelines.slug }).from(pipelines).where(eq(pipelines.accountId, acc(req)))).map(r => r.slug);
@@ -76,7 +76,7 @@ pipelinesRouter.post('/pipelines', requireOwner, async (req, res) => {
   res.status(201).json(railsJson(p));
 });
 
-pipelinesRouter.put('/pipelines/:id', requireOwner, async (req, res) => {
+pipelinesRouter.put('/pipelines/:id', requirePerm('funis.configurar'), async (req, res) => {
   const p = await ownPipeline(req, Number(req.params.id));
   if (!p) return nf(res);
   const v = req.body.pipeline ?? req.body;
@@ -84,7 +84,7 @@ pipelinesRouter.put('/pipelines/:id', requireOwner, async (req, res) => {
   res.json(railsJson(u));
 });
 
-pipelinesRouter.delete('/pipelines/:id', requireOwner, async (req, res) => {
+pipelinesRouter.delete('/pipelines/:id', requirePerm('funis.configurar'), async (req, res) => {
   const p = await ownPipeline(req, Number(req.params.id));
   if (!p) return nf(res);
   if (p.system) return res.status(403).json({ error: 'Este funil não pode ser removido.' });
@@ -105,7 +105,7 @@ const stageValues = (v: any) => ({
   ...(v.description !== undefined ? { description: v.description ? String(v.description) : null } : {}),
 });
 
-pipelinesRouter.post('/pipelines/:id/pipeline_stages', requireOwner, async (req, res) => {
+pipelinesRouter.post('/pipelines/:id/pipeline_stages', requirePerm('funis.configurar'), async (req, res) => {
   const p = await ownPipeline(req, Number(req.params.id));
   if (!p) return nf(res);
   if (p.system) return res.status(422).json({ message: 'As etapas do Consignado são os status da revendedora — não dá pra criar ou apagar.' });
@@ -116,7 +116,7 @@ pipelinesRouter.post('/pipelines/:id/pipeline_stages', requireOwner, async (req,
   res.status(201).json(railsJson(s));
 });
 
-pipelinesRouter.put('/pipeline_stages/:id', requireOwner, async (req, res) => {
+pipelinesRouter.put('/pipeline_stages/:id', requirePerm('funis.configurar'), async (req, res) => {
   const s = await ownStage(req, Number(req.params.id));
   if (!s) return nf(res);
   const [u] = await db.update(pipelineStages).set({ ...stageValues(req.body.pipeline_stage ?? req.body), updatedAt: new Date() }).where(eq(pipelineStages.id, s.id)).returning();
@@ -124,7 +124,7 @@ pipelinesRouter.put('/pipeline_stages/:id', requireOwner, async (req, res) => {
 });
 
 /** Reordena as etapas normais de um funil (arrastar no Automatize). */
-pipelinesRouter.put('/pipelines/:id/stage_order', requireOwner, async (req, res) => {
+pipelinesRouter.put('/pipelines/:id/stage_order', requirePerm('funis.configurar'), async (req, res) => {
   const p = await ownPipeline(req, Number(req.params.id));
   if (!p) return nf(res);
   const ids: number[] = (req.body.stage_ids || []).map(Number);
@@ -133,7 +133,7 @@ pipelinesRouter.put('/pipelines/:id/stage_order', requireOwner, async (req, res)
 });
 
 // Não apaga a última etapa nem as de ganho/perda; os cards da etapa apagada vão pra outra (igual v1).
-pipelinesRouter.delete('/pipeline_stages/:id', requireOwner, async (req, res) => {
+pipelinesRouter.delete('/pipeline_stages/:id', requirePerm('funis.configurar'), async (req, res) => {
   const s = await ownStage(req, Number(req.params.id));
   if (!s) return nf(res);
   if (s.kind !== 'normal') return res.status(422).json({ error: 'As etapas de venda ganha/perdida não podem ser apagadas.' });
@@ -158,7 +158,7 @@ const triggerValues = (v: any) => ({
   ...(v.schedule !== undefined ? { schedule: v.schedule || {} } : {}),
 });
 
-pipelinesRouter.post('/pipeline_stages/:id/pipeline_triggers', requireOwner, async (req, res) => {
+pipelinesRouter.post('/pipeline_stages/:id/pipeline_triggers', requirePerm('funis.configurar'), async (req, res) => {
   const s = await ownStage(req, Number(req.params.id));
   if (!s) return nf(res);
   const v = triggerValues(req.body.pipeline_trigger ?? req.body);
@@ -178,7 +178,7 @@ async function ownTrigger(req: Request) {
   return r?.t ?? null;
 }
 
-pipelinesRouter.put('/pipeline_triggers/:id', requireOwner, async (req, res) => {
+pipelinesRouter.put('/pipeline_triggers/:id', requirePerm('funis.configurar'), async (req, res) => {
   const t = await ownTrigger(req);
   if (!t) return nf(res);
   const v = triggerValues(req.body.pipeline_trigger ?? req.body);
@@ -189,7 +189,7 @@ pipelinesRouter.put('/pipeline_triggers/:id', requireOwner, async (req, res) => 
   res.json(triggerJson(u));
 });
 
-pipelinesRouter.delete('/pipeline_triggers/:id', requireOwner, async (req, res) => {
+pipelinesRouter.delete('/pipeline_triggers/:id', requirePerm('funis.configurar'), async (req, res) => {
   const t = await ownTrigger(req);
   if (!t) return nf(res);
   await db.delete(pipelineTriggers).where(eq(pipelineTriggers.id, t.id));
@@ -199,7 +199,7 @@ pipelinesRouter.delete('/pipeline_triggers/:id', requireOwner, async (req, res) 
 // --- cards (leads) -------------------------------------------------------------------------------
 
 /** Consultor vê só os leads da própria carteira (Kommo: "ver só os seus"); gerência/diretoria/view_all vê tudo. */
-const seesAll = (u: User) => isFullPortfolio(u) || hasPermission(u, 'view_all_contacts');
+const seesAll = (u: User) => escopo(u, 'funis.ver') === 'todos';
 
 async function serializeCards(rows: (typeof pipelineCards.$inferSelect)[]) {
   if (!rows.length) return [];
@@ -345,7 +345,7 @@ pipelinesRouter.put('/pipeline_cards/:id', async (req, res) => {
 
 // Kommo: consultor não exclui lead (perfil sem "Excluir") — só gerência/diretoria
 pipelinesRouter.delete('/pipeline_cards/:id', async (req, res) => {
-  if (!isFullPortfolio(req.user!)) return res.status(403).json({ error: 'forbidden', message: 'Só gerência e diretoria podem excluir leads.' });
+  if (!pode(req.user!, 'funis.excluir_lead')) return res.status(403).json({ error: 'forbidden', message: 'Seu perfil de acesso não permite excluir leads.' });
   const card = await ownCard(req, Number(req.params.id));
   if (!card) return nf(res);
   await db.delete(pipelineCards).where(eq(pipelineCards.id, card.id));
@@ -359,14 +359,14 @@ pipelinesRouter.delete('/pipeline_cards/:id', async (req, res) => {
 pipelinesRouter.get('/loss_reasons', async (req, res) => {
   res.json((await db.select().from(lossReasons).where(eq(lossReasons.accountId, acc(req))).orderBy(asc(lossReasons.position), asc(lossReasons.id))).map(r => railsJson(r)));
 });
-pipelinesRouter.post('/loss_reasons', requireOwner, async (req, res) => {
+pipelinesRouter.post('/loss_reasons', requirePerm('config.motivos_perda'), async (req, res) => {
   const name = String(req.body.name || '').trim();
   if (!name) return res.status(422).json({ message: 'Dê um nome pro motivo.' });
   const [{ m }] = await db.select({ m: max(lossReasons.position) }).from(lossReasons).where(eq(lossReasons.accountId, acc(req)));
   const [r] = await db.insert(lossReasons).values({ accountId: acc(req), name, position: (m ?? -1) + 1 }).returning();
   res.status(201).json(railsJson(r));
 });
-pipelinesRouter.delete('/loss_reasons/:id', requireOwner, async (req, res) => {
+pipelinesRouter.delete('/loss_reasons/:id', requirePerm('config.motivos_perda'), async (req, res) => {
   await db.delete(lossReasons).where(and(eq(lossReasons.id, Number(req.params.id)), eq(lossReasons.accountId, acc(req))));
   res.status(204).end();
 });

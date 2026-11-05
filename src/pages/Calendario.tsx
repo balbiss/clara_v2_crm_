@@ -5,6 +5,7 @@ import api from '../api'
 import { Modal } from '../components/ui'
 import { toast, confirmBox } from '../components/ui2'
 import { useClickOutside, readUser } from '../lib/hooks'
+import { can } from '../lib/acesso'
 import { K, kBtn, kInput, TIPOS_TAREFA } from '../lib/kommo'
 
 // Calendário no visual do Kommo: os 3 ícones do topo trocam entre quadro de tarefas (colunas
@@ -18,7 +19,7 @@ const DOW = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 const AG_TIPOS: Record<string, string> = { reuniao: 'Reunião', entrega_maleta: 'Entrega de maleta', acerto: 'Acerto', outro: 'Outro' }
 const HOUR_PX = 48
-const fullPortfolio = () => ['gerente', 'diretoria'].includes(readUser()?.role)
+const fullPortfolio = () => can('agenda.equipe')
 
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }

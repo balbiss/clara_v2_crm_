@@ -2,13 +2,13 @@ import { Router, type Request, type Response } from 'express';
 import { and, asc, eq, isNull, isNotNull, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { salesTeams, salesTeamMemberships, users, contacts } from '../db/schema.js';
-import { requireAuth, requireFullPortfolio, roleName } from '../middleware/auth.js';
+import { requireAuth, requirePerm, roleName } from '../middleware/auth.js';
 import { updateContact } from '../lib/contacts.js';
 import { blobsFor, blobUrl } from '../lib/storage.js';
 
 // SalesTeamsController da v1: quem (além do responsável) vê a carteira inteira de um time do Jueri.
 export const salesTeamsRouter = Router();
-salesTeamsRouter.use('/sales_teams', requireAuth, requireFullPortfolio);
+salesTeamsRouter.use('/sales_teams', requireAuth, requirePerm('config.grupos_usuarios'));
 type Team = typeof salesTeams.$inferSelect;
 
 const teamContacts = (t: Team) => and(eq(contacts.accountId, t.accountId), sql`${contacts.customAttributes} ->> 'gerente_jueri_id' = ${t.jueriLiderId}`)!;

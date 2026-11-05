@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { contacts, flowRuns, flows } from '../db/schema.js';
-import { requireAuth, requireOwner } from '../middleware/auth.js';
+import { requireAuth, requirePerm } from '../middleware/auth.js';
 import { railsJson } from '../lib/serialize.js';
 import { ACTIONS, STEP_TYPES, startBot, type Definition } from '../lib/salesbot.js';
 
@@ -73,7 +73,7 @@ function botValues(v: any) {
   return out;
 }
 
-salesbotRouter.post('/salesbots', requireOwner, async (req, res) => {
+salesbotRouter.post('/salesbots', requirePerm('config.robos'), async (req, res) => {
   const v = botValues(req.body.salesbot ?? req.body);
   if (!v.name) return res.status(422).json({ message: 'Dê um nome pro robô.' });
   const def = (v.definition as Definition) || {};
@@ -83,7 +83,7 @@ salesbotRouter.post('/salesbots', requireOwner, async (req, res) => {
   res.status(201).json((await withStats([f]))[0]);
 });
 
-salesbotRouter.put('/salesbots/:id(\\d+)', requireOwner, async (req, res) => {
+salesbotRouter.put('/salesbots/:id(\\d+)', requirePerm('config.robos'), async (req, res) => {
   const f = await own(req, res);
   if (!f) return;
   const v = botValues(req.body.salesbot ?? req.body);
@@ -94,14 +94,14 @@ salesbotRouter.put('/salesbots/:id(\\d+)', requireOwner, async (req, res) => {
   res.json((await withStats([u]))[0]);
 });
 
-salesbotRouter.post('/salesbots/:id(\\d+)/duplicate', requireOwner, async (req, res) => {
+salesbotRouter.post('/salesbots/:id(\\d+)/duplicate', requirePerm('config.robos'), async (req, res) => {
   const f = await own(req, res);
   if (!f) return;
   const [n] = await db.insert(flows).values({ accountId: f.accountId, kind: 'salesbot', active: false, name: `${f.name} (cópia)`, definition: f.definition, triggerConfig: f.triggerConfig }).returning();
   res.status(201).json((await withStats([n]))[0]);
 });
 
-salesbotRouter.delete('/salesbots/:id(\\d+)', requireOwner, async (req, res) => {
+salesbotRouter.delete('/salesbots/:id(\\d+)', requirePerm('config.robos'), async (req, res) => {
   const f = await own(req, res);
   if (!f) return;
   await db.delete(flowRuns).where(eq(flowRuns.flowId, f.id));

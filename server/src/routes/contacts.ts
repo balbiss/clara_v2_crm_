@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { and, asc, desc, eq, gte, inArray, isNotNull, max, min, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { contacts, resellerPhones, pedidos, agendamentos, conversations, messages, notes, tags, contactTags, contactAuditEvents, users, accounts, contactFieldGroups } from '../db/schema.js';
-import { requireAuth, requireOwner, requireFullPortfolio, isFullPortfolio, isFinance, isOwner, visibleContactsWhere } from '../middleware/auth.js';
+import { requireAuth, requirePerm, pode, visibleContactsWhere } from '../middleware/auth.js';
 import { createContact, updateContact, searchByNameOrPhoneWhere, channelIdentifier, type Contact } from '../lib/contacts.js';
 import { ASSIGNABLE_FIELD_KEYS, allFieldsOf, cleanFieldInput, customFieldsOf, missingRequired, type CustomField } from '../lib/customFields.js';
 import multer from 'multer';
@@ -104,8 +104,8 @@ function contactParams(req: Request): Partial<typeof contacts.$inferInsert> {
   const out: Record<string, unknown> = {};
   for (const [k, col] of Object.entries(CONTACT_FIELDS)) if (k in p) out[col] = p[k] === '' && col === 'birthDate' ? null : p[k];
   const u = req.user!;
-  if (isFullPortfolio(u) && 'user_id' in p) out.userId = p.user_id === '' || p.user_id === null ? null : Number(p.user_id);
-  if (isFullPortfolio(u) || isFinance(u)) {
+  if (pode(u, 'contatos.trocar_responsavel') && 'user_id' in p) out.userId = p.user_id === '' || p.user_id === null ? null : Number(p.user_id);
+  if (pode(u, 'contatos.desconsiderar')) {
     if ('desconsiderado' in p) out.desconsiderado = p.desconsiderado === true || p.desconsiderado === 'true' || p.desconsiderado === '1';
     if ('desconsiderado_motivo' in p) out.desconsideradoMotivo = p.desconsiderado_motivo;
     if (out.desconsiderado === true) out.desconsideradoAt = new Date();
@@ -133,7 +133,7 @@ async function updateContactRoute(req: Request, res: Response) {
 contactsRouter.put('/contacts/:id(\\d+)', updateContactRoute);
 contactsRouter.patch('/contacts/:id(\\d+)', updateContactRoute);
 
-contactsRouter.delete('/contacts/:id(\\d+)', requireFullPortfolio, async (req, res) => {
+contactsRouter.delete('/contacts/:id(\\d+)', requirePerm('contatos.excluir'), async (req, res) => {
   const c = await loadContact(req, res);
   if (!c) return;
   await deleteContactCascade(c.id);
@@ -141,7 +141,7 @@ contactsRouter.delete('/contacts/:id(\\d+)', requireFullPortfolio, async (req, r
 });
 
 // revendedoras em dobro (WhatsApp + Jueri, mesmo telefone): ?juntar=1 junta agora; sem ele só lista
-contactsRouter.get('/contacts/duplicados_jueri', requireOwner, async (req, res) => {
+contactsRouter.get('/contacts/duplicados_jueri', requirePerm('contatos.duplicados_jueri'), async (req, res) => {
   if (req.query.juntar === '1') return res.json({ juntados: await unirDuplicadosDoJueri() });
   const pares = await paresDuplicados();
   const ids = pares.flatMap(p => [Number(p.origem), Number(p.destino)]);
@@ -151,7 +151,7 @@ contactsRouter.get('/contacts/duplicados_jueri', requireOwner, async (req, res) 
 });
 
 // mesclar: conversas vão pro contato alvo e o duplicado é apagado
-contactsRouter.post('/contacts/:id(\\d+)/merge', requireFullPortfolio, async (req, res) => {
+contactsRouter.post('/contacts/:id(\\d+)/merge', requirePerm('contatos.mesclar'), async (req, res) => {
   const c = await loadContact(req, res);
   if (!c) return;
   const [target] = await db.select().from(contacts).where(and(eq(contacts.accountId, acc(req)), eq(contacts.id, Number(req.body.target_contact_id))));
@@ -190,7 +190,7 @@ contactsRouter.patch('/contacts/:id(\\d+)/unblock', async (req, res) => {
 });
 
 // atribui (ou tira) o responsável de várias revendedoras — passa pelos callbacks (auditoria)
-contactsRouter.patch('/contacts/bulk_assign', requireFullPortfolio, async (req, res) => {
+contactsRouter.patch('/contacts/bulk_assign', requirePerm('contatos.trocar_responsavel'), async (req, res) => {
   const ids = (Array.isArray(req.body.contact_ids) ? req.body.contact_ids : [req.body.contact_ids]).filter(Boolean).map(Number);
   const userId = req.body.user_id ? Number(req.body.user_id) : null;
   if (!ids.length) return res.status(422).json({ error: 'Selecione ao menos uma revendedora.' });
@@ -219,7 +219,7 @@ contactsRouter.post('/contacts/:contact_id/tags', async (req, res) => {
   if (!name) return res.status(422).json({ error: 'Nome obrigatório' });
   let [tag] = await db.select().from(tags).where(and(eq(tags.accountId, acc(req)), eq(tags.name, name))).limit(1);
   if (!tag) {
-    if (!isOwner(req.user!)) return res.status(403).json({ error: 'forbidden', message: 'Só a diretoria pode criar etiquetas novas. Escolha uma já existente.' });
+    if (!pode(req.user!, 'etiquetas.criar')) return res.status(403).json({ error: 'forbidden', message: 'Só a diretoria pode criar etiquetas novas. Escolha uma já existente.' });
     [tag] = await db.insert(tags).values({ accountId: acc(req), name, color: req.body.color || '#6b7280' }).returning();
   }
   await db.insert(contactTags).values({ contactId: c.id, tagId: tag.id }).onConflictDoNothing();
@@ -249,7 +249,7 @@ async function groupParams(req: Request) {
   if (Array.isArray(p.field_keys)) { const ok = await assignableKeysFor(acc(req)); out.fieldKeys = p.field_keys.filter(k => ok.includes(k)); }
   return out;
 }
-contactsRouter.post('/contact_field_groups', requireOwner, async (req, res) => {
+contactsRouter.post('/contact_field_groups', requirePerm('config.campos'), async (req, res) => {
   const v = await groupParams(req);
   if (!v.name) return res.status(422).json({ name: ["can't be blank"] });
   const [{ m }] = await db.select({ m: max(contactFieldGroups.position) }).from(contactFieldGroups).where(eq(contactFieldGroups.accountId, acc(req)));
@@ -263,9 +263,9 @@ async function updateGroup(req: Request, res: Response) {
   if (!g) return res.status(404).json({ error: 'not_found' });
   res.json(railsJson(g));
 }
-contactsRouter.put('/contact_field_groups/:id', requireOwner, updateGroup);
-contactsRouter.patch('/contact_field_groups/:id', requireOwner, updateGroup);
-contactsRouter.delete('/contact_field_groups/:id', requireOwner, async (req, res) => {
+contactsRouter.put('/contact_field_groups/:id', requirePerm('config.campos'), updateGroup);
+contactsRouter.patch('/contact_field_groups/:id', requirePerm('config.campos'), updateGroup);
+contactsRouter.delete('/contact_field_groups/:id', requirePerm('config.campos'), async (req, res) => {
   await db.delete(contactFieldGroups).where(and(eq(contactFieldGroups.accountId, acc(req)), eq(contactFieldGroups.id, Number(req.params.id))));
   res.status(204).end();
 });
@@ -291,7 +291,7 @@ contactsRouter.get('/contact_custom_fields', async (req, res) => {
   if (req.query.all) return res.json(await allFieldsOf(acc(req)));
   res.json((await customFieldsOf(acc(req))).filter(f => !f.builtin).map(f => ({ type: 'text', ...f })));
 });
-contactsRouter.post('/contact_custom_fields', requireOwner, async (req, res) => {
+contactsRouter.post('/contact_custom_fields', requirePerm('config.campos'), async (req, res) => {
   const input = cleanFieldInput(req.body ?? {});
   const label = input.label || '';
   if (!label) return res.status(422).json({ message: 'Dê um nome pro campo.' });
@@ -312,7 +312,7 @@ contactsRouter.post('/contact_custom_fields', requireOwner, async (req, res) => 
   res.status(201).json(campo);
 });
 // editar: nome/tipo/opções/obrigatório/só API/oculto. Campo fixo: só as configurações (nome e tipo não mudam).
-contactsRouter.put('/contact_custom_fields/:id', requireOwner, async (req, res) => {
+contactsRouter.put('/contact_custom_fields/:id', requirePerm('config.campos'), async (req, res) => {
   const key = req.params.id;
   const input = cleanFieldInput(req.body ?? {});
   const campos = await customFieldsOf(acc(req));
@@ -329,7 +329,7 @@ contactsRouter.put('/contact_custom_fields/:id', requireOwner, async (req, res) 
   await db.update(accounts).set({ contactCustomFields: next, updatedAt: new Date() }).where(eq(accounts.id, acc(req)));
   res.json((await allFieldsOf(acc(req))).find(f => f.key === key));
 });
-contactsRouter.delete('/contact_custom_fields/:id', requireOwner, async (req, res) => {
+contactsRouter.delete('/contact_custom_fields/:id', requirePerm('config.campos'), async (req, res) => {
   const key = req.params.id;
   if (ASSIGNABLE_FIELD_KEYS.includes(key)) return res.status(422).json({ message: 'Campos padrão não podem ser excluídos.' });
   await db.update(accounts).set({ contactCustomFields: (await customFieldsOf(acc(req))).filter(f => f.key !== key), updatedAt: new Date() }).where(eq(accounts.id, acc(req)));

@@ -1,7 +1,7 @@
 import { Router, type Request } from 'express';
 import { sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { requireAuth, requireFullPortfolio, isFullPortfolio } from '../middleware/auth.js';
+import { requireAuth, requirePerm, pode } from '../middleware/auth.js';
 import { EVENT_LABELS } from '../lib/events.js';
 
 // Insights no padrão do Kommo: Painel (Gerencial), Análise de vendas, Relatório consolidado,
@@ -42,7 +42,7 @@ const userId = (q: any) => (q.user_id && /^\d+$/.test(String(q.user_id)) ? Numbe
 const userNameSql = sql`TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,''))`;
 
 // --- Painel (Gerencial) -----------------------------------------------------------------------
-insightsRouter.get('/insights/painel', requireAuth, requireFullPortfolio, async (req, res) => {
+insightsRouter.get('/insights/painel', requireAuth, requirePerm('insights.gerencial'), async (req, res) => {
   const a = acc(req); const { from, to } = periodRange(req.query); const uid = userId(req.query);
   const F = ts(from), T = ts(to);
   const convUser = uid ? sql`AND c.user_id = ${uid}` : sql``;
@@ -103,7 +103,7 @@ insightsRouter.get('/insights/painel', requireAuth, requireFullPortfolio, async 
 });
 
 // --- Análise de vendas ("Ganhos e perdas") ------------------------------------------------------
-insightsRouter.get('/insights/vendas', requireAuth, requireFullPortfolio, async (req, res) => {
+insightsRouter.get('/insights/vendas', requireAuth, requirePerm('insights.relatorios'), async (req, res) => {
   const a = acc(req); const { from, to } = periodRange(req.query); const uid = userId(req.query);
   const F = ts(from), T = ts(to);
   const [pip] = req.query.pipeline_id
@@ -136,7 +136,7 @@ insightsRouter.get('/insights/vendas', requireAuth, requireFullPortfolio, async 
 });
 
 // --- Relatório consolidado ----------------------------------------------------------------------
-insightsRouter.get('/insights/consolidado', requireAuth, requireFullPortfolio, async (req, res) => {
+insightsRouter.get('/insights/consolidado', requireAuth, requirePerm('insights.relatorios'), async (req, res) => {
   const a = acc(req); const { from, to } = periodRange(req.query); const uid = userId(req.query);
   const F = ts(from), T = ts(to);
   const g = ['day', 'week', 'month'].includes(String(req.query.group)) ? String(req.query.group) : 'day';
@@ -166,7 +166,7 @@ insightsRouter.get('/insights/consolidado', requireAuth, requireFullPortfolio, a
 });
 
 // --- Relatório de atividades (por usuário) -----------------------------------------------------
-insightsRouter.get('/insights/atividades', requireAuth, requireFullPortfolio, async (req, res) => {
+insightsRouter.get('/insights/atividades', requireAuth, requirePerm('insights.relatorios'), async (req, res) => {
   const a = acc(req); const { from, to } = periodRange(req.query); const uid = userId(req.query);
   const F = ts(from), T = ts(to);
   const list = await rows(sql`SELECT u.id, ${userNameSql} nome,
@@ -183,7 +183,7 @@ insightsRouter.get('/insights/atividades', requireAuth, requireFullPortfolio, as
 
 // --- Relatório de meta -------------------------------------------------------------------------
 const mes = (v: unknown) => (/^\d{4}-\d{2}$/.test(String(v)) ? String(v) : new Date(Date.now() - SP).toISOString().slice(0, 7));
-insightsRouter.get('/insights/metas', requireAuth, requireFullPortfolio, async (req, res) => {
+insightsRouter.get('/insights/metas', requireAuth, requirePerm('insights.relatorios'), async (req, res) => {
   const a = acc(req); const m = mes(req.query.month);
   const ini = `${m}-01T03:00:00.000Z`;
   const [y, mo] = m.split('-').map(Number);
@@ -198,7 +198,7 @@ insightsRouter.get('/insights/metas', requireAuth, requireFullPortfolio, async (
   res.json({ month: m, usuarios: list });
 });
 
-insightsRouter.put('/insights/metas', requireAuth, requireFullPortfolio, async (req, res) => {
+insightsRouter.put('/insights/metas', requireAuth, requirePerm('insights.metas_editar'), async (req, res) => {
   const a = acc(req); const m = mes(req.body?.month);
   const metas = Array.isArray(req.body?.metas) ? req.body.metas : [];
   for (const g of metas) {
@@ -218,8 +218,8 @@ insightsRouter.get('/insights/eventos', requireAuth, async (req, res) => {
   const conds: SQL[] = [sql`e.account_id = ${a}`];
   if (q.period) { const { from, to } = periodRange(q); conds.push(sql`e.created_at >= ${ts(from)} AND e.created_at < ${ts(to)}`); }
   // quem não tem carteira cheia só vê os eventos que ele mesmo fez
-  const uid = isFullPortfolio(req.user!) ? userId(q) : req.user!.id;
-  if (q.user_id === 'robo' && isFullPortfolio(req.user!)) conds.push(sql`e.user_id IS NULL`);
+  const uid = pode(req.user!, 'insights.eventos_equipe') ? userId(q) : req.user!.id;
+  if (q.user_id === 'robo' && pode(req.user!, 'insights.eventos_equipe')) conds.push(sql`e.user_id IS NULL`);
   else if (uid) conds.push(sql`e.user_id = ${uid}`);
   if (q.object_type) conds.push(sql`e.object_type = ${String(q.object_type)}`);
   if (q.event_type) conds.push(sql`e.event_type IN (${sql.join(String(q.event_type).split(',').map(t => sql`${t}`), sql`, `)})`);

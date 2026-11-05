@@ -155,6 +155,7 @@ export default function Conversas() {
   const { allFields: principalFields, labelOf: fieldLabelOf, fieldOf } = useContactFields()
   const [detailsOpen, setDetailsOpen] = useState(() => window.innerWidth > 1150)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900)
+  const [slashIndex, setSlashIndex] = useState(0)
   useEffect(() => { const f = () => setIsMobile(window.innerWidth <= 900); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
 
   const [s, v] = useLocal(() => ({
@@ -633,6 +634,25 @@ export default function Conversas() {
     const term = text.slice(1).trim().toLowerCase()
     return v.messageTemplates.filter((t: Any) => !term || t.nome.toLowerCase().includes(term) || (t.categoria || '').toLowerCase().includes(term)).slice(0, 8)
   })()
+  // lista de modelos pelo teclado (Clara, 05/11: digitava "/ap" + Enter e saía o texto "/ap" em vez do modelo)
+  const slashSel = Math.min(slashIndex, Math.max(slashSuggestions.length - 1, 0))
+  const slashKeyDown = (e: React.KeyboardEvent) => {
+    if (!slashSuggestions.length) return false
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const n = slashSuggestions.length
+      setSlashIndex((slashSel + (e.key === 'ArrowDown' ? 1 : n - 1)) % n)
+      return true
+    }
+    if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
+      e.preventDefault()
+      void applyTemplate(slashSuggestions[slashSel])
+      setSlashIndex(0)
+      return true
+    }
+    if (e.key === 'Escape') { e.preventDefault(); s.newMessageText = ''; setSlashIndex(0); return true }
+    return false
+  }
   const applyTemplate = async (template: Any) => {
     s.newMessageText = template.mensagem || ''
     if (!template.attachment_url) { clearSelectedFile(); return }
@@ -1430,8 +1450,9 @@ export default function Conversas() {
                     {slashSuggestions.length > 0 && (
                       <div style={{ ...menuK, left: 0, right: 0, bottom: '100%', marginBottom: 4, maxHeight: 260, overflowY: 'auto' }}>
                         <div style={{ padding: '4px 16px', fontSize: 11.5, fontWeight: 700, color: K.muted, textTransform: 'uppercase' }}>Modelos de mensagem</div>
-                        {slashSuggestions.map((tpl: Any) => (
-                          <button key={tpl.id} onClick={() => applyTemplate(tpl)} style={menuItemK}><b style={{ color: K.link }}>{tpl.nome}</b><span style={{ flex: 1, minWidth: 0, color: K.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.mensagem || 'Anexo'}</span></button>
+                        {slashSuggestions.map((tpl: Any, i: number) => (
+                          <button key={tpl.id} onMouseDown={e => e.preventDefault()} onMouseEnter={() => setSlashIndex(i)} onClick={() => { void applyTemplate(tpl); setSlashIndex(0) }}
+                            style={{ ...menuItemK, background: i === slashSel ? '#eef3f8' : 'none' }}><b style={{ color: K.link }}>{tpl.nome}</b><span style={{ flex: 1, minWidth: 0, color: K.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.mensagem || 'Anexo'}</span></button>
                         ))}
                       </div>
                     )}
@@ -1443,7 +1464,7 @@ export default function Conversas() {
                       </div>
                     )}
                     <textarea value={v.newMessageText} rows={2} onChange={e => { s.newMessageText = e.target.value }} onPaste={handlePaste}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); handleSendMessage() } }}
+                      onKeyDown={e => { if (slashKeyDown(e)) return; if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); handleSendMessage() } }}
                       placeholder={mode === 'nota' ? 'Escreva uma nota (só a equipe vê)' : 'Escreva uma mensagem · / para modelos'}
                       style={{ width: '100%', border: 'none', outline: 'none', resize: 'none', fontFamily: K.font, fontSize: 15, color: K.text, background: 'none', minHeight: 40, maxHeight: 160, fieldSizing: 'content' } as React.CSSProperties} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>

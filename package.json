@@ -15,6 +15,7 @@
     "chart.js": "^4.4.7",
     "emoji-picker-react": "^5.1.4",
     "lucide-react": "^1.41.0",
+    "marked": "^15.0.12",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-chartjs-2": "^5.3.0",

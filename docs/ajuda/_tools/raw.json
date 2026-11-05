@@ -1,0 +1,10 @@
+[
+  { "file": "_raw-disparo", "user": "diretoria@teste.local", "route": "/disparos", "steps": [{ "click": "button:has-text('Novo disparo')", "wait": 1200 }] },
+  { "file": "_raw-card", "user": "diretoria@teste.local", "route": "/pipelines/prospeccao", "steps": [{ "click": "text=Helena Duarte", "wait": 1500 }] },
+  { "file": "_raw-gatilho", "user": "diretoria@teste.local", "route": "/pipelines/prospeccao/automatize", "steps": [{ "click": "text=+ Adicionar gatilho >> nth=0", "wait": 1200 }] },
+  { "file": "_raw-evento", "user": "diretoria@teste.local", "route": "/calendario", "steps": [{ "click": "button:has-text('Novo evento')", "wait": 1200 }] },
+  { "file": "_raw-novolead", "user": "diretoria@teste.local", "route": "/pipelines/prospeccao", "steps": [{ "click": "button:has-text('Novo lead')", "wait": 1200 }] },
+  { "file": "_raw-tarefas", "user": "diretoria@teste.local", "route": "/tarefas", "steps": [{ "click": "text=Meus eventos", "wait": 1200 }] },
+  { "file": "_raw-revendedora", "user": "consultor@teste.local", "route": "/carteira", "steps": [] },
+  { "file": "_raw-perfil2", "user": "diretoria@teste.local", "route": "/settings/perfis-acesso", "steps": [{ "click": "text=Consultor >> nth=0", "wait": 800 }, { "press": "End", "wait": 300 }] }
+]

@@ -10,6 +10,7 @@ import ComingSoon from './pages/ComingSoon'
 const Login = lazy(() => import('./pages/Login'))
 import { AppShell } from './components/AppShell'
 const Conversas = lazy(() => import('./pages/Conversas'))
+const Manual = lazy(() => import('./pages/Manual'))
 const Kanban = lazy(() => import('./pages/Kanban'))
 const Funis = lazy(() => import('./pages/Funis'))
 const SalesbotList = lazy(() => import('./pages/SalesbotList'))
@@ -126,7 +127,8 @@ function App() {
             <Route path="funil" element={g(<Kanban />, 'menu.consignado')} />
             <Route path="funil/automatize" element={<Navigate to="/pipelines/consignado/automatize" replace />} />
             <Route path="relatorios" element={g(<Relatorios />, 'insights.relatorios')} />
-            <Route path="manual" element={g(emMigracao('Manual'))} />
+            <Route path="manual" element={g(<Manual />)} />
+            <Route path="manual/:slug" element={g(<Manual />)} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

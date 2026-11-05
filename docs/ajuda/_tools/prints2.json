@@ -1,0 +1,488 @@
+[
+  {
+    "file": "comecando-menu",
+    "user": "consultor@teste.local",
+    "route": "/",
+    "area": [
+      0,
+      0,
+      620,
+      900
+    ],
+    "marks": [
+      {
+        "sel": "text=Início >> nth=0",
+        "text": "Início: seu resumo do dia",
+        "pos": "right",
+        "gap": 120
+      },
+      {
+        "sel": "text=Comunicações",
+        "text": "Conversas do WhatsApp, Chat da Equipe e Disparos",
+        "pos": "right",
+        "gap": 120
+      },
+      {
+        "sel": "text=Pipelines",
+        "text": "Funis: Consignado, Prospecção, Varejo…",
+        "pos": "right",
+        "gap": 120
+      },
+      {
+        "sel": "text=Listas",
+        "text": "Minhas Revendedoras, Contatos, Tarefas…",
+        "pos": "right",
+        "gap": 120
+      },
+      {
+        "sel": "text=Ajuda",
+        "text": "Este manual",
+        "pos": "right",
+        "gap": 120
+      },
+      {
+        "sel": "text=Centro de Notificação",
+        "text": "Avisos: mensagens novas, tarefas, menções",
+        "pos": "right",
+        "gap": 80
+      }
+    ]
+  },
+  {
+    "file": "comecando-inicio",
+    "user": "consultor@teste.local",
+    "route": "/",
+    "marks": [
+      {
+        "sel": "text=Ativas >> nth=0",
+        "text": "Sua carteira por etapa da maleta. Clique pra ver a lista",
+        "pos": "bottom",
+        "gap": 120
+      },
+      {
+        "sel": "text=TAREFAS DE HOJE",
+        "text": "Tarefas de hoje e atrasadas. Clique em Concluir quando fizer",
+        "pos": "bottom",
+        "gap": 250,
+        "dx": 120
+      },
+      {
+        "sel": "text=ESPERANDO RESPOSTA",
+        "text": "Clientes que mandaram mensagem e ainda não tiveram resposta",
+        "pos": "right",
+        "gap": 420
+      },
+      {
+        "sel": "input[placeholder*='Buscar revendedora']",
+        "text": "Achar uma revendedora rápido",
+        "pos": "bottom"
+      }
+    ]
+  },
+  {
+    "file": "funis-quadro",
+    "user": "diretoria@teste.local",
+    "route": "/pipelines/prospeccao",
+    "marks": [
+      {
+        "xy": [
+          258,
+          4,
+          110,
+          28
+        ],
+        "text": "Troque de funil aqui",
+        "pos": "bottom",
+        "gap": 140
+      },
+      {
+        "sel": "text=INTERESSADO CONSIGNADO",
+        "text": "Cada coluna é uma etapa",
+        "pos": "bottom",
+        "gap": 180
+      },
+      {
+        "sel": "text=Gabriela Nunes >> nth=0",
+        "text": "Card = uma cliente. Arraste pra outra coluna pra mudar de etapa",
+        "pos": "bottom",
+        "gap": 230
+      },
+      {
+        "sel": "button:has-text('Automatize')",
+        "text": "Automações do funil (gatilhos)",
+        "pos": "bottom",
+        "gap": 120
+      },
+      {
+        "sel": "button:has-text('Novo lead')",
+        "text": "Colocar uma cliente no funil",
+        "pos": "bottom",
+        "gap": 220
+      }
+    ]
+  },
+  {
+    "file": "funis-novolead",
+    "user": "diretoria@teste.local",
+    "route": "/pipelines/prospeccao",
+    "area": [
+      380,
+      180,
+      680,
+      500
+    ],
+    "steps": [
+      {
+        "click": "button:has-text('Novo lead')",
+        "wait": 1000
+      }
+    ],
+    "marks": [
+      {
+        "sel": "input[placeholder*='busca contato']",
+        "text": "Digite o nome: se a cliente já existe, escolha na lista",
+        "pos": "right",
+        "gap": 30
+      },
+      {
+        "sel": "select >> nth=-1",
+        "text": "Em qual etapa ela entra",
+        "pos": "right",
+        "gap": 30
+      }
+    ]
+  },
+  {
+    "file": "funis-gatilho",
+    "user": "diretoria@teste.local",
+    "route": "/pipelines/prospeccao/automatize",
+    "area": [
+      420,
+      170,
+      620,
+      660
+    ],
+    "steps": [
+      {
+        "click": "text=+ Adicionar gatilho >> nth=0",
+        "wait": 1000
+      }
+    ],
+    "marks": [
+      {
+        "sel": "select >> nth=0",
+        "text": "QUANDO roda: ao entrar na etapa, cliente respondeu, equipe mandou mensagem…",
+        "pos": "top",
+        "gap": 20
+      },
+      {
+        "sel": "input[type=number] >> nth=0",
+        "text": "Esperar um tempo antes de rodar",
+        "pos": "right",
+        "gap": 160
+      },
+      {
+        "sel": "select >> nth=2",
+        "text": "O QUE faz: mudar etapa, criar tarefa, mandar mensagem, etiqueta…",
+        "pos": "bottom",
+        "gap": 20
+      },
+      {
+        "sel": "text=+ Adicionar condição",
+        "text": "Só roda se a cliente bater com a condição (opcional)",
+        "pos": "bottom",
+        "gap": 30
+      }
+    ]
+  },
+  {
+    "file": "funis-consignado",
+    "user": "diretoria@teste.local",
+    "route": "/funil",
+    "marks": [
+      {
+        "sel": "text=REVENDEDOR ATIVO >> nth=0",
+        "text": "Etapas da maleta: o sistema move sozinho pelos dias do ciclo",
+        "pos": "bottom",
+        "gap": 300
+      }
+    ],
+    "area": [
+      240,
+      0,
+      1200,
+      600
+    ]
+  },
+  {
+    "file": "revendedoras-carteira",
+    "user": "consultor@teste.local",
+    "route": "/carteira",
+    "marks": [
+      {
+        "sel": "text=Todas as etapas",
+        "text": "Filtre por etapa da maleta",
+        "pos": "bottom",
+        "gap": 200
+      },
+      {
+        "sel": "text=3º DIA >> nth=-1",
+        "text": "Etapa atual da revendedora",
+        "pos": "bottom",
+        "gap": 150
+      },
+      {
+        "sel": "text=DIAS MALETA",
+        "text": "Há quantos dias está com a maleta",
+        "pos": "bottom",
+        "gap": 250
+      },
+      {
+        "sel": "text=ALERTA",
+        "text": "Em dia, atrasada…",
+        "pos": "top",
+        "gap": 60
+      }
+    ]
+  },
+  {
+    "file": "revendedoras-ficha",
+    "user": "consultor@teste.local",
+    "route": "/contatos/1",
+    "marks": [
+      {
+        "sel": "button:has-text('Enviar mensagem')",
+        "text": "Abre a conversa com ela",
+        "pos": "bottom",
+        "gap": 80
+      },
+      {
+        "sel": "text=RESUMO",
+        "text": "Etapa, responsável, cidade, vendas",
+        "pos": "right",
+        "gap": 160
+      },
+      {
+        "sel": "text=Histórico",
+        "text": "Tudo que aconteceu com ela",
+        "pos": "bottom",
+        "gap": 160
+      }
+    ]
+  },
+  {
+    "file": "tarefas-lista",
+    "user": "diretoria@teste.local",
+    "route": "/tarefas",
+    "steps": [
+      {
+        "click": "text=Meus eventos",
+        "wait": 1000
+      }
+    ],
+    "marks": [
+      {
+        "sel": "select >> nth=0",
+        "text": "Ver tarefas de outra pessoa",
+        "pos": "bottom",
+        "gap": 160
+      },
+      {
+        "sel": "text=PRAZO",
+        "text": "Vermelho = atrasada",
+        "pos": "bottom",
+        "gap": 300
+      },
+      {
+        "sel": "button:has-text('Abrir') >> nth=0",
+        "text": "Abre a conversa/ficha pra resolver",
+        "pos": "left",
+        "gap": 120
+      }
+    ]
+  },
+  {
+    "file": "disparos-novo",
+    "user": "diretoria@teste.local",
+    "route": "/disparos",
+    "steps": [
+      {
+        "click": "button:has-text('Novo disparo')",
+        "wait": 1200
+      }
+    ],
+    "marks": [
+      {
+        "sel": "text=1. Para quem",
+        "text": "4 passos: quem recebe, mensagem, número e quando",
+        "pos": "right",
+        "gap": 260
+      },
+      {
+        "sel": "text=Status do Consignado",
+        "text": "Escolha pelo status, etapa do funil, etiqueta, carteira ou cidade",
+        "pos": "right",
+        "gap": 480
+      },
+      {
+        "sel": "button:has-text('Continuar')",
+        "text": "Confira quantas pessoas vão receber e continue",
+        "pos": "top",
+        "gap": 60
+      }
+    ]
+  },
+  {
+    "file": "insights-gerencial",
+    "user": "diretoria@teste.local",
+    "route": "/gerencial",
+    "marks": [
+      {
+        "sel": "text=Semana >> nth=0",
+        "text": "Período",
+        "pos": "bottom",
+        "gap": 80
+      },
+      {
+        "sel": "select >> nth=0",
+        "text": "Ver uma pessoa só",
+        "pos": "bottom",
+        "gap": 60
+      },
+      {
+        "sel": "text=CONVERSAS NÃO RESP",
+        "text": "Clientes esperando resposta agora",
+        "pos": "bottom",
+        "gap": 200
+      },
+      {
+        "sel": "text=TEMPO DE RESPOSTA",
+        "text": "Quanto a equipe demora pra responder",
+        "pos": "bottom",
+        "gap": 180
+      }
+    ]
+  },
+  {
+    "file": "admin-usuarios",
+    "user": "diretoria@teste.local",
+    "route": "/agentes",
+    "marks": [
+      {
+        "sel": "button:has-text('Novo agente')",
+        "text": "Cadastrar pessoa da equipe",
+        "pos": "bottom",
+        "gap": 80
+      },
+      {
+        "xy": [
+          728,
+          104,
+          64,
+          26
+        ],
+        "text": "Perfil de acesso de cada uma",
+        "pos": "bottom",
+        "gap": 300
+      },
+      {
+        "xy": [
+          1030,
+          104,
+          84,
+          26
+        ],
+        "text": "Liga a pessoa na fila de distribuição",
+        "pos": "bottom",
+        "gap": 300
+      }
+    ]
+  },
+  {
+    "file": "admin-perfis",
+    "user": "diretoria@teste.local",
+    "route": "/settings/perfis-acesso",
+    "marks": [
+      {
+        "sel": "text=Consultor >> nth=0",
+        "text": "Perfis: clique pra ver e mudar o que cada um pode",
+        "pos": "bottom",
+        "gap": 200
+      },
+      {
+        "sel": "button:has-text('Novo perfil')",
+        "text": "Criar perfil novo (ex.: Prospecção)",
+        "pos": "bottom",
+        "gap": 120
+      },
+      {
+        "sel": "text=Chat da Equipe",
+        "text": "Liga/desliga cada permissão",
+        "pos": "left",
+        "gap": 160
+      },
+      {
+        "sel": "button:has-text('Voltar ao padrão')",
+        "text": "Desfaz as mudanças do perfil",
+        "pos": "bottom",
+        "gap": 80
+      }
+    ]
+  },
+  {
+    "file": "admin-numero",
+    "user": "diretoria@teste.local",
+    "route": "/settings/inboxes/1",
+    "marks": [
+      {
+        "sel": "text=Apelido curto",
+        "text": "Nome curto e cor que aparecem nas conversas",
+        "pos": "right",
+        "gap": 340
+      },
+      {
+        "sel": "text=Funil de entrada",
+        "text": "Em qual funil/etapa cai quem conversa por este número",
+        "pos": "right",
+        "gap": 340
+      },
+      {
+        "sel": "text=Número das Consultoras (com carteira)",
+        "text": "Com carteira: cada consultora vê só as revendedoras dela",
+        "pos": "bottom",
+        "gap": 140
+      },
+      {
+        "sel": "button:has-text('Agentes')",
+        "text": "Quem trabalha neste número",
+        "pos": "bottom",
+        "gap": 60
+      }
+    ]
+  },
+  {
+    "file": "admin-numeros",
+    "user": "diretoria@teste.local",
+    "route": "/settings/inboxes",
+    "marks": [
+      {
+        "sel": "button:has-text('Adicionar caixa')",
+        "text": "Novo número de WhatsApp",
+        "pos": "bottom",
+        "gap": 60
+      },
+      {
+        "sel": "text=CONECTADO >> nth=0",
+        "text": "Situação do número",
+        "pos": "bottom",
+        "gap": 120
+      },
+      {
+        "sel": "text=Consultoras Comerciais >> nth=-1",
+        "text": "Clique pra configurar o número",
+        "pos": "bottom",
+        "gap": 200
+      }
+    ]
+  }
+]

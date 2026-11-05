@@ -1,0 +1,244 @@
+[
+  {
+    "file": "conversas-tela",
+    "user": "consultor@teste.local",
+    "route": "/conversas",
+    "steps": [
+      {
+        "click": "text=Ana Beatriz Costa",
+        "wait": 1500
+      }
+    ],
+    "marks": [
+      {
+        "sel": "text=CONSULTORAS >> nth=0",
+        "text": "Seus números de WhatsApp. Clique em um pra ver só as conversas dele",
+        "pos": "right"
+      },
+      {
+        "sel": "input[placeholder='Buscar']",
+        "text": "Busca por nome, telefone ou trecho da conversa",
+        "pos": "right"
+      },
+      {
+        "sel": "text=ANA BEATRIZ COSTA",
+        "text": "Ficha da cliente: status, responsável, dados e funil",
+        "pos": "bottom"
+      },
+      {
+        "sel": "textarea[placeholder*='modelos']",
+        "text": "Escreva a mensagem aqui",
+        "pos": "top"
+      }
+    ]
+  },
+  {
+    "file": "conversas-numero",
+    "user": "consultor@teste.local",
+    "route": "/conversas",
+    "steps": [
+      {
+        "click": "text=Gabriela Nunes",
+        "wait": 1500
+      }
+    ],
+    "marks": [
+      {
+        "sel": "text=Enviando pelo número",
+        "text": "Por qual número a mensagem vai sair. É sempre o número desta conversa",
+        "pos": "top"
+      }
+    ],
+    "area": [
+      900,
+      380,
+      540,
+      520
+    ]
+  },
+  {
+    "file": "conversas-modos",
+    "user": "gerente@teste.local",
+    "route": "/conversas",
+    "steps": [
+      {
+        "click": "text=Ana Beatriz Costa",
+        "wait": 1200
+      },
+      {
+        "click": "button:has-text('Bate-papo')",
+        "wait": 600
+      }
+    ],
+    "marks": [
+      {
+        "sel": "button:has-text('Nota') >> nth=0",
+        "text": "Nota: recado interno, a cliente NÃO vê",
+        "pos": "left"
+      },
+      {
+        "sel": "button:has-text('Tarefa') >> nth=0",
+        "text": "Tarefa: cria um lembrete pra você com prazo",
+        "pos": "left"
+      }
+    ],
+    "area": [
+      900,
+      450,
+      540,
+      450
+    ]
+  },
+  {
+    "file": "conversas-modelos",
+    "user": "consultor@teste.local",
+    "route": "/conversas",
+    "steps": [
+      {
+        "click": "text=Ana Beatriz Costa",
+        "wait": 1200
+      },
+      {
+        "click": "textarea[placeholder*='modelos']"
+      },
+      {
+        "type": [
+          "textarea[placeholder*='modelos']",
+          "/ag"
+        ],
+        "wait": 700
+      }
+    ],
+    "marks": [
+      {
+        "sel": "text=Modelos de mensagem",
+        "text": "Digite / e o começo do nome do modelo. Aperte Enter pra usar",
+        "pos": "left"
+      }
+    ],
+    "area": [
+      560,
+      560,
+      880,
+      340
+    ]
+  },
+  {
+    "file": "conversas-botoes",
+    "user": "consultor@teste.local",
+    "route": "/conversas",
+    "steps": [
+      {
+        "click": "text=Ana Beatriz Costa",
+        "wait": 1500
+      }
+    ],
+    "marks": [
+      {
+        "sel": "button[title='Anexar arquivo']",
+        "text": "Anexar foto ou arquivo (ou cole um print com Ctrl+V)",
+        "pos": "top",
+        "gap": 110
+      },
+      {
+        "sel": "button[title='Emojis']",
+        "text": "Emojis (busca em português)",
+        "pos": "top",
+        "gap": 40,
+        "dx": 150
+      },
+      {
+        "sel": "button[title='Gravar áudio']",
+        "text": "Gravar áudio",
+        "pos": "right",
+        "gap": 40
+      },
+      {
+        "sel": "button:has-text('Fechar conversa')",
+        "text": "Terminou o atendimento? Feche a conversa",
+        "pos": "bottom"
+      },
+      {
+        "sel": "button:has-text('Arquivar')",
+        "text": "Tira da lista. Se a cliente escrever, volta sozinha",
+        "pos": "bottom"
+      }
+    ],
+    "area": [
+      900,
+      330,
+      540,
+      570
+    ]
+  },
+  {
+    "file": "conversas-filtro",
+    "user": "consultor@teste.local",
+    "route": "/conversas",
+    "steps": [
+      {
+        "click": "button[title='Trocar filtro']",
+        "wait": 600
+      }
+    ],
+    "marks": [
+      {
+        "sel": "button:has-text('Grupos')",
+        "text": "Grupos de WhatsApp ficam separados aqui",
+        "pos": "right"
+      },
+      {
+        "sel": "button:has-text('Arquivadas')",
+        "text": "Conversas que você arquivou",
+        "pos": "right"
+      },
+      {
+        "sel": "button:has-text('Nova conversa')",
+        "text": "Começar conversa com um número novo",
+        "pos": "right"
+      }
+    ],
+    "area": [
+      0,
+      0,
+      620,
+      500
+    ]
+  },
+  {
+    "file": "conversas-mais",
+    "user": "consultor@teste.local",
+    "route": "/conversas",
+    "steps": [
+      {
+        "click": "text=Ana Beatriz Costa",
+        "wait": 1200
+      },
+      {
+        "clickxy": [
+          866,
+          31
+        ],
+        "wait": 700
+      }
+    ],
+    "marks": [
+      {
+        "sel": "button:has-text('Transferir com nota')",
+        "text": "Passa a conversa pra outra pessoa com um recado",
+        "pos": "right"
+      },
+      {
+        "sel": "button:has-text('Agendar mensagem')",
+        "text": "Deixa uma mensagem programada pra sair num dia e hora",
+        "pos": "right"
+      }
+    ],
+    "area": [
+      560,
+      0,
+      880,
+      480
+    ]
+  }
+]

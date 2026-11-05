@@ -123,6 +123,8 @@ async function updateContactRoute(req: Request, res: Response) {
   const c = await loadContact(req, res);
   if (!c) return;
   const v = contactParams(req);
+  // revendedora do Jueri: nome e dados de cadastro só mudam no Jueri (o CRM só lê; a sync/webhook traz) — Victor, 05/11
+  if (c.idJueri) for (const k of ['name', 'firstName', 'lastName', 'email', 'cpf', 'birthDate', 'cep', 'street', 'addressNumber', 'addressComplement', 'neighborhood', 'city', 'state'] as const) delete (v as Record<string, unknown>)[k];
   if (v.status && v.status !== c.status) {
     const faltam = await missingRequired(c.accountId, (v.customAttributes ?? c.customAttributes) as Record<string, unknown>, 'status:' + v.status);
     if (faltam.length) return res.status(422).json({ error: 'required_fields', message: 'Preencha antes de mudar de etapa: ' + faltam.join(', '), fields: faltam });

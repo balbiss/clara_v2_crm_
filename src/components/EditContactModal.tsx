@@ -103,6 +103,8 @@ export default function EditContactModal({ isOpen, contact, onClose }: { isOpen:
   const linkBtn = { border: 'none', background: 'none', color: 'var(--terra)', fontSize: 12.5, fontWeight: 700, padding: 0, marginTop: 4 } as const
   const removeBtn = { border: '1px solid var(--line)', background: 'none', color: '#B42318', borderRadius: 8, padding: '0 10px', fontSize: 12, flex: 'none' } as const
 
+  // revendedora do Jueri: nome/e-mail/endereço vêm de lá (o servidor ignora mudança nesses campos)
+  const doJueri = !!(contact?.id_jueri || contact?.custom_attributes?.id_jueri)
   return (
     <Modal title={`Editar ${contact?.name || 'contato'}`} subtitle="Dados do Jueri (CPF, endereço, nascimento) não são editados aqui — vêm da sincronização." onClose={onClose} width={600}
       footer={<>
@@ -113,7 +115,9 @@ export default function EditContactModal({ isOpen, contact, onClose }: { isOpen:
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} data-modal-grid>
           <div style={{ gridColumn: '1 / -1' }}>
             <span style={labelStyle}>Nome completo</span>
-            <input value={fd.name} onChange={e => { s.formData.name = e.target.value }} required autoComplete="off" style={inputStyle} />
+            <input value={fd.name} onChange={e => { s.formData.name = e.target.value }} required autoComplete="off" readOnly={doJueri}
+              style={doJueri ? { ...inputStyle, background: '#f3f3f3', color: 'var(--muted)', cursor: 'not-allowed' } : inputStyle} />
+            {doJueri && <p style={{ fontSize: 12, color: '#8e2a46', margin: '4px 0 0', lineHeight: 1.5 }}>Revendedora do Jueri: nome, e-mail e endereço são alterados <b>no Jueri</b>. O CRM atualiza sozinho.</p>}
           </div>
           {isFullPortfolio && (
             <div style={{ gridColumn: '1 / -1' }}>
@@ -126,7 +130,8 @@ export default function EditContactModal({ isOpen, contact, onClose }: { isOpen:
           )}
           <div>
             <span style={labelStyle}>E-mail</span>
-            <input type="email" value={fd.email} onChange={e => { s.formData.email = e.target.value }} autoComplete="off" style={inputStyle} />
+            <input type="email" value={fd.email} onChange={e => { s.formData.email = e.target.value }} autoComplete="off" readOnly={doJueri}
+              style={doJueri ? { ...inputStyle, background: '#f3f3f3', color: 'var(--muted)', cursor: 'not-allowed' } : inputStyle} />
           </div>
           <div>
             <span style={labelStyle}>Telefone</span>

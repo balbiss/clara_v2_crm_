@@ -52,7 +52,7 @@ Clique no nome da revendedora (na lista, no funil ou em **Contatos**) para abrir
 - **Histórico:** tudo o que aconteceu com ela (mudanças de etapa, tarefas, responsável).
 - **Enviar mensagem:** abre a conversa no WhatsApp.
 
-> Dados do Jueri (CPF, endereço, nascimento) não são editados no CRM: eles vêm da sincronização com o Jueri.
+> **Revendedora do Jueri:** nome, e-mail, CPF, endereço e nascimento são alterados **no Jueri**. No CRM esses campos ficam travados. Quando alguém altera no Jueri, o CRM atualiza **na hora** (e, por garantia, confere tudo de novo a cada 15 minutos).
 
 ## Outras listas
 

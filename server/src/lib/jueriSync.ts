@@ -160,6 +160,23 @@ export class JueriSync {
     return res;
   }
 
+  /** Webhook revendedor.created/updated: busca o cadastro dela no Jueri (só leitura, GET) e atualiza na
+   *  hora — nome, telefone, endereço, gerente… (Victor, 05/11: alteração de revendedora é feita no Jueri e
+   *  o CRM tem que ler imediatamente). Quem ainda não está no CRM entra pelo pedido (precisa de maleta). */
+  async revendedorEvento(payload: any) {
+    const res = novoResultado();
+    const r0 = payload?.revendedor && typeof payload.revendedor === 'object' ? payload.revendedor : payload;
+    const id = String(r0?.id ?? payload?.fk_revendedor_id ?? payload?.revendedor_id ?? '').trim();
+    if (!id) return res;
+    const [c] = await db.select().from(contacts).where(and(eq(contacts.accountId, this.accountId), eq(contacts.idJueri, id)));
+    if (!c) return res;
+    const r = await jueri(`/revendedor/${id}`);
+    if (!r) return res;
+    await updateContact(c, await this.attrsDoCadastro(c, r));
+    res.atualizados++;
+    return res;
+  }
+
   /** Webhook pedido.deleted (Unificar Pedidos): o pedido vira Cancelado e recalcula. */
   async pedidoExcluido(p: any) {
     const res = novoResultado();
@@ -393,5 +410,9 @@ export async function aplicarEventoJueri(accountId: number, evento: string | nul
   } else if (evento === 'revendedor.created') {
     const r = payload?.revendedor && typeof payload.revendedor === 'object' ? payload.revendedor : payload;
     await db.insert(notifications).values({ accountId, audience: 'owner_level', title: 'Novo cadastro no Jueri', message: `${r?.nome || 'Revendedora sem nome'} — cadastro novo`, link: '/carteira' });
+    await s.revendedorEvento(payload);
+  } else if (evento.startsWith('revendedor.') && evento !== 'revendedor.deleted') {
+    // revendedor.updated (e variações): cadastro alterado no Jueri entra no CRM na hora
+    await s.revendedorEvento(payload);
   }
 }

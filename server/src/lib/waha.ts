@@ -145,7 +145,7 @@ export class WahaService {
         }
         if (!res?.ok) console.warn(`Waha ${endpoint} falhou (${res?.status}):`, (await res?.clone().text().catch(() => ''))?.slice(0, 300));
       } else {
-        res = await this.request('POST', '/api/sendText', { session: this.session, chatId, text });
+        res = await this.request('POST', '/api/sendText', { session: this.session, chatId, text }, 45000); // WEBJS às vezes passa de 15 s (Letícia 06/11: "Não enviada" por timeout)
       }
       const parsed = await this.json<{ id?: { _serialized?: string }; _data?: { id?: { _serialized?: string } } }>(res);
       if (!parsed) console.warn('Waha sendMessage falhou:', res?.status);

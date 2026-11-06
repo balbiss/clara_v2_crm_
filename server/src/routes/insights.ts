@@ -178,7 +178,31 @@ insightsRouter.get('/insights/atividades', requireAuth, requirePerm('insights.re
       (SELECT COUNT(*)::int FROM pipeline_cards pc JOIN pipeline_stages s ON s.id = pc.pipeline_stage_id JOIN contacts ct ON ct.id = pc.contact_id WHERE ct.user_id = u.id AND s.kind = 'won' AND pc.closed_at >= ${F} AND pc.closed_at < ${T}) vendas,
       (SELECT COALESCE(SUM(pc.value), 0)::float FROM pipeline_cards pc JOIN pipeline_stages s ON s.id = pc.pipeline_stage_id JOIN contacts ct ON ct.id = pc.contact_id WHERE ct.user_id = u.id AND s.kind = 'won' AND pc.closed_at >= ${F} AND pc.closed_at < ${T}) vendas_valor
     FROM users u WHERE u.account_id = ${a} AND COALESCE(u.status, 'active') = 'active' ${uid ? sql`AND u.id = ${uid}` : sql``} ORDER BY nome`);
-  res.json({ from, to, usuarios: list });
+  // Prospecção (Bel, 06/11): conversas NOVAS que a atendente abriu no período (a 1ª mensagem da conversa
+  // é dela), separando manual x disparo, quantas a cliente respondeu e em quantas ela deu sequência
+  // (mandou mensagem depois da resposta). Filtro opcional por número (inbox_id).
+  const inboxId = /^\d+$/.test(String(req.query.inbox_id || '')) ? Number(req.query.inbox_id) : null;
+  const pros = await rows(sql`WITH novas AS (
+      SELECT c.id, f.sender_id uid, f.broadcast_id IS NOT NULL disparo, f.created_at t0
+      FROM conversations c
+      CROSS JOIN LATERAL (SELECT m.sender_type, m.sender_id, m.broadcast_id, m.created_at FROM messages m
+        WHERE m.conversation_id = c.id AND NOT COALESCE(m.is_private, false) ORDER BY m.created_at, m.id LIMIT 1) f
+      WHERE c.account_id = ${a} AND c.created_at < ${T} AND c.created_at >= ${F} - interval '7 days'
+        ${inboxId ? sql`AND c.inbox_id = ${inboxId}` : sql``}
+        AND f.sender_type = 'User' AND f.created_at >= ${F} AND f.created_at < ${T}
+    ), resp AS (
+      SELECT n.*, (SELECT MIN(m.created_at) FROM messages m WHERE m.conversation_id = n.id AND m.sender_type = 'Contact' AND m.created_at > n.t0) r1
+      FROM novas n
+    )
+    SELECT uid, COUNT(*) FILTER (WHERE NOT disparo)::int manuais, COUNT(*) FILTER (WHERE disparo)::int disparo,
+      COUNT(r1)::int responderam,
+      COUNT(*) FILTER (WHERE r1 IS NOT NULL AND EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = resp.id
+        AND m.sender_type = 'User' AND NOT COALESCE(m.is_private, false) AND m.created_at > resp.r1))::int sequencia
+    FROM resp GROUP BY uid`);
+  const porUid = new Map(pros.map((p: any) => [Number(p.uid), p]));
+  const zero = { manuais: 0, disparo: 0, responderam: 0, sequencia: 0 };
+  const usuarios = list.map((u: any) => ({ ...u, prospeccao: (({ manuais, disparo, responderam, sequencia }) => ({ manuais, disparo, responderam, sequencia }))(porUid.get(Number(u.id)) ?? zero) }));
+  res.json({ from, to, usuarios });
 });
 
 // --- Relatório de meta -------------------------------------------------------------------------

@@ -131,9 +131,35 @@ function Consolidado({ f, pipelineId }: { f: Period; pipelineId: string }) {
 
 function Atividades({ f }: { f: Period }) {
   const [d, setD] = useState<any>(null)
-  useEffect(() => { api.get(`/insights/atividades?${qs(f)}`).then(r => setD(r.data)).catch(() => {}) }, [f])
+  const [inboxId, setInboxId] = useState('')
+  const [caixas, setCaixas] = useState<any[]>([])
+  useEffect(() => { api.get('/inboxes').then(r => setCaixas((r.data?.payload ?? r.data ?? []) as any[])).catch(() => {}) }, [])
+  useEffect(() => { api.get(`/insights/atividades?${qs({ ...f, inbox_id: inboxId })}`).then(r => setD(r.data)).catch(() => {}) }, [f, inboxId])
   if (!d) return null
+  const linhas = d.usuarios.filter((u: any) => u.prospeccao && (u.prospeccao.manuais + u.prospeccao.disparo > 0))
   return (
+    <>
+    <div style={{ ...box, padding: 0, overflowX: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '14px 16px 6px' }}>
+        <h2 style={{ ...h2, margin: 0, flex: 1 }}>Conversas novas (prospecção)</h2>
+        <select aria-label="Número" value={inboxId} onChange={e => setInboxId(e.target.value)} style={{ ...kInput, width: 240 }}>
+          <option value="">Todos os números</option>
+          {caixas.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </div>
+      <p style={{ margin: '0 16px 8px', color: K.muted, fontSize: 13 }}>Conversa nova = a primeira mensagem da conversa foi da atendente, no período. "Deu sequência" = mandou mensagem depois que a cliente respondeu.</p>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+        <thead><tr>{['Nome', 'Iniciadas à mão', 'Por disparo', 'Total', 'Cliente respondeu', 'Deu sequência', 'Sem sequência'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
+        <tbody>
+          {linhas.map((u: any) => { const p = u.prospeccao; return (
+            <tr key={u.id} data-testid="pros-linha">
+              <td style={{ ...td, color: K.link }}>{u.nome}</td><td style={td}><b>{p.manuais}</b></td><td style={td}>{p.disparo}</td><td style={td}>{p.manuais + p.disparo}</td>
+              <td style={td}>{p.responderam}</td><td style={td}>{p.sequencia}</td><td style={{ ...td, color: p.responderam - p.sequencia ? K.red : K.text }}>{p.responderam - p.sequencia}</td>
+            </tr>) })}
+          {!linhas.length && <tr><td colSpan={7} style={{ ...td, color: K.muted, textAlign: 'center' }}>Nenhuma conversa nova no período.</td></tr>}
+        </tbody>
+      </table>
+    </div>
     <div style={{ ...box, padding: 0, overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}>
         <thead><tr>{['Nome', 'Leads em processo', 'Mensagens enviadas', 'Notas adicionadas', 'Total de tarefas', 'Tarefas concluídas', 'Vendas totais'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
@@ -148,6 +174,7 @@ function Atividades({ f }: { f: Period }) {
         </tbody>
       </table>
     </div>
+    </>
   )
 }
 

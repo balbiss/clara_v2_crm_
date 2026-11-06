@@ -422,7 +422,7 @@ conversationsRouter.post('/conversations/:conversation_id/messages', upload.sing
         const [contact] = await db.select().from(contacts).where(eq(contacts.id, conv.contactId));
         const recipient = channelIdentifier(contact);
         // flag anti-eco ANTES de enviar: o eco (fromMe) do webhook pode chegar antes da resposta
-        if (contact.jid) cache.write(`sending_from_crm_${inbox.id}_${contact.jid}`, true, 20);
+        if (contact.jid) cache.write(`sending_from_crm_${inbox.id}_${contact.jid}`, true, 60);
         externalId = recipient ? await messagingService(inbox).sendMessage(recipient, signedText(inbox, u, message.text ?? ''), file) : null;
       } catch (e) {
         console.error('Failed to send message via waha:', (e as Error).message);

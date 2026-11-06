@@ -28,7 +28,7 @@ resumo: Como ver, concluir e criar tarefas, para quem elas vão e como usar o ca
 ![Lista de tarefas](/ajuda/tarefas-lista.png)
 *Prazo em vermelho = atrasada. "Abrir" leva para a cliente.*
 
-- Clique em **Meus eventos** para trocar entre só as suas e as de todos (para quem tem acesso).
+- **Ver as tarefas de cada colaboradora** (gerência e diretoria): no topo, troque **Só as minhas** por **Todas as pessoas**, pelo nome de uma colaboradora ou por **Sem responsável**. Cada cartão mostra o nome da responsável (👤).
 - Escolha uma pessoa em **Todos os usuários** para ver as tarefas dela.
 - **Abrir** leva para a cliente, para você resolver.
 
@@ -45,4 +45,4 @@ Em **Calendário** ficam os agendamentos (acertos, inícios de maleta, compromis
 
 - Veja por **semana** ou **mês** e navegue com as setas.
 - **Novo evento** marca um compromisso.
-- **Meus eventos / Filtro** escolhe de quem você vê a agenda (ver a agenda de outras pessoas depende do perfil).
+- O seletor **Só as minhas / Todas as pessoas / nome** escolhe de quem você vê a agenda (ver a agenda de outras pessoas depende do perfil).

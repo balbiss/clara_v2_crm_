@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { and, asc, between, eq, gte, inArray, lt, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, between, eq, gte, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { tarefas, agendamentos, contacts, users } from '../db/schema.js';
 import { requireAuth, requirePerm, pode, escopo, accessibleJueriLiderIds, type User } from '../middleware/auth.js';
@@ -28,7 +28,8 @@ tarefasRouter.get('/tarefas', requireAuth, async (req, res) => {
   const q = req.query;
   if (q.status) conds.push(eq(tarefas.status, String(q.status)));
   if (q.tipo) conds.push(eq(tarefas.tipo, String(q.tipo)));
-  if (q.user_id) conds.push(eq(tarefas.userId, Number(q.user_id)));
+  if (q.user_id === '0') conds.push(isNull(tarefas.userId)); // "Sem responsável" no quadro de tarefas
+  else if (q.user_id) conds.push(eq(tarefas.userId, Number(q.user_id)));
   if (q.contact_id) conds.push(eq(tarefas.contactId, Number(q.contact_id))); // histórico do card do lead (visual Kommo)
   if (q.vencidas === 'true') conds.push(eq(tarefas.status, 'pendente'), lt(tarefas.vencimentoEm, new Date()));
   if (q.do_dia === 'true') { const [a, b] = diaSP(); conds.push(eq(tarefas.status, 'pendente'), between(tarefas.vencimentoEm, a, b)); }

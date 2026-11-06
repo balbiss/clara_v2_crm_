@@ -5,7 +5,7 @@ import api from '../api'
 import { Modal } from '../components/ui'
 import { toast, confirmBox } from '../components/ui2'
 import { useClickOutside, readUser } from '../lib/hooks'
-import { can } from '../lib/acesso'
+import { can, escopo } from '../lib/acesso'
 import { K, kBtn, kInput, TIPOS_TAREFA } from '../lib/kommo'
 
 // Calendário no visual do Kommo: os 3 ícones do topo trocam entre quadro de tarefas (colunas
@@ -20,6 +20,8 @@ const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'O
 const AG_TIPOS: Record<string, string> = { reuniao: 'Reunião', entrega_maleta: 'Entrega de maleta', acerto: 'Acerto', outro: 'Outro' }
 const HOUR_PX = 48
 const fullPortfolio = () => can('agenda.equipe')
+// gerência/diretoria/financeiro: escolhem de quem ver as tarefas (Bel, 06/11 — "como vejo as tarefas das colaboradoras?")
+const seeOthers = () => fullPortfolio() || escopo('tarefas.ver') === 'todos'
 
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
@@ -36,8 +38,8 @@ export default function Calendario({ initialView = 'calendar' as View }) {
   const [view, setView] = useState<View>(initialView)
   const [span, setSpan] = useState<Span>('week')
   const [cursor, setCursor] = useState(() => new Date())
-  const [mine, setMine] = useState(true)
-  const [userId, setUserId] = useState<string>('')
+  // de quem: 'me' (só as minhas), '' (todas que posso ver), '0' (sem responsável) ou o id de uma pessoa
+  const [who, setWho] = useState<string>('me')
   const [q, setQ] = useState('')
   const [events, setEvents] = useState<any[]>([])
   const [tasks, setTasks] = useState<any[]>([])
@@ -62,17 +64,17 @@ export default function Calendario({ initialView = 'calendar' as View }) {
   }, [cursor, span])
 
   const load = async () => {
-    const who = mine ? me.id : userId || undefined
+    const uid = who === 'me' ? me.id : who || undefined
     try {
       const [ev, tk] = await Promise.all([
-        api.get('/agendamentos', { params: { de: ymd(range[0]), ate: ymd(range[1]), user_id: who } }),
-        api.get('/tarefas', { params: { status: 'pendente', user_id: who } }),
+        uid === '0' ? Promise.resolve({ data: [] }) : api.get('/agendamentos', { params: { de: ymd(range[0]), ate: ymd(range[1]), user_id: uid } }),
+        api.get('/tarefas', { params: { status: 'pendente', user_id: uid } }),
       ])
       setEvents(ev.data); setTasks(tk.data)
     } catch { toast('error', 'Não foi possível carregar o calendário.') }
   }
-  useEffect(() => { load() }, [range[0].getTime(), range[1].getTime(), mine, userId])
-  useEffect(() => { if (fullPortfolio()) api.get('/agents').then(r => setAgents(r.data)).catch(() => {}) }, [])
+  useEffect(() => { load() }, [range[0].getTime(), range[1].getTime(), who])
+  useEffect(() => { if (seeOthers()) api.get('/agents').then(r => setAgents(r.data)).catch(() => {}) }, [])
   useEffect(() => { if (view === 'calendar' && span !== 'month' && gridRef.current) gridRef.current.scrollTop = prefs.startHour * HOUR_PX }, [view, span])
 
   const match = (s: string) => !q.trim() || s.toLowerCase().includes(q.trim().toLowerCase())
@@ -111,13 +113,16 @@ export default function Calendario({ initialView = 'calendar' as View }) {
           </div>
         </>)}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, borderLeft: `1px solid ${K.line}`, height: '100%', paddingLeft: 16, marginLeft: 16 }}>
-          <button onClick={() => { setMine(m => !m); setUserId('') }} title={mine ? 'Mostrando só os seus — clique pra ver de todos' : 'Mostrar só os meus'}
-            style={{ fontFamily: K.font, fontSize: 14, padding: '3px 8px', border: `1px solid ${mine ? '#b9d98a' : K.lineDark}`, background: mine ? '#e6f2d2' : '#fff', color: mine ? '#4f6b25' : K.muted, borderRadius: 2, cursor: 'pointer' }}>{mine ? 'Meus eventos' : 'Todos os eventos'}</button>
-          {!mine && fullPortfolio() && (
-            <select value={userId} onChange={e => setUserId(e.target.value)} style={{ ...kInput, width: 180, height: 30 }}>
-              <option value="">Todos os usuários</option>
-              {agents.map(a => <option key={a.id} value={a.id}>{a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim()}</option>)}
+          {seeOthers() ? (
+            <select value={who} onChange={e => setWho(e.target.value)} title="De quem são as tarefas e eventos mostrados"
+              style={{ ...kInput, width: 210, height: 30, border: `1px solid ${who === 'me' ? '#b9d98a' : K.lineDark}`, background: who === 'me' ? '#e6f2d2' : '#fff' }}>
+              <option value="me">Só as minhas</option>
+              <option value="">Todas as pessoas</option>
+              <option value="0">Sem responsável</option>
+              {agents.filter(a => a.id !== me.id).map(a => <option key={a.id} value={a.id}>{a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim()}</option>)}
             </select>
+          ) : (
+            <span style={{ fontFamily: K.font, fontSize: 14, padding: '3px 8px', border: '1px solid #b9d98a', background: '#e6f2d2', color: '#4f6b25', borderRadius: 2 }}>Minhas</span>
           )}
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filtro" style={{ flex: 1, border: 'none', outline: 'none', fontFamily: K.font, fontSize: 15, color: K.text, background: 'none' }} />
         </div>
@@ -314,6 +319,7 @@ function TaskBoard({ tasks, onOpen }: { tasks: any[]; onOpen: (t: any) => void }
                   <div style={{ fontSize: 13, color: c.id === 'late' ? '#e2557a' : K.muted }}>{new Date(t.vencimento_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · {TIPOS_TAREFA[t.tipo] || t.tipo}</div>
                   <div style={{ color: K.link, fontSize: 15, margin: '2px 0' }}>{t.contact?.name || '—'}</div>
                   <div style={{ fontSize: 14 }}>{t.titulo}</div>
+                  <div style={{ fontSize: 12.5, color: K.muted, marginTop: 3 }}>👤 {t.user ? `${t.user.first_name || ''} ${t.user.last_name || ''}`.trim() : 'Sem responsável'}</div>
                 </div>
               ))}
             </div>

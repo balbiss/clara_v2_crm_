@@ -15,6 +15,11 @@ export async function pickWhatsappInbox(confirmText = 'Iniciar conversa') {
   // só os números de que a pessoa é membro; com um só, nem pergunta. Sem caixa nenhuma, todas (como antes).
   const minhas = todas.filter(i => i.member)
   const whatsappInboxes = minhas.length ? minhas : todas
+  // está dentro de uma caixa (Conversas › Prospecção Thays): manda por ela, sem perguntar
+  // ("a msg vai ser enviada pela caixa onde ele estiver" — Bel, 05/11; vídeo 06/11)
+  const naCaixa = window.location.pathname.match(/\/conversas\/inbox\/(\d+)/)?.[1]
+  const atual = naCaixa && whatsappInboxes.find(i => String(i.id) === naCaixa)
+  if (atual) return { inboxId: atual.id, cancelled: false }
   if (whatsappInboxes.length <= 1) {
     return { inboxId: whatsappInboxes[0]?.id ?? null, cancelled: false }
   }

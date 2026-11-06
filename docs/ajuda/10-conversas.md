@@ -90,7 +90,7 @@ Clique em **Conversas abertas**, em cima da lista, para trocar o que aparece:
 - **Minhas / Não atribuídas:** filtra pelo responsável.
 - **Grupos:** os grupos de WhatsApp ficam separados da lista principal.
 - **Arquivadas:** conversas que alguém arquivou.
-- **Nova conversa:** começa a falar com um número. Se você atende mais de um número, o CRM pergunta por qual quer falar.
+- **Nova conversa:** começa a falar com um número. Se você está dentro de uma caixa (ex.: Prospecção Thays), a conversa sai **por essa caixa**, sem perguntar. Na visão de todas as caixas, se você atende mais de um número, o CRM pergunta por qual quer falar.
 
 ## Mais opções da conversa (•••)
 

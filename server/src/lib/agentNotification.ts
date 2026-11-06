@@ -14,7 +14,9 @@ export async function notifyAssignment(agent: UserRow, conversation: Conversatio
   const name = contact.name || `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || 'Novo lead';
   const byLabel = assignedBy === 'rodizio' ? 'Rodízio automático' : assignedBy === 'ia' ? 'Encaminhado pela IA' : 'Atribuição manual';
 
-  if (agent.phone) {
+  // Bel/Letícia, 06/11: o aviso por WhatsApp aparecia dentro das conversas do CRM (o telefone da atendente
+  // também está no sistema) — desligado; fica só o push. Religar com AVISO_ATRIBUICAO_WHATSAPP=true.
+  if (agent.phone && process.env.AVISO_ATRIBUICAO_WHATSAPP === 'true') {
     try {
       const [inbox] = await db.select().from(inboxes).where(and(eq(inboxes.accountId, conversation.accountId), eq(inboxes.provider, 'waha'))).orderBy(asc(inboxes.id)).limit(1);
       if (inbox) {

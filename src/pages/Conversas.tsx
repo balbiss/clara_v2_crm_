@@ -42,6 +42,7 @@ import { can } from '../lib/acesso'
 import { inboxesStore } from '../store/inboxes'
 import { fmtPhone } from './SettingsInboxDetail'
 import { pickWhatsappInbox } from '../composables/useInboxPicker'
+import { telefoneDigitado } from '../components/NewConversationModal'
 
 // Porte de views/Conversas.vue (lógica da v1) no layout do Kommo: lista | card do lead | histórico.
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -243,6 +244,21 @@ export default function Conversas() {
   }, [v.searchQuery, s, params.inboxId])
 
   const clearSearch = () => { s.searchQuery = ''; s.searchResults = null }
+  // número digitado na busca sem conversa: começa ali mesmo, como na v1 (Bel, 06/11)
+  const telBusca = telefoneDigitado(v.searchQuery)
+  const semResultado = !!v.searchResults && !v.searchResults.conversations.length && !v.searchResults.messages.length
+  const iniciarPelaBusca = async () => {
+    if (!telBusca) return
+    const { inboxId, cancelled } = await pickWhatsappInbox()
+    if (cancelled) return
+    try {
+      const nova = await conversationsStore.startConversationWithPhone(v.searchQuery.replace(/\D/g, ''), inboxId)
+      clearSearch()
+      await openSearchResult(nova.id)
+    } catch (e: Any) {
+      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Erro ao iniciar conversa.', showConfirmButton: false, timer: 3500 })
+    }
+  }
 
   // trecho em volta da 1ª palavra encontrada, com as palavras marcadas (sem acento)
   const highlightParts = (text: string) => {
@@ -985,7 +1001,7 @@ export default function Conversas() {
         <div className="conv-col" data-hide={v.mobileView !== 'list' ? '1' : '0'} style={{ borderRight: `1px solid ${K.line}`, background: '#fff', display: 'flex', flexDirection: 'column', minHeight: 0, position: 'relative', zIndex: 3 }}>
           <div style={{ height: 64, display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', borderBottom: `1px solid ${K.line}`, flex: 'none' }}>
             <Search size={18} color={K.text} />
-            <input value={v.searchQuery} placeholder="Buscar" onChange={e => { s.searchQuery = e.target.value }} onKeyDown={e => { if (e.key === 'Escape') clearSearch() }}
+            <input value={v.searchQuery} placeholder="Buscar" onChange={e => { s.searchQuery = e.target.value }} onKeyDown={e => { if (e.key === 'Escape') clearSearch(); if (e.key === 'Enter' && semResultado && telBusca) iniciarPelaBusca() }}
               style={{ flex: 1, border: 'none', outline: 'none', fontFamily: K.font, fontSize: 16, background: 'none', color: K.text }} />
             {v.searchQuery && <button title="Limpar pesquisa" onClick={clearSearch} style={{ border: 'none', background: 'none', color: K.muted, display: 'flex', cursor: 'pointer' }}><X size={15} /></button>}
           </div>
@@ -1044,7 +1060,7 @@ export default function Conversas() {
                       </span>
                     </button>
                   ))}
-                  {!v.searchResults.conversations.length && !v.searchResults.messages.length && <p style={{ fontSize: 14, color: K.muted, padding: '40px 20px', textAlign: 'center' }}>Nada encontrado para "{v.searchQuery}".</p>}
+                  {!v.searchResults.conversations.length && !v.searchResults.messages.length && <div style={{ padding: '32px 20px', textAlign: 'center' }}><p style={{ fontSize: 14, color: K.muted, margin: 0 }}>Nada encontrado para "{v.searchQuery}".</p>{telBusca && <button onClick={iniciarPelaBusca} style={kBtn('blue', { marginTop: 14, textTransform: 'none' })}>💬 Iniciar conversa com {telBusca}</button>}{telBusca && <p style={{ fontSize: 12, color: K.muted, marginTop: 6 }}>ou aperte Enter</p>}</div>}
                 </>
               ) : null
             ) : (

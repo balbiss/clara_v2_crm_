@@ -7,7 +7,7 @@ import { contactsStore } from '../store/contacts'
 import { Modal, btn, inputStyle } from '../components/ui'
 import { PageHead, toast } from '../components/ui2'
 import { ChatAvatar } from '../components/ChatAvatar'
-import { SearchBox, brl, contactName } from '../components/lists'
+import { SearchBox, brl, contactName, useAbrirConversaDoContato } from '../components/lists'
 import { useClickOutside, useWindowEvent } from '../lib/hooks'
 
 // Consignado: a régua da revenda em colunas (mesmos nomes/checklists que a Clara usava no Kommo).
@@ -50,6 +50,7 @@ function MoveMenu({ current, onPick }: { current: string; onPick: (id: string) =
 
 export default function Kanban() {
   const navigate = useNavigate()
+  const abrirConversa = useAbrirConversaDoContato() // card abre a conversa, não a ficha (Bel, 06/11)
   const store = useSnapshot(contactsStore) as any
   const [loading, setLoading] = useState(!contactsStore.isLoadedOnce)
   const [q, setQ] = useState('')
@@ -144,7 +145,7 @@ export default function Kanban() {
                     const v = parseFloat(c.custom_attributes?.venda) || 0
                     return (
                       <div key={c.id} draggable onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragId(c.id) }} onDragEnd={() => { setDragId(null); setOverCol(null) }}
-                        onClick={() => navigate(`/contatos/${c.id}`)}
+                        onClick={() => abrirConversa(c)}
                         style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 10, padding: '9px 10px', cursor: 'grab', opacity: dragId === c.id ? 0.45 : 1, boxShadow: '0 1px 2px rgba(8,17,31,.05)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <ChatAvatar nome={contactName(c)} foto={c.avatar_url} size={26} />

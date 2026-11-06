@@ -8,6 +8,7 @@ import { ChatAvatar } from '../components/ChatAvatar'
 import { useClickOutside, readUser } from '../lib/hooks'
 import { can } from '../lib/acesso'
 import { K, brlK, kBtn, kInput } from '../lib/kommo'
+import { useAbrirConversaDoContato } from '../components/lists'
 
 // Funis no visual do Kommo (Varejo, Onboarding, Atacado, Prospecção…): colunas por etapa com
 // "N leads: R$X", cards com contato em cinza e nome do lead em azul, tags e o ponto da tarefa.
@@ -132,6 +133,8 @@ function PainelFiltro({ filtro, onChange, onClose }: { filtro: Filtro; onChange:
 export default function Funis() {
   const { slug } = useParams()
   const navigate = useNavigate()
+  // clicar no card abre a CONVERSA da pessoa, não a ficha (Bel, 06/11)
+  const abrirConversa = useAbrirConversaDoContato()
   const [pipes, setPipes] = useState<any[]>([])
   const [cards, setCards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -271,7 +274,7 @@ export default function Funis() {
                   </div>
                 )}
                 {list.map(c => (
-                  <LeadCard key={c.id} card={c} dragging={dragId === c.id} onOpen={() => navigate(`/contatos/${c.contact?.id}`)}
+                  <LeadCard key={c.id} card={c} dragging={dragId === c.id} onOpen={() => abrirConversa(c.contact, pipe?.id)}
                     onDragStart={() => setDragId(c.id)} onDragEnd={() => { setDragId(null); setOver(null) }} />
                 ))}
                 <button onClick={() => setNovo({ stageId: s.id })} style={{ border: `1px dashed ${K.lineDark}`, background: 'none', color: K.muted, fontFamily: K.font, fontSize: 13, padding: '8px', borderRadius: 3, cursor: 'pointer' }}>+ Adição rápida</button>

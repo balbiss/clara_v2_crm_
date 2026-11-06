@@ -108,3 +108,20 @@ export const statusTone = (s?: string | null): 'muted' | 'blue' | 'green' | 'amb
   revendedor_ativo: 'green', terceiro_dia: 'blue', decimo_dia: 'blue', vigesimo_dia: 'amber', agendado: 'blue', reagendar: 'amber', atrasada: 'red',
   sem_maleta: 'muted', inativa_pendencia: 'amber', suspensa_atraso: 'red', negativado_juridico: 'red', resgate: 'amber', reativacao: 'blue', descadastrada: 'muted',
 } as Record<string, 'muted' | 'blue' | 'green' | 'amber' | 'red'>)[s || 'revendedor_ativo'] || 'muted';
+
+/** Card de funil → abre a CONVERSA da pessoa (não a ficha; Bel, 06/11). Prefere a caixa que alimenta o funil;
+ *  sem conversa ainda, inicia uma (pergunta o número quando precisa). */
+export function useAbrirConversaDoContato() {
+  const navigate = useNavigate()
+  const { start } = useStartConversation()
+  return async (contact: any, pipelineId?: number | null) => {
+    if (!contact?.id) return
+    try {
+      const { data } = await api.get('/conversations/do_contato', { params: { contact_id: contact.id, pipeline_id: pipelineId || undefined } })
+      navigate(`/conversas?abrir=${data.id}`)
+    } catch (e: any) {
+      if (e.response?.status === 404) start(contact)
+      else toast('error', 'Não foi possível abrir a conversa.')
+    }
+  }
+}

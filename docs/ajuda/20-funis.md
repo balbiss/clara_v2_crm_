@@ -18,6 +18,8 @@ Funis da Clara: **Consignado** (a régua da maleta), **Varejo**, **Onboarding**,
 - **Arraste o card** para a coluna da nova etapa.
 - Ou abra o card e troque a etapa.
 
+**Clicar no card abre a conversa** da cliente no WhatsApp (pelo número desse funil). Se ainda não houver conversa, o CRM começa uma. A ficha completa fica no painel ao lado da conversa.
+
 Quando a cliente entra numa etapa, as **automações daquela etapa** rodam sozinhas: criar tarefa, mandar mensagem, colocar etiqueta etc. (veja **Automações**).
 
 ## Colocar uma cliente no funil

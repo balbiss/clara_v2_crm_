@@ -156,6 +156,23 @@ conversationsRouter.get('/conversations/search', async (req, res) => {
   });
 });
 
+// Card do funil → abre a conversa (Bel, 06/11). Entre as conversas que a pessoa vê, prefere a da caixa
+// que alimenta este funil e, depois, a mais recente. 404 = sem conversa ainda (o front oferece iniciar).
+conversationsRouter.get('/conversations/do_contato', async (req, res) => {
+  const u = req.user!;
+  const contactId = Number(req.query.contact_id);
+  if (!contactId) return notFound(res);
+  const pipelineId = Number(req.query.pipeline_id) || 0;
+  const [r] = await db.select({ id: conversations.id }).from(conversations)
+    .innerJoin(inboxes, eq(inboxes.id, conversations.inboxId))
+    .where(and(eq(conversations.contactId, contactId), await visibleConversationsWhere(u), await caixaWhere(u)))
+    .orderBy(desc(sql`(${inboxes.entryStageId} IS NOT NULL AND EXISTS (SELECT 1 FROM pipeline_stages ps WHERE ps.id = ${inboxes.entryStageId} AND ps.pipeline_id = ${pipelineId}))`),
+      sql`${conversations.lastActivityAt} DESC NULLS LAST`)
+    .limit(1);
+  if (!r) return notFound(res);
+  res.json({ id: r.id });
+});
+
 conversationsRouter.get('/conversations/:id', async (req, res) => {
   const conv = await loadVisible(req, res);
   if (!conv) return;

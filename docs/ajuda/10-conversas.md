@@ -18,6 +18,7 @@ Cada número de WhatsApp da empresa (Consultoras, Prospecção, Financeiro…) f
 - Você só vê as conversas dos **números em que está cadastrada**.
 - Embaixo de **Conversas**, no menu, aparece cada um dos seus números. Clique em um para ver só as conversas dele.
 - Cada conversa tem uma **etiqueta colorida** mostrando de qual número ela é.
+- **Falar com um número novo:** digite o telefone (com DDD) na **busca** das conversas. Se não houver conversa com ele, aparece o botão **Iniciar conversa com…**: clique (ou aperte Enter) e a conversa já abre.
 - A mensagem que você escreve sai **sempre pelo número daquela conversa**. A faixa colorida em cima do campo de mensagem mostra qual é.
 
 ![Por qual número a mensagem sai](/ajuda/conversas-numero.png)

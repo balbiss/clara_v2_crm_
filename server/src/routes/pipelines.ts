@@ -272,7 +272,14 @@ pipelinesRouter.get('/pipelines/:id/pipeline_cards', async (req, res) => {
   res.json(await serializeCards((await cardsWhere(req, [eq(pipelineCards.pipelineId, p.id)])).map(r => r.c)));
 });
 pipelinesRouter.get('/pipeline_cards', async (req, res) => {
-  const extra: SQL[] = req.query.contact_id ? [eq(pipelineCards.contactId, Number(req.query.contact_id))] : [];
+  const cid = Number(req.query.contact_id) || 0;
+  // painel da conversa: cards da cliente que ela atende (não só da carteira) — senão aparece "Sem funil"
+  if (cid && await contatoAcessivel(req, cid)) {
+    const rows = await db.select({ c: pipelineCards }).from(pipelineCards).innerJoin(pipelines, eq(pipelines.id, pipelineCards.pipelineId))
+      .where(and(eq(pipelines.accountId, acc(req)), eq(pipelineCards.contactId, cid)));
+    return res.json(await serializeCards(rows.map(r => r.c)));
+  }
+  const extra: SQL[] = cid ? [eq(pipelineCards.contactId, cid)] : [];
   res.json(await serializeCards((await cardsWhere(req, extra)).map(r => r.c)));
 });
 
@@ -293,11 +300,18 @@ pipelinesRouter.post('/pipelines/:id/pipeline_cards', async (req, res) => {
     contactId = c.id;
   } else {
     const [c] = await db.select().from(contacts).where(and(eq(contacts.id, contactId), eq(contacts.accountId, acc(req))));
-    if (!c || (!seesAll(req.user!) && c.userId && c.userId !== req.user!.id)) return res.status(422).json({ message: 'Esse contato é da carteira de outra pessoa.' });
+    if (!c || !(await contatoAcessivel(req, c.id))) return res.status(422).json({ message: 'Esse contato é da carteira de outra pessoa.' });
     // contato sem responsável: quem coloca no funil vira a responsável (Kommo: quem cria o lead)
     if (!c.userId && !seesAll(req.user!)) await updateContact(c, { userId: req.user!.id });
   }
-  const [dup] = await db.select({ id: pipelineCards.id }).from(pipelineCards).where(and(eq(pipelineCards.pipelineId, p.id), eq(pipelineCards.contactId, contactId)));
+  const [dup] = await db.select().from(pipelineCards).where(and(eq(pipelineCards.pipelineId, p.id), eq(pipelineCards.contactId, contactId)));
+  if (dup && v.contact_id) {
+    // já está neste funil (ex.: o número pôs sozinho e a tela não mostrava): só muda a etapa
+    let cur = dup;
+    if (dup.pipelineStageId !== stage.id) cur = await moveCard(dup, stage.id, 0, p.id, req.user!.id);
+    const [fresh] = await db.select().from(pipelineCards).where(eq(pipelineCards.id, cur.id));
+    return res.json((await serializeCards([fresh ?? cur]))[0]);
+  }
   if (dup) return res.status(422).json({ message: 'Esse contato já está neste funil.' });
   const [card] = await db.insert(pipelineCards).values({ pipelineId: p.id, pipelineStageId: stage.id, contactId, value: String(Number(v.value) || 0) }).returning();
   const [cn] = await db.select({ n: contacts.name, p: contacts.phone }).from(contacts).where(eq(contacts.id, contactId));
@@ -306,12 +320,33 @@ pipelinesRouter.post('/pipelines/:id/pipeline_cards', async (req, res) => {
   res.status(201).json((await serializeCards([card]))[0]);
 });
 
-/** Card que o usuário pode mexer: consultor só nos leads da própria carteira (igual à lista). */
+/**
+ * Contato cujo card a consultora pode ver/mover: da carteira dela, sem dona, ou que conversa num número
+ * de que ela é membro (Nathalia/Prospecção, 06/11 — o funil é do setor: quem atende pelo número mexe
+ * no card, mesmo que a cliente seja de outra carteira ou ainda não tenha dona).
+ */
+async function contatoAcessivel(req: Request, contactId: number) {
+  if (seesAll(req.user!)) return true;
+  const uid = req.user!.id;
+  const r = await db.execute(sql`SELECT 1 FROM contacts c WHERE c.id = ${contactId} AND c.account_id = ${acc(req)} AND (
+      c.user_id IS NULL OR c.user_id = ${uid}
+      OR EXISTS (SELECT 1 FROM conversations cv JOIN inbox_members im ON im.inbox_id = cv.inbox_id
+                 WHERE cv.contact_id = c.id AND im.user_id = ${uid})) LIMIT 1`);
+  return ((r as any).rows ?? r).length > 0;
+}
+
+/** Card que o usuário pode mexer: carteira dela ou atendimento pelo número dela (contatoAcessivel). */
 async function visibleCard(req: Request, id: number) {
   const card = await ownCard(req, id);
-  if (!card || seesAll(req.user!)) return card;
-  const [c] = await db.select({ id: contacts.id }).from(contacts).where(and(eq(contacts.id, card.contactId), eq(contacts.userId, req.user!.id)));
-  return c ? card : null;
+  if (!card) return null;
+  return (await contatoAcessivel(req, card.contactId)) ? card : null;
+}
+
+/** Lead sem dona: quem mexe no card vira a responsável (igual a colocar no funil — Kommo). */
+async function assumirSeSemDona(req: Request, contactId: number) {
+  if (seesAll(req.user!)) return;
+  const [c] = await db.select().from(contacts).where(eq(contacts.id, contactId));
+  if (c && !c.userId) await updateContact(c, { userId: req.user!.id });
 }
 
 pipelinesRouter.put('/pipeline_cards/:id', async (req, res) => {
@@ -338,6 +373,7 @@ pipelinesRouter.put('/pipeline_cards/:id', async (req, res) => {
       if (dup) return res.status(422).json({ message: 'Esse contato já está no funil de destino.' });
     }
     cur = await moveCard(cur, stage.id, 0, stage.pipelineId, req.user!.id);
+    await assumirSeSemDona(req, cur.contactId);
   }
   const [fresh] = await db.select().from(pipelineCards).where(eq(pipelineCards.id, cur.id));
   res.json(fresh ? (await serializeCards([fresh]))[0] : null);

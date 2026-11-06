@@ -884,7 +884,7 @@ export default function Conversas() {
   const addToFunnel = async (stageId: number) => {
     const p = pipes.find(x => x.pipeline_stages.some((st: Any) => st.id === stageId))
     if (!p || !contactId) return
-    try { const { data } = await api.post(`/pipelines/${p.id}/pipeline_cards`, { contact_id: contactId, pipeline_stage_id: stageId }); setCards(cs => [...cs, data]) }
+    try { const { data } = await api.post(`/pipelines/${p.id}/pipeline_cards`, { contact_id: contactId, pipeline_stage_id: stageId }); setCards(cs => [...cs.filter(c => c.id !== data.id), data]) }
     catch (e: Any) { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e.response?.data?.message || 'Erro ao colocar no funil.', showConfirmButton: false, timer: 3000 }) }
   }
   const stageIdx = regua ? reguaKeys.indexOf(conv?.contact?.status || 'revendedor_ativo') : (cardPipe?.pipeline_stages || []).findIndex((x: Any) => x.id === card?.pipeline_stage_id)

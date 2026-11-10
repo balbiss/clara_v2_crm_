@@ -19,7 +19,7 @@ export const cadastroClaraRouter = Router();
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 async function config() {
-  const url = (process.env.CADASTROS_API_URL || (await globalSetting('cadastros_api_url')) || '').replace(/\/+$/, '').replace(/\/api$/, '');
+  const url = (process.env.CADASTROS_API_URL || (await globalSetting('cadastros_api_url')) || '').replace(/\/+$/, '').replace(/\/api(\/integracao(\/cadastros)?)?$/, '');
   const chave = process.env.CADASTROS_API_KEY || (await globalSetting('cadastros_api_key')) || '';
   const segredo = process.env.CADASTROS_WEBHOOK_SECRET || (await globalSetting('cadastros_webhook_secret')) || '';
   return { url, chave, segredo, ligado: !!(url && chave) };

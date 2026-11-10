@@ -24,7 +24,12 @@ export default function CadastroClaraBox({ contactId, contactName, onInserir }: 
     setD(null)
     api.get(`/cadastro_clara/contacts/${contactId}`).then(r => setD(r.data)).catch(e => setD({ ligado: true, erro: e.response?.data?.message || 'Não foi possível consultar o cadastro.' }))
   }, [contactId])
-  if (!d || !d.ligado) return null
+  if (!d) return <div style={{ fontSize: 13, color: K.muted, margin: '4px 0 8px' }}>Carregando…</div>
+  if (!d.ligado) return (
+    <div style={{ fontSize: 13.5, color: K.muted, margin: '4px 0 8px' }}>
+      O CRM ainda não está ligado ao sistema de cadastro. A diretoria liga em <b>Configurações › Central de integrações › Cadastro de revendedoras</b>.
+    </div>
+  )
   const c = d.cadastro
   const primeiro = (contactName || '').trim().split(/\s+/)[0] || ''
   const mensagem = (link: string) => `Oi${primeiro ? ' ' + primeiro : ''}! 😊 Segue o link pra você fazer seu cadastro de revendedora Clara Ferreira: ${link}\nÉ rapidinho, qualquer dúvida me chama aqui.`

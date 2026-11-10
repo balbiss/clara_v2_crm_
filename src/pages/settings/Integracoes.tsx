@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Copy, Link2, RefreshCw, Trash2, Webhook } from 'lucide-react'
+import { Copy, Link2, RefreshCw, Trash2, UserPlus, Webhook } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api'
 import { toast, confirmBox } from '../../components/ui2'
@@ -78,6 +78,42 @@ function Jueri() {
   )
 }
 
+
+/** Sistema de cadastro de revendedoras (app separado): endereço da API, chave e segredo do webhook. */
+function CadastroClara() {
+  const [d, setD] = useState<any>(null)
+  const [f, setF] = useState({ url: '', chave: '', segredo: '' })
+  const [salvando, setSalvando] = useState(false)
+  const load = () => api.get('/cadastro_clara/config').then(r => { setD(r.data); setF(x => ({ ...x, url: r.data.url || '' })) }).catch(() => {})
+  useEffect(() => { load() }, [])
+  if (!d) return null
+  const salvar = async () => {
+    setSalvando(true)
+    try {
+      const { data } = await api.put('/cadastro_clara/config', f)
+      toast(data.teste === 'ok' ? 'success' : 'error', data.teste === 'ok' ? 'Ligado ao sistema de cadastro.' : 'Salvo, mas o teste deu: ' + (data.teste || 'falta endereço e chave'))
+      setF(x => ({ ...x, chave: '', segredo: '' })); load()
+    } catch (e: any) { toast('error', e.response?.data?.message || 'Não foi possível salvar.') } finally { setSalvando(false) }
+  }
+  const campo = (k: 'url' | 'chave' | 'segredo', rotulo: string, ph: string) => (
+    <label style={{ display: 'block', marginBottom: 10 }}>
+      <div style={{ fontSize: 13, color: K.muted, marginBottom: 4 }}>{rotulo}</div>
+      <input value={f[k]} onChange={e => setF({ ...f, [k]: e.target.value })} placeholder={ph} disabled={d.por_env} style={{ ...settingsInput, width: '100%', fontFamily: k === 'url' ? undefined : 'monospace' }} />
+    </label>
+  )
+  return (
+    <div>
+      {d.por_env && <p style={{ fontSize: 13.5, color: K.muted, margin: '0 0 10px' }}>Configurado pelo servidor (variáveis de ambiente).</p>}
+      {campo('url', 'Endereço da API do cadastro', 'https://cadastro-api.clarajoias.com.br')}
+      {campo('chave', 'Chave de API ' + (d.tem_chave ? '(já cadastrada — preencha só pra trocar)' : ''), 'cad_…')}
+      {campo('segredo', 'Segredo do webhook ' + (d.tem_segredo ? '(já cadastrado — preencha só pra trocar)' : ''), 'copie da tela Integração do cadastro')}
+      {!d.por_env && <button onClick={salvar} disabled={salvando} style={{ height: 36, padding: '0 16px', border: 'none', borderRadius: 3, background: K.blue, color: '#fff', fontFamily: K.font, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>{salvando ? 'Salvando…' : 'Salvar e testar'}</button>}
+      <CopyField label="URL pra colar no cadastro (webhook do CRM)" value={d.webhook_url} />
+      <p style={{ fontSize: 13.5, color: K.muted, margin: 0 }}>No sistema de cadastro: Integração com o CRM › gere a chave, cole aqui a chave e o segredo, e lá cole a URL acima no campo do webhook. Depois disso, a atendente vê o quadro "Cadastro de revendedora" na conversa.</p>
+    </div>
+  )
+}
+
 export default function Integracoes() {
   const navigate = useNavigate()
   const card = (icon: React.ReactNode, title: string, desc: string, body: React.ReactNode) => (
@@ -92,6 +128,7 @@ export default function Integracoes() {
       <div style={{ padding: 16 }}>
         <SettingsBlock title="Integrações instaladas">
           {card(<Link2 size={20} />, 'Jueri (ERP)', 'Pedidos, vendas, financeiro e cadastros chegam pelo webhook do Jueri. Por enquanto a v2 só recebe e mostra os eventos, pra validar os campos.', <Jueri />)}
+          {card(<UserPlus size={20} />, 'Cadastro de revendedoras', 'Sistema de cadastro (formulário, SPC, documentos, contrato). A atendente gera o link do formulário na conversa e o cadastro fica no nome dela; cada mudança de etapa volta pro CRM.', <CadastroClara />)}
           {card(<Webhook size={20} />, 'Webhooks do Automatize', 'Envie os dados do lead para qualquer sistema quando ele entrar numa etapa (ação "Enviar webhook" do Automatize).', (
             <button onClick={() => navigate('/pipelines')} style={{ border: 'none', background: 'none', padding: 0, color: K.link, textDecoration: 'underline', fontFamily: K.font, fontSize: 14.5, cursor: 'pointer' }}>Abrir os funis</button>
           ))}

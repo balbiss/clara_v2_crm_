@@ -325,7 +325,7 @@ pipelinesRouter.post('/pipelines/:id/pipeline_cards', async (req, res) => {
  * de que ela é membro (Nathalia/Prospecção, 06/11 — o funil é do setor: quem atende pelo número mexe
  * no card, mesmo que a cliente seja de outra carteira ou ainda não tenha dona).
  */
-async function contatoAcessivel(req: Request, contactId: number) {
+export async function contatoAcessivel(req: Request, contactId: number) {
   if (seesAll(req.user!)) return true;
   const uid = req.user!.id;
   const r = await db.execute(sql`SELECT 1 FROM contacts c WHERE c.id = ${contactId} AND c.account_id = ${acc(req)} AND (

@@ -26,7 +26,7 @@ export default function EditContactModal({ isOpen, contact, onClose }: { isOpen:
   const canAddCustomField = can('config.campos', currentUser)
   const canRemoveCustomField = isCriticalConfig(currentUser)
   const { allFields: REVENDA_FIELDS } = useContactFields()
-  const reservedKeys = () => [...REVENDA_FIELDS.map((f: any) => f.key), ...CADASTRO_KEYS, ...JUERI_CADASTRO_KEYS, 'pedidos', 'telefones_adicionais']
+  const reservedKeys = () => [...REVENDA_FIELDS.map((f: any) => f.key), ...CADASTRO_KEYS, ...JUERI_CADASTRO_KEYS, 'pedidos', 'telefones_adicionais', 'cadastro_clara']
 
   const [s, v] = useLocal(() => ({ formData: {} as any, loading: false }))
 

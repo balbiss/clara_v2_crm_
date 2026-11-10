@@ -15,6 +15,7 @@ import { K, kBtn, kInput, TIPOS_TAREFA } from '../lib/kommo'
 import KField from '../components/KField'
 import FieldSetup from '../components/FieldSetup'
 import AiSessionsBar from '../components/AiSessionsBar'
+import CadastroClaraBox from '../components/CadastroClaraBox'
 import api from '../api'
 import { conversationsStore, isSemResposta } from '../store/conversations'
 import { prepareImage } from '../utils/prepareImage'
@@ -443,7 +444,7 @@ export default function Conversas() {
     if (f.format === 'datetime') return formatDateTime(String(raw).replace(' ', 'T'))
     return raw
   }
-  const reservedAttrKeys = [...principalFields.map((f: Any) => f.key), ...dadosFields.filter(f => f.source === 'attr').map(f => f.key), 'pedidos', 'telefones_adicionais']
+  const reservedAttrKeys = [...principalFields.map((f: Any) => f.key), ...dadosFields.filter(f => f.source === 'attr').map(f => f.key), 'pedidos', 'telefones_adicionais', 'cadastro_clara']
   const extraAttributes = (() => {
     const custom = conv?.contact?.custom_attributes || {}
     return Object.keys(custom).filter(k => !reservedAttrKeys.includes(k) && custom[k]).map(k => ({ key: k, label: humanizeKey(k), value: custom[k] }))
@@ -1212,6 +1213,11 @@ export default function Conversas() {
                     {roRow('Telefone', formatPhoneDisplay(conv.contact.phone))}
                     {roRow('E-mail', conv.contact.email)}
                     {roRow('Carteira', conv.contact.custom_attributes?.gerente_jueri_nome)}
+                    {/* sistema de cadastro de revendedoras (app separado): só pra quem ainda não é revendedora */}
+                    {!revendedora && (<>
+                      {sectionK('Cadastro de revendedora')}
+                      <CadastroClaraBox contactId={conv.contact.id} contactName={conv.contact.name} onInserir={texto => { setMode('chat'); s.newMessageText = texto }} />
+                    </>)}
                     {sectionK('Notas')}
                     {(conv.contact?.notes || []).map((n: Any) => (
                       <div key={n.id} style={{ fontSize: 13.5, padding: '6px 0', borderBottom: `1px solid ${K.line}` }}>

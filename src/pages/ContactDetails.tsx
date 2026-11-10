@@ -47,7 +47,7 @@ const RESERVED = [
   'atraso', 'observacao_mes', 'meta', 'desafio_combinado', 'como_chegar_meta', 'instagram', 'id_jueri', 'origem', 'gerente_jueri_id', 'gerente_jueri_nome',
   'supervisor_nome', 'rg', 'profissao', 'razao_social', 'nome_fantasia', 'cnpj', 'observacao_jueri', 'observacao_interna_jueri', 'data_inativacao_jueri',
   'local_trabalho', 'website_jueri', 'referencia_nome', 'referencia_telefone', 'status_cadastral_jueri', 'data_criacao_jueri', 'data_ultima_alteracao_jueri',
-  'pedidos', 'telefones_adicionais',
+  'pedidos', 'telefones_adicionais', 'cadastro_clara',
 ]
 const fmtDT = (iso: string) => { const d = new Date(iso); return `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` }
 const textarea: React.CSSProperties = { ...inputStyle, resize: 'vertical', fontFamily: 'inherit', display: 'block' }

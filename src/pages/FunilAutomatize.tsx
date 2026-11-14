@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import api from '../api'
@@ -23,6 +23,9 @@ export default function FunilAutomatize() {
   const [flows, setFlows] = useState<any[]>([])
   const [edit, setEdit] = useState<{ stage: any; trigger?: any } | null>(null)
   const [stageEdit, setStageEdit] = useState<any>(null)
+  const [dragStage, setDragStage] = useState<number | null>(null)
+  const [overStage, setOverStage] = useState<number | null>(null)
+  const boardRef = useRef<HTMLDivElement>(null)
 
   const load = async () => setPipes((await api.get('/pipelines')).data)
   useEffect(() => {
@@ -42,6 +45,17 @@ export default function FunilAutomatize() {
     flowName: id => flows.find(f => f.id === id)?.name || `Robô #${id}`,
   }
 
+  // arrastar o fundo (fora dos cartões e botões) rola pros lados, igual ao Funil; roda do mouse também anda pros lados
+  const arrastarQuadro = (e: React.MouseEvent) => {
+    const el = boardRef.current
+    if (!el || e.button !== 0 || (e.target as HTMLElement).closest('[draggable="true"], button, input, a, select, textarea, .k-trigger')) return
+    const x0 = e.clientX, y0 = e.clientY, sx = el.scrollLeft, sy = el.scrollTop
+    const mover = (ev: MouseEvent) => { el.scrollLeft = sx - (ev.clientX - x0); el.scrollTop = sy - (ev.clientY - y0) }
+    const soltar = () => { window.removeEventListener('mousemove', mover); window.removeEventListener('mouseup', soltar); el.style.cursor = 'grab' }
+    el.style.cursor = 'grabbing'
+    window.addEventListener('mousemove', mover); window.addEventListener('mouseup', soltar)
+  }
+
   if (!pipe) return <p style={{ fontFamily: K.font, padding: 20, color: K.muted }}>Carregando…</p>
   // Consignado: etapas fixas (status da régua) e a tela do funil é a régua
   const voltar = pipe.system ? '/funil' : `/pipelines/${pipe.slug}`
@@ -50,6 +64,17 @@ export default function FunilAutomatize() {
     const name = window.prompt('Nome da nova etapa:')
     if (!name?.trim()) return
     await api.post(`/pipelines/${pipe.id}/pipeline_stages`, { name, color: STAGE_COLORS[pipe.pipeline_stages.length % STAGE_COLORS.length] })
+    load()
+  }
+  // arrastar o título da etapa pra outra posição (só etapas normais; ganha/perdida ficam no fim)
+  const soltarEtapa = async (alvoId: number) => {
+    const de = dragStage; setDragStage(null); setOverStage(null)
+    if (!de || de === alvoId) return
+    const normais = pipe.pipeline_stages.filter((x: any) => x.kind === 'normal').map((x: any) => x.id)
+    const ids = normais.filter((id: number) => id !== de)
+    ids.splice(ids.indexOf(alvoId) + (normais.indexOf(de) < normais.indexOf(alvoId) ? 1 : 0), 0, de)
+    setPipes(ps => ps.map(p => p.id !== pipe.id ? p : { ...p, pipeline_stages: [...ids.map((id: number) => p.pipeline_stages.find((x: any) => x.id === id)), ...p.pipeline_stages.filter((x: any) => x.kind !== 'normal')] }))
+    try { await api.put(`/pipelines/${pipe.id}/stage_order`, { stage_ids: ids }) } catch { toast('error', 'Não foi possível mudar a ordem.') }
     load()
   }
   const toggle = async (t: any) => { await api.put(`/pipeline_triggers/${t.id}`, { active: !t.active }); load() }
@@ -64,7 +89,7 @@ export default function FunilAutomatize() {
   }
 
   return (
-    <div className="k-fullbleed" style={{ fontFamily: K.font, color: K.text, margin: -24, minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column' }}>
+    <div className="k-fullbleed" style={{ fontFamily: K.font, color: K.text, margin: -24, height: 'calc(100vh - var(--top-h, 0px))', overflow: 'hidden', background: '#fff', display: 'flex', flexDirection: 'column' }}>
       <div className="k-topbar" style={{ minHeight: 64, borderBottom: `1px solid ${K.line}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 20px', flex: 'none', flexWrap: 'wrap' }}>
         <button onClick={() => navigate(voltar)} title="Voltar ao funil" style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex' }}><ChevronLeft size={22} color={K.muted} /></button>
         <button onClick={renamePipe} title="Renomear funil" style={{ border: 'none', background: 'none', cursor: 'pointer', fontFamily: K.font, fontSize: 16, fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase', color: K.text }}>{pipe.name}</button>
@@ -76,11 +101,17 @@ export default function FunilAutomatize() {
         <button onClick={() => navigate(voltar)} style={kBtn('blue')}>Sair</button>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '0 0 40px' }}>
+      <div ref={boardRef} className="k-board" onMouseDown={arrastarQuadro} style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '0 0 40px', cursor: 'grab' }}>
         <div style={{ display: 'flex', minWidth: 'max-content' }}>
           {pipe.pipeline_stages.map((s: any) => (
-            <div key={s.id} style={{ width: 236, flex: 'none', borderRight: `1px solid ${K.line}`, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '16px 12px 0', textAlign: 'center' }}>
+            <div key={s.id}
+              onDragOver={e => { if (dragStage && s.kind === 'normal') { e.preventDefault(); setOverStage(s.id) } }}
+              onDrop={e => { e.preventDefault(); if (s.kind === 'normal') soltarEtapa(s.id) }}
+              style={{ width: 236, flex: 'none', borderRight: `1px solid ${K.line}`, display: 'flex', flexDirection: 'column', background: overStage === s.id && dragStage !== s.id ? '#f4f7fb' : undefined, opacity: dragStage === s.id ? 0.5 : 1 }}>
+              <div draggable={!pipe.system && s.kind === 'normal'} title={!pipe.system && s.kind === 'normal' ? 'Arraste para mudar a ordem da etapa' : undefined}
+                onDragStart={e => { setDragStage(s.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(s.id)) }}
+                onDragEnd={() => { setDragStage(null); setOverStage(null) }}
+                style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '16px 12px 0', textAlign: 'center', cursor: !pipe.system && s.kind === 'normal' ? 'move' : undefined }}>
                 <button onClick={() => setStageEdit(s)} title="Editar etapa" style={{ border: 'none', background: 'none', cursor: 'pointer', fontFamily: K.font, fontSize: 13, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: K.text, display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%' }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>{s.kind === 'normal' && <Pencil size={11} color={K.muted} />}
                 </button>

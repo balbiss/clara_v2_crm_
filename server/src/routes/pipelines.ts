@@ -235,7 +235,13 @@ async function cardsWhere(req: Request, extra: SQL[]) {
   if (termo) {
     const q = `%${termo}%`;
     const digitos = termo.replace(/[^0-9]/g, '');
-    conds.push(sql`(${contacts.name} ILIKE ${q} OR ${contacts.phone} ILIKE ${q} OR ${contacts.city} ILIKE ${q}
+    // termo que é telefone (Bel, 14/11): só os telefones do contato — antes achava quem só tinha o número
+    // escrito numa mensagem ou num campo (avalista, indicação) e trazia gente que não tem nada a ver
+    if (digitos.length >= 8 && !/[a-zA-ZÀ-ÿ]/.test(termo)) {
+      const fone = `%${digitos.length > 8 ? digitos.slice(-8) : digitos}`;
+      conds.push(sql`(regexp_replace(coalesce(${contacts.phone}, ''), '[^0-9]', '', 'g') LIKE ${fone}
+        OR EXISTS (SELECT 1 FROM reseller_phones rp WHERE rp.contact_id = ${contacts.id} AND regexp_replace(rp.phone, '[^0-9]', '', 'g') LIKE ${fone}))`);
+    } else conds.push(sql`(${contacts.name} ILIKE ${q} OR ${contacts.phone} ILIKE ${q} OR ${contacts.city} ILIKE ${q}
       OR ${contacts.customAttributes}::text ILIKE ${q}
       ${digitos.length >= 4 ? sql`OR regexp_replace(coalesce(${contacts.phone}, ''), '[^0-9]', '', 'g') LIKE ${`%${digitos}%`}` : sql``}
       ${termo.length >= 3 ? sql`OR EXISTS (SELECT 1 FROM conversations cv JOIN messages m ON m.conversation_id = cv.id

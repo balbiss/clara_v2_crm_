@@ -134,6 +134,8 @@ const daysInStage = (contact: Any) => {
   return days >= 0 ? days : null
 }
 
+const semAcentoLower = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
 function WhatsappIcon({ source }: { source: string }) {
   if (source === 'instagram') {
     return (
@@ -158,6 +160,12 @@ export default function Conversas() {
   const [detailsOpen, setDetailsOpen] = useState(() => window.innerWidth > 1150)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900)
   const [slashIndex, setSlashIndex] = useState(0)
+  const [mode, setMode] = useState<'chat' | 'nota' | 'tarefa'>('chat')
+  const [cursorPos, setCursorPos] = useState<number | null>(null)
+  const composerRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => { const el = composerRef.current; if (el && cursorPos != null && document.activeElement === el && el.selectionStart !== cursorPos && cursorPos <= el.value.length) el.setSelectionRange(cursorPos, cursorPos) }, [cursorPos])
+  const [slashBots, setSlashBots] = useState<Any[]>([])
+  const [favTpl, setFavTpl] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('clara_modelos_destaque') || '[]') } catch { return [] } })
   useEffect(() => { const f = () => setIsMobile(window.innerWidth <= 900); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
 
   const [s, v] = useLocal(() => ({
@@ -534,6 +542,7 @@ export default function Conversas() {
       if (conversationsStore.agents.length === 0) conversationsStore.fetchAgents()
       api.get('/contact_field_groups').then(({ data }) => { s.contactFieldGroups = data }).catch(e => console.error('Erro ao buscar grupos de campos:', e))
       api.get('/message_templates').then(({ data }) => { s.messageTemplates = data }).catch(e => console.error('Erro ao buscar modelos de mensagem:', e))
+      api.get('/salesbots/options').then(({ data }) => setSlashBots(data)).catch(() => setSlashBots([]))
       if (params.inboxId) conversationsStore.setSidebarInboxId(params.inboxId)
       else conversationsStore.setSidebarFilter(params.filter || 'all')
       // conversa fora das 100 carregadas (ex.: atalho do Chat da Equipe) é buscada antes de abrir
@@ -644,14 +653,47 @@ export default function Conversas() {
     }
   }
 
-  // modelos de mensagem: "/" abre a lista; escolher substitui o texto (dá pra editar antes de enviar)
-  const slashSuggestions = (() => {
+  // "/" igual ao Kommo (Bel, 14/11): funciona em qualquer ponto do texto (no começo ou depois de espaço/linha),
+  // a lista mostra DESTAQUE (estrela), SALESBOT e MODELOS; escolher um modelo troca só o "/termo" pelo texto do
+  // modelo (o resto do que já estava escrito fica), escolher um Salesbot roda o robô nesta conversa.
+  const slashToken = (() => {
     const text = v.newMessageText
-    if (!text.startsWith('/')) return []
-    const term = text.slice(1).trim().toLowerCase()
-    return v.messageTemplates.filter((t: Any) => !term || t.nome.toLowerCase().includes(term) || (t.categoria || '').toLowerCase().includes(term)).slice(0, 8)
+    const pos = cursorPos == null ? text.length : Math.min(cursorPos, text.length)
+    const m = text.slice(0, pos).match(/(^|\s)\/([^\n/]{0,40})$/)
+    if (!m) return null
+    return { start: pos - m[2].length - 1, end: pos, term: semAcentoLower(m[2].trim()) }
   })()
-  // lista de modelos pelo teclado (Clara, 05/11: digitava "/ap" + Enter e saía o texto "/ap" em vez do modelo)
+  const slashGroups = (() => {
+    if (!slashToken || mode !== 'chat') return [] as { titulo: string; itens: Any[] }[]
+    const t = slashToken.term
+    const bate = (...xs: Any[]) => !t || xs.some(x => semAcentoLower(String(x || '')).includes(t))
+    const modelos = v.messageTemplates.filter((x: Any) => bate(x.nome, x.categoria, x.mensagem)).map((x: Any) => ({ kind: 'modelo', key: 'm' + x.id, nome: x.nome, sub: x.mensagem || 'Anexo', tpl: x }))
+    const bots = slashBots.filter((b: Any) => b.active !== false && bate(b.name)).map((b: Any) => ({ kind: 'bot', key: 'b' + b.id, nome: b.name, sub: 'Rodar o robô nesta conversa', bot: b }))
+    const destaque = [...modelos, ...bots].filter(x => favTpl.includes(x.key))
+    return [
+      { titulo: 'Destaque', itens: destaque },
+      { titulo: 'Salesbot', itens: bots },
+      { titulo: 'Modelos', itens: modelos },
+    ].filter(g => g.itens.length)
+  })()
+  const slashSuggestions: Any[] = slashGroups.flatMap(g => g.itens)
+  const toggleFav = (key: string) => setFavTpl(fs => {
+    const n = fs.includes(key) ? fs.filter(k => k !== key) : [...fs, key]
+    try { localStorage.setItem('clara_modelos_destaque', JSON.stringify(n)) } catch { /* sem armazenamento: vale só nesta aba */ }
+    return n
+  })
+  const tirarToken = () => {
+    if (!slashToken) return
+    const text = v.newMessageText
+    s.newMessageText = text.slice(0, slashToken.start) + text.slice(slashToken.end)
+    setCursorPos(slashToken.start); setSlashIndex(0)
+  }
+  const escolherSlash = (item: Any) => {
+    setSlashIndex(0)
+    if (item.kind === 'bot') { tirarToken(); void executarRobo(item.bot); return }
+    void applyTemplate(item.tpl)
+  }
+  // lista pelo teclado (Clara, 05/11: digitava "/ap" + Enter e saía o texto "/ap" em vez do modelo)
   const slashSel = Math.min(slashIndex, Math.max(slashSuggestions.length - 1, 0))
   const slashKeyDown = (e: React.KeyboardEvent) => {
     if (!slashSuggestions.length) return false
@@ -663,15 +705,19 @@ export default function Conversas() {
     }
     if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
       e.preventDefault()
-      void applyTemplate(slashSuggestions[slashSel])
-      setSlashIndex(0)
+      escolherSlash(slashSuggestions[slashSel])
       return true
     }
-    if (e.key === 'Escape') { e.preventDefault(); s.newMessageText = ''; setSlashIndex(0); return true }
+    if (e.key === 'Escape') { e.preventDefault(); tirarToken(); return true }
     return false
   }
   const applyTemplate = async (template: Any) => {
-    s.newMessageText = template.mensagem || ''
+    const texto = template.mensagem || ''
+    if (slashToken) {
+      const t = v.newMessageText
+      s.newMessageText = t.slice(0, slashToken.start) + texto + t.slice(slashToken.end)
+      setCursorPos(slashToken.start + texto.length)
+    } else s.newMessageText = texto
     if (!template.attachment_url) { clearSelectedFile(); return }
     try {
       const response = await fetch(template.attachment_url)
@@ -915,7 +961,6 @@ export default function Conversas() {
   }
 
   // composer: Bate-papo / Nota / Tarefa (o "Bate-papo ▾" do Kommo)
-  const [mode, setMode] = useState<'chat' | 'nota' | 'tarefa'>('chat')
   const [modeOpen, setModeOpen] = useState(false)
   // marcar colega na conversa (Kommo: clicar no nome do cliente e escolher o colega) — vai pro Chats da equipe
   const [marcados, setMarcados] = useState<Any[]>([])
@@ -1462,15 +1507,25 @@ export default function Conversas() {
                   </div>
                 ) : (
                   <>
-                    {slashSuggestions.length > 0 && (
-                      <div style={{ ...menuK, left: 0, right: 0, bottom: '100%', marginBottom: 4, maxHeight: 260, overflowY: 'auto' }}>
-                        <div style={{ padding: '4px 16px', fontSize: 11.5, fontWeight: 700, color: K.muted, textTransform: 'uppercase' }}>Modelos de mensagem</div>
-                        {slashSuggestions.map((tpl: Any, i: number) => (
-                          <button key={tpl.id} onMouseDown={e => e.preventDefault()} onMouseEnter={() => setSlashIndex(i)} onClick={() => { void applyTemplate(tpl); setSlashIndex(0) }}
-                            style={{ ...menuItemK, background: i === slashSel ? '#eef3f8' : 'none' }}><b style={{ color: K.link }}>{tpl.nome}</b><span style={{ flex: 1, minWidth: 0, color: K.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.mensagem || 'Anexo'}</span></button>
+                    {slashSuggestions.length > 0 && (() => { let idx = -1; return (
+                      <div role="listbox" aria-label="Modelos e robôs" style={{ ...menuK, left: 0, right: 0, bottom: '100%', marginBottom: 4, maxHeight: 320, overflowY: 'auto' }}>
+                        {slashGroups.map((g, gi) => (
+                          <div key={g.titulo}>
+                            <div style={{ padding: '6px 16px 4px', fontSize: 11.5, fontWeight: 700, color: K.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderTop: gi ? `1px solid ${K.line}` : 'none' }}>{g.titulo}</div>
+                            {g.itens.map((it: Any) => { idx++; const i = idx; const fav = favTpl.includes(it.key); return (
+                              <div key={g.titulo + it.key} onMouseDown={e => e.preventDefault()} onMouseEnter={() => setSlashIndex(i)} onClick={() => escolherSlash(it)} role="option" aria-selected={i === slashSel}
+                                ref={el => { if (el && i === slashSel) el.scrollIntoView({ block: 'nearest' }) }}
+                                style={{ ...menuItemK, background: i === slashSel ? '#eef3f8' : 'none' }}>
+                                <b style={{ color: K.link, whiteSpace: 'nowrap' }}>/{it.nome}</b>
+                                <span style={{ flex: 1, minWidth: 0, color: K.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.sub}</span>
+                                <button title={fav ? 'Tirar do destaque' : 'Colocar em destaque'} onMouseDown={e => e.preventDefault()} onClick={e => { e.stopPropagation(); toggleFav(it.key) }}
+                                  style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 2, display: 'flex', color: fav ? '#4c8bf5' : K.lineDark, fontSize: 16, lineHeight: 1 }}>{fav ? '★' : '☆'}</button>
+                              </div>
+                            ) })}
+                          </div>
                         ))}
                       </div>
-                    )}
+                    ) })()}
                     {v.selectedFile && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 6, border: `1px solid ${K.line}`, borderRadius: 3, marginBottom: 6 }}>
                         {v.selectedFilePreview ? <img src={v.selectedFilePreview} style={{ width: 40, height: 40, objectFit: 'cover' }} /> : <Paperclip size={16} />}
@@ -1478,7 +1533,8 @@ export default function Conversas() {
                         <button onClick={clearSelectedFile} style={{ border: 'none', background: 'none', color: K.muted, cursor: 'pointer' }}><X size={15} /></button>
                       </div>
                     )}
-                    <textarea value={v.newMessageText} rows={2} onChange={e => { s.newMessageText = e.target.value }} onPaste={handlePaste}
+                    <textarea ref={composerRef} value={v.newMessageText} rows={2} onChange={e => { s.newMessageText = e.target.value; setCursorPos(e.target.selectionStart); setSlashIndex(0) }} onPaste={handlePaste}
+                      onSelect={e => setCursorPos((e.target as HTMLTextAreaElement).selectionStart)}
                       onKeyDown={e => { if (slashKeyDown(e)) return; if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); handleSendMessage() } }}
                       placeholder={mode === 'nota' ? 'Escreva uma nota (só a equipe vê)' : 'Escreva uma mensagem · / para modelos'}
                       style={{ width: '100%', border: 'none', outline: 'none', resize: 'none', fontFamily: K.font, fontSize: 15, color: K.text, background: 'none', minHeight: 40, maxHeight: 160, fieldSizing: 'content' } as React.CSSProperties} />

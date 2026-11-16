@@ -37,6 +37,8 @@ export default function FieldSetup({ onClose, onChanged, inline }: { onClose: ()
   const [active, setActive] = useState<number | null>(null)
   const [editing, setEditing] = useState<string | null>(null) // key do campo aberto ('__new' = campo novo)
   const [drag, setDrag] = useState<string | null>(null)
+  // onde o campo vai cair: linha azul em cima ou embaixo do campo apontado (Bel, 16/11)
+  const [over, setOver] = useState<{ key: string; after: boolean } | null>(null)
   const [dragGroup, setDragGroup] = useState<number | null>(null)
   const [newGroup, setNewGroup] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null)
@@ -47,14 +49,16 @@ export default function FieldSetup({ onClose, onChanged, inline }: { onClose: ()
   const fieldOf = (k: string) => allFields.find((f: any) => f.key === k)
 
   const saveKeys = (id: number, keys: string[]) => api.put(`/contact_field_groups/${id}`, { contact_field_group: { field_keys: keys } })
-  const dropField = async (beforeKey: string | null, toGroupId = active) => {
+  const dropField = async (beforeKey: string | null, toGroupId = active, after = false) => {
     if (!drag || !toGroupId) return
-    const key = drag; setDrag(null)
+    const key = drag; setDrag(null); setOver(null)
+    if (beforeKey === key) return
     const next = groups.map(g => ({ ...g, field_keys: (g.field_keys || []).filter((k: string) => k !== key) }))
     const from = groups.find(g => (g.field_keys || []).includes(key))
     const tgt = next.find(g => g.id === toGroupId)
-    const i = beforeKey ? tgt.field_keys.indexOf(beforeKey) : -1
-    if (i >= 0) tgt.field_keys.splice(i, 0, key); else tgt.field_keys.push(key)
+    const i0 = beforeKey ? tgt.field_keys.indexOf(beforeKey) : -1
+    // solta na metade de baixo do campo = vai depois dele; em cima = antes; fora de um campo = no fim
+    if (i0 >= 0) tgt.field_keys.splice(after ? i0 + 1 : i0, 0, key); else tgt.field_keys.push(key)
     setGroups(next)
     try { await saveKeys(toGroupId, tgt.field_keys); if (from && from.id !== toGroupId) await saveKeys(from.id, next.find(g => g.id === from.id).field_keys); onChanged?.() }
     catch { toast('error', 'Não foi possível salvar a ordem.'); loadGroups() }
@@ -115,17 +119,22 @@ export default function FieldSetup({ onClose, onChanged, inline }: { onClose: ()
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '22px 24px 40px' }}>
+        <div onDragOver={e => { if (!drag) return; const el = e.currentTarget, r = el.getBoundingClientRect(); if (e.clientY < r.top + 60) el.scrollTop -= 14; else if (e.clientY > r.bottom - 60) el.scrollTop += 14 }}
+          style={{ flex: 1, overflowY: 'auto', padding: '22px 24px 40px' }}>
           {group && (
-            <div onDragOver={e => e.preventDefault()} onDrop={() => dropField(null)} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); dropField(null) }} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {(group.field_keys || []).map((k: string) => {
                 const f = fieldOf(k)
                 if (!f) return null
                 if (editing === k) return <FieldEditor key={k} field={f} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); done() }} />
                 const prev = WITH_OPTIONS.includes(f.type) ? `${(f.options || []).length} variantes` : f.type === 'price' ? 'R$0' : display(f, '') || '...'
                 return (
-                  <div key={k} draggable onDragStart={() => setDrag(k)} onDragEnd={() => setDrag(null)} onDragOver={e => e.preventDefault()} onDrop={e => { e.stopPropagation(); dropField(k) }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: -14, opacity: drag === k ? 0.4 : 1 }}>
+                  <div key={k} draggable onDragStart={e => { setDrag(k); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', k) }} onDragEnd={() => { setDrag(null); setOver(null) }}
+                    onDragOver={e => { e.preventDefault(); if (!drag) return; const r = e.currentTarget.getBoundingClientRect(); const after = e.clientY > r.top + r.height / 2; if (over?.key !== k || over.after !== after) setOver({ key: k, after }) }}
+                    onDrop={e => { e.preventDefault(); e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); dropField(k, active, e.clientY > r.top + r.height / 2) }}
+                    title="Arraste para mudar a ordem"
+                    style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: -14, opacity: drag === k ? 0.4 : 1, cursor: 'grab',
+                      boxShadow: drag && drag !== k && over?.key === k ? (over.after ? '0 3px 0 -1px #4c8bf5' : '0 -3px 0 -1px #4c8bf5') : 'none' }}>
                     {grip()}
                     <button onClick={() => setEditing(k)} style={{ ...boxStyle, flex: 1, padding: '0 8px', cursor: 'pointer', textAlign: 'left' }}>
                       <span style={{ width: 155, flex: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label}{(f.required_stages || []).length > 0 && <span style={{ color: '#e53935' }}> *</span>}</span>

@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { and, asc, desc, eq, gte, inArray, isNotNull, max, min, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, max, min, or, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { contacts, resellerPhones, pedidos, agendamentos, conversations, messages, notes, tags, contactTags, contactAuditEvents, users, accounts, contactFieldGroups } from '../db/schema.js';
 import { requireAuth, requirePerm, pode, visibleContactsWhere } from '../middleware/auth.js';
@@ -28,8 +28,16 @@ const pedidoOpenNow = and(
   sql`${pedidos.statusId} NOT IN (3, 4)`,
 )!;
 
-async function loadContact(req: Request, res: Response, key = 'id'): Promise<Contact | null> {
-  const [c] = await db.select().from(contacts).where(and(await visibleContactsWhere(req.user!), eq(contacts.id, Number(req.params[key])))).limit(1);
+// Além da carteira, a consultora mexe (campos, etiquetas, nota, arquivo) na cliente que ela ATENDE: sem dona ou
+// com conversa num número de que ela é membro — igual ao funil (contatoAcessivel). Bel, 16/11: Prospecção editava
+// "Revende outros…" da Luciane e dava "Não foi possível salvar" (404 fora da carteira). Excluir/mesclar seguem só carteira.
+async function loadContact(req: Request, res: Response, key = 'id', atendimento = true): Promise<Contact | null> {
+  const u = req.user!;
+  const atende = sql`(${contacts.userId} IS NULL OR EXISTS (SELECT 1 FROM conversations cv JOIN inbox_members im ON im.inbox_id = cv.inbox_id
+    WHERE cv.contact_id = ${contacts.id} AND im.user_id = ${u.id}))`;
+  const vis = await visibleContactsWhere(u);
+  const [c] = await db.select().from(contacts).where(and(eq(contacts.accountId, u.accountId!), eq(contacts.id, Number(req.params[key])),
+    atendimento ? or(vis, atende) : vis)).limit(1);
   if (!c) { res.status(404).json({ error: 'not_found', message: 'Contato não encontrado ou fora da sua carteira.' }); return null; }
   return c;
 }
@@ -136,7 +144,7 @@ contactsRouter.put('/contacts/:id(\\d+)', updateContactRoute);
 contactsRouter.patch('/contacts/:id(\\d+)', updateContactRoute);
 
 contactsRouter.delete('/contacts/:id(\\d+)', requirePerm('contatos.excluir'), async (req, res) => {
-  const c = await loadContact(req, res);
+  const c = await loadContact(req, res, 'id', false);
   if (!c) return;
   await deleteContactCascade(c.id);
   res.status(204).end();
@@ -154,7 +162,7 @@ contactsRouter.get('/contacts/duplicados_jueri', requirePerm('contatos.duplicado
 
 // mesclar: conversas vão pro contato alvo e o duplicado é apagado
 contactsRouter.post('/contacts/:id(\\d+)/merge', requirePerm('contatos.mesclar'), async (req, res) => {
-  const c = await loadContact(req, res);
+  const c = await loadContact(req, res, 'id', false);
   if (!c) return;
   const [target] = await db.select().from(contacts).where(and(eq(contacts.accountId, acc(req)), eq(contacts.id, Number(req.body.target_contact_id))));
   if (!target || target.id === c.id) return res.status(422).json({ error: 'Invalid target contact' });

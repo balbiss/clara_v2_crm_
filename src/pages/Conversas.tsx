@@ -411,7 +411,7 @@ export default function Conversas() {
     try { await conversationsStore.updateContact(contact.id, { custom_attributes: custom }) }
     catch (e) {
       console.error('Erro ao salvar campo:', e)
-      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Não foi possível salvar.', showConfirmButton: false, timer: 3000 })
+      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: (e as Any)?.response?.data?.message || 'Não foi possível salvar.', showConfirmButton: false, timer: 4000 })
     }
   }
 
@@ -1008,7 +1008,7 @@ export default function Conversas() {
     const custom = { ...(contact.custom_attributes || {}) }
     if (value === '' || value == null || (Array.isArray(value) && !value.length)) delete custom[key]; else custom[key] = value
     try { await conversationsStore.updateContact(contact.id, { custom_attributes: custom }) }
-    catch { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Não foi possível salvar.', showConfirmButton: false, timer: 3000 }) }
+    catch (e: Any) { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: e?.response?.data?.message || 'Não foi possível salvar.', showConfirmButton: false, timer: 4000 }) }
   }
   const uploadField = async (key: string, file: File) => {
     const contact = activeProxy()?.contact

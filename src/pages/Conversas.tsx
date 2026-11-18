@@ -6,7 +6,7 @@ import EmojiPicker, { EmojiStyle } from 'emoji-picker-react'
 import {
   Filter, ArrowDownUp, MoreVertical, Paperclip, Smile, CheckCheck, Send, Info, X, ExternalLink, Mail, Phone, Copy, MessageCircle,
   Edit2, GitMerge, Trash2, Minus, Plus, ChevronDown, Sparkles, Loader2, BotOff, Bot, Mic, Pencil, Forward,
-  Search, MoreHorizontal, ChevronLeft, Clock, Archive, ArchiveRestore, Users,
+  Search, MoreHorizontal, ChevronLeft, Clock, Archive, ArchiveRestore, Users, Check,
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import SnoozeModal from '../components/SnoozeModal'
@@ -943,6 +943,14 @@ export default function Conversas() {
   }
   // uma lista só com todos os funis (igual ao Kommo): Consignado = status da revendedora; os outros = etapas
   const etapaAtual = regua ? `status:${conv?.contact?.status || 'revendedor_ativo'}` : card ? `stage:${card.pipeline_stage_id}` : ''
+  // lista de funis do seletor de etapa (Consignado = status da régua; os outros = etapas do funil)
+  type FunilOpt = { key: string; nome: string; grupos: { titulo?: string; etapas: { value: string; nome: string; cor?: string }[] }[] }
+  const funisLista: FunilOpt[] = [
+    { key: 'consignado', nome: 'Consignado', grupos: statusOptions.map(grp => ({ titulo: grp.group, etapas: Object.entries(grp.options).map(([key, label]) => ({ value: `status:${key}`, nome: label as string })) })) },
+    ...pipes.filter(p => !p.system).map(p => ({ key: String(p.id), nome: p.name, grupos: [{ etapas: (p.pipeline_stages || []).map((x: Any) => ({ value: `stage:${x.id}`, nome: x.name, cor: x.color })) }] })),
+  ]
+  const semAcentoBusca = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+  const funilAtual: string | null = regua ? 'consignado' : card ? String(card.pipeline_id) : null
   const escolherEtapa = async (v: string) => {
     if (!v || v === etapaAtual) return
     if (v.startsWith('status:')) {
@@ -984,6 +992,14 @@ export default function Conversas() {
   const [headMenu, setHeadMenu] = useState(false)
   const [tabMenu, setTabMenu] = useState(false)
   const [tagBox, setTagBox] = useState(false)
+  const [etapaBox, setEtapaBox] = useState<{ funil: string | null } | null>(null)
+  const [etapaBusca, setEtapaBusca] = useState('')
+  useEffect(() => {
+    if (!etapaBox) return
+    const fechar = () => { setEtapaBox(null); setEtapaBusca('') }
+    document.addEventListener('click', fechar)
+    return () => document.removeEventListener('click', fechar)
+  }, [etapaBox])
   const [showSnooze, setShowSnooze] = useState(false)
   const [showResolve, setShowResolve] = useState(false)
   const [runBot, setRunBot] = useState(false)
@@ -1204,11 +1220,39 @@ export default function Conversas() {
                   {stageDays != null && <span style={{ fontSize: 14, color: inkMuted, marginLeft: 6 }}>({stageDays} dias)</span>}
                   <span style={{ flex: 1 }} />
                   <ChevronDown size={16} color={inkMuted} />
-                  <select aria-label="Etapa do lead" value={etapaAtual} disabled={v.isChangingStatus} onChange={e => escolherEtapa(e.target.value)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}>
-                    {!etapaAtual && <option value="">Colocar em um funil…</option>}
-                    {statusOptions.map(grp => <optgroup key={grp.group} label={`Consignado — ${grp.group}`}>{Object.entries(grp.options).map(([key, label]) => <option key={key} value={`status:${key}`}>{label as string}</option>)}</optgroup>)}
-                    {pipes.filter(p => !p.system).map(p => <optgroup key={p.id} label={p.name}>{p.pipeline_stages.map((x: Any) => <option key={x.id} value={`stage:${x.id}`}>{x.name}</option>)}</optgroup>)}
-                  </select>
+                  {/* seletor em 2 níveis igual ao Kommo (Bel, 18/11): abre nas etapas do funil atual; "‹ Funis" volta pra lista de funis */}
+                  <button aria-label="Etapa do lead" disabled={v.isChangingStatus} onClick={e => { stop(e); setEtapaBox(b => b ? null : { funil: funilAtual }) }} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', border: 'none' }} />
+                  {etapaBox && (
+                    <div onClick={stop} style={{ ...menuK, top: '100%', left: 0, right: 0, padding: 6, color: K.text, maxHeight: 420, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <input autoFocus value={etapaBusca} onChange={e => setEtapaBusca(e.target.value)} placeholder="Buscar etapa" style={{ ...kInput, flex: 'none' }} />
+                      <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {funisLista.map(fu => {
+                          const termo = semAcentoBusca(etapaBusca)
+                          const grupos = fu.grupos.map(g => ({ ...g, etapas: termo ? g.etapas.filter(et => semAcentoBusca(et.nome).includes(termo)) : g.etapas })).filter(g => g.etapas.length)
+                          if (termo && !grupos.length) return null
+                          const aberto = !!termo || etapaBox.funil === fu.key
+                          return (
+                            <div key={fu.key} style={{ border: `1px solid ${K.line}`, borderRadius: 3 }}>
+                              <button onClick={() => setEtapaBox({ funil: aberto && !termo ? null : fu.key })} style={{ ...menuItemK, padding: '6px 10px', fontSize: 13, color: K.muted, background: '#f7f7f8' }}>
+                                <span style={{ flex: 1 }}>{fu.nome}</span>
+                                <ChevronDown size={14} style={{ transform: aberto ? 'none' : 'rotate(-90deg)' }} />
+                              </button>
+                              {aberto && grupos.map(g => g.etapas.map(et => {
+                                const on = et.value === etapaAtual
+                                return (
+                                  <button key={et.value} onClick={() => { setEtapaBox(null); setEtapaBusca(''); escolherEtapa(et.value) }}
+                                    style={{ ...menuItemK, padding: '6px 10px', fontSize: 13.5, fontWeight: on ? 700 : 400, background: et.cor || '#eef1f4', borderTop: '1px solid rgba(255,255,255,.7)' }}>
+                                    <span style={{ width: 14, flex: 'none' }}>{on && <Check size={13} />}</span>
+                                    <span style={{ flex: 1 }}>{et.nome}</span>
+                                  </button>
+                                )
+                              }))}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div style={{ height: 3, background: 'rgba(90,36,51,.18)', borderRadius: 2, margin: '7px 0 0' }}>
                   <div style={{ height: 3, borderRadius: 2, background: '#8e2a46', width: `${stageTotal ? Math.min(100, ((Math.max(stageIdx, 0) + 1) / stageTotal) * 100) : 0}%` }} />

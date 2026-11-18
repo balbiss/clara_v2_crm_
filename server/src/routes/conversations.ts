@@ -165,6 +165,7 @@ conversationsRouter.get('/conversations/do_contato', async (req, res) => {
   const pipelineId = Number(req.query.pipeline_id) || 0;
   const [r] = await db.select({ id: conversations.id }).from(conversations)
     .innerJoin(inboxes, eq(inboxes.id, conversations.inboxId))
+    .leftJoin(contacts, eq(contacts.id, conversations.contactId)) // visibleConversationsWhere usa contacts (carteira) — sem o join dava 500 pra consultora
     .where(and(eq(conversations.contactId, contactId), await visibleConversationsWhere(u), await caixaWhere(u)))
     .orderBy(desc(sql`(${inboxes.entryStageId} IS NOT NULL AND EXISTS (SELECT 1 FROM pipeline_stages ps WHERE ps.id = ${inboxes.entryStageId} AND ps.pipeline_id = ${pipelineId}))`),
       sql`${conversations.lastActivityAt} DESC NULLS LAST`)

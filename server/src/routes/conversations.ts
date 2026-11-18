@@ -6,6 +6,7 @@ import { db } from '../db/client.js';
 import { conversations, contacts, inboxes, messages, scheduledMessages, conversationTags, tags, accounts, users } from '../db/schema.js';
 import { requireAuth, pode, visibleContactsWhere, type User } from '../middleware/auth.js';
 import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, sendableInboxIds, canSendThrough, isGroupSql, caixaWhere, type Conversation } from '../lib/conversations.js';
+import { responsavelAoChamar, assumirConversaAoChamar } from '../lib/responsavel.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
 import { onAgentMessage } from '../lib/pipelines.js';
 import { entrarSeSemFunil } from '../lib/funilEntrada.js';
@@ -110,10 +111,13 @@ conversationsRouter.post('/conversations', async (req, res) => {
   // contato novo ou já cadastrado mas "Sem funil" (lib/funilEntrada)
   await entrarSeSemFunil(inbox, contact.id).catch(e => console.error('Funil de entrada —', e.message));
 
+  // quem chama é a responsável (lib/responsavel — Bel, 18/11)
+  const resp = await responsavelAoChamar(inbox, contact, u.id);
+  contact = resp.contact;
   let [conv] = await db.select().from(conversations).where(and(eq(conversations.contactId, contact.id), eq(conversations.inboxId, inbox.id))).orderBy(asc(conversations.id)).limit(1);
   if (!conv) {
-    [conv] = await db.insert(conversations).values({ accountId: u.accountId!, contactId: contact.id, inboxId: inbox.id, status: 0, userId: semCarteira ? u.id : (contact.userId || u.id), source: 'whatsapp' }).returning();
-  }
+    [conv] = await db.insert(conversations).values({ accountId: u.accountId!, contactId: contact.id, inboxId: inbox.id, status: 0, userId: resp.userId, source: 'whatsapp' }).returning();
+  } else conv = await assumirConversaAoChamar(conv, resp.userId);
   res.status(201).json(await formatConversation(conv, u.accountId!));
 });
 

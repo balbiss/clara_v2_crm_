@@ -6,6 +6,7 @@ import { blobFor, downloadBlob } from './storage.js';
 import { createMessage, messageStatusValue, rebroadcast } from './messages.js';
 import { convStatusValue, findOrCreateConversation, findOrCreateTag } from './conversations.js';
 import { setJidIfFree } from './contacts.js';
+import { responsavelAoChamar, assumirConversaAoChamar } from './responsavel.js';
 import { startBot } from './salesbot.js';
 import { entrarNoFunilDaCaixa } from './pipelines.js';
 import { cache } from './cache.js';
@@ -294,9 +295,12 @@ async function passo(b: typeof broadcasts.$inferSelect): Promise<boolean> {
   }
 
   // conversa: a que já existe nesse número, aberta na caixa de entrada (Bel, 28/10: fechada não aparecia)
-  const conv = await findOrCreateConversation(contact.id, inbox.id, { accountId: b.accountId, status: 0, userId: contact.userId, source: 'whatsapp' });
+  // quem chama é a responsável (Bel, 18/11): o responsável escolhido no disparo, senão quem criou o disparo
+  const quem = await responsavelAoChamar(inbox, contact, b.assigneeId || b.createdById);
+  contact = quem.contact;
+  let conv = await findOrCreateConversation(contact.id, inbox.id, { accountId: b.accountId, status: 0, userId: quem.userId, source: 'whatsapp' });
+  conv = await assumirConversaAoChamar(conv, quem.userId);
   if (conv.status !== 0) await db.update(conversations).set({ status: 0, snoozedUntil: null }).where(eq(conversations.id, conv.id));
-  if (!conv.userId && contact.userId) await db.update(conversations).set({ userId: contact.userId }).where(eq(conversations.id, conv.id));
 
   if (b.flowId) {
     const run = await startBot(b.flowId, contact.id, { conversationId: conv.id, trigger: 'disparo', force: true });

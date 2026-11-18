@@ -926,7 +926,11 @@ export default function Conversas() {
   // revendedora = tem cadastro no Jueri ou status da régua (igual à v1); contato comum do WhatsApp não
   const revendedora = !!conv?.contact?.id_jueri || reguaKeys.includes(conv?.contact?.status)
   const cardMaisNovo = !!card && new Date(card.stage_entered_at).getTime() > new Date(conv?.contact?.status_changed_at || 0).getTime()
-  const regua = revendedora && !cardMaisNovo
+  // número de setor (Prospecção etc., sem carteira) com card no funil dele: mostra sempre esse card, mesmo que a
+  // cliente já tenha virado revendedora — o Consignado aparece no número das Consultoras (Bel, 18/11, Jhennifer #7428)
+  const caixaConv = inboxes.inboxes.find((i: Any) => String(i.id) === String(conv?.inbox_id))
+  const cardDoSetor = !!funilDaCaixa && !caixaConv?.restrict_by_portfolio && cards.some(c => c.pipeline_id === funilDaCaixa)
+  const regua = revendedora && !cardMaisNovo && !cardDoSetor
   const semFunil = !regua && !card
   const addToFunnel = async (stageId: number) => {
     const p = pipes.find(x => x.pipeline_stages.some((st: Any) => st.id === stageId))

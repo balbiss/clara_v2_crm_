@@ -10,10 +10,10 @@ Cada número de WhatsApp da empresa é uma **caixa de entrada** no CRM e funcion
 
 ## Quando o número cai (reconectar)
 
-Se um número desconectar, aparece um **aviso rosa no topo da tela**: *"O WhatsApp … está desconectado. As mensagens não estão sendo enviadas nem recebidas."*
+Se um número desconectar, aparece um **aviso rosa no topo da tela**: *"O WhatsApp … está desconectado. As mensagens não estão sendo enviadas nem recebidas."* No menu da esquerda, embaixo de Conversas, o número também mostra **desconectado** em vermelho, logo abaixo do nome.
 
 1. Clique em **Reconectar** no aviso.
-2. Vai aparecer um **QR Code**.
+2. Vai aparecer um **QR Code**. Se aparecer *"Ligando o WhatsApp…"*, espere: o QR pode levar até 1 minuto para aparecer.
 3. No celular desse número, abra o WhatsApp › **Aparelhos conectados** › **Conectar um aparelho** e leia o QR Code.
 4. Pronto: o aviso some quando conectar.
 

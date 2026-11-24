@@ -298,10 +298,17 @@ export function AppShell() {
           {showText && <><span style={{ flex: 1, color: active ? SB.active : undefined, fontWeight: active ? 700 : 400 }}>{g.label}</span>{!open && redBadge(total)}<ChevronDown size={16} color={SB.muted} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></>}
         </button>
         {showText && open && g.children.map(c => (
-          <button key={c.path} title={c.sub ? `Conversas do número ${c.label}${c.offline ? ' (desconectado)' : ''}` : undefined} onClick={e => go(c.path, e)} style={{ ...row(isActive(c.path), mobile), padding: c.sub ? (mobile ? '7px 12px 7px 58px' : '4px 12px 4px 58px') : (mobile ? '9px 12px 9px 46px' : '6px 12px 6px 46px'), fontSize: c.sub ? 13 : 14 }}>
-            {c.sub && <span style={{ width: 9, height: 9, borderRadius: '50%', background: c.color, flex: 'none', marginRight: 7 }} />}
-            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: c.sub ? 'uppercase' : undefined }}>{c.label}</span>
-            {c.offline && <span style={{ fontSize: 11, color: '#c62828', marginLeft: 6 }}>desconectado</span>}
+          <button key={c.path} title={c.sub ? `Conversas do número ${c.label}${c.offline ? ' (desconectado)' : ''}` : undefined} onClick={e => go(c.path, e)} style={{ ...row(isActive(c.path), mobile), ...(c.sub ? { alignItems: 'flex-start', gap: 8 } : {}), padding: c.sub ? (mobile ? '7px 12px 7px 50px' : '5px 10px 5px 50px') : (mobile ? '9px 12px 9px 46px' : '6px 12px 6px 46px'), fontSize: c.sub ? 13 : 14 }}>
+            {c.sub && <span style={{ width: 9, height: 9, borderRadius: '50%', background: c.color, flex: 'none', marginTop: 4 }} />}
+            {c.sub ? (
+              // nome do número inteiro, quebrando linha (Bel, 24/11: "C…", "P…" não dava pra ler); aviso embaixo
+              <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
+                <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', textTransform: 'uppercase' }}>{c.label}</span>
+                {c.offline && <span style={{ fontSize: 11, color: '#c62828', textTransform: 'none', fontWeight: 400 }}>desconectado</span>}
+              </span>
+            ) : (
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
+            )}
             {redBadge(badgeFor(c.badge))}
           </button>
         ))}

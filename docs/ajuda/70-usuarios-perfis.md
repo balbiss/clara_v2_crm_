@@ -8,7 +8,7 @@ resumo: Como cadastrar pessoas, escolher o perfil, montar perfis novos e dar exc
 
 ## Encontrar uma pessoa na lista
 
-Em **Configurações › Agentes**, a lista mostra primeiro quem está **ativo** e depois quem está **bloqueado**, cada grupo em ordem alfabética. Acima da lista há um filtro:
+Em **Configurações › Gestão de usuários**, a lista mostra primeiro quem está **ativo** e depois quem está **bloqueado**, cada grupo em ordem alfabética. Acima da lista há um filtro:
 
 - **Busca:** nome, e-mail ou WhatsApp.
 - **Perfil:** Consultora, Gerente, Financeiro, Diretoria ou um perfil criado por vocês.

@@ -109,6 +109,8 @@ No **•••** ao lado do nome da cliente:
 
 **A mensagem ficou com "Não enviada".** O número pode ter caído. Veja se aparece o aviso rosa "O WhatsApp … está desconectado" no topo da tela e chame quem pode reconectar.
 
-**Não acho uma cliente na lista.** Use a **Busca** (nome, telefone ou um trecho da conversa). Se ela só conversou por um número em que você não está, você não vai ver. Inicie uma conversa nova pelo seu número.
+**Não acho uma cliente na lista.** Use a **Busca** (nome, telefone ou um trecho da conversa). Onde você busca muda o resultado:
+- **Dentro de um número** (clicou no número no menu): só as conversas daquele número.
+- **Em Conversas** (geral): a gerência e a diretoria veem a cliente em **todos os números**, cada resultado com o nome do número ao lado. A consultora vê só os números dela; se a cliente só conversou por um número em que você não está, inicie uma conversa nova pelo seu número.
 
 **Mandei pelo número errado.** A mensagem sempre sai pelo número da conversa aberta. Confira a faixa "Enviando pelo número" antes de enviar.

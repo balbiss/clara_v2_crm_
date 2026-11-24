@@ -168,9 +168,10 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
   // caixa por carteira: conversa nova já nasce com a dona da revendedora como atendente
   const conversation = await findOrCreateConversation(contact.id, inbox.id, { accountId, status: 0, userId: inbox.restrictByPortfolio ? contact.userId : null });
   const text = String(payload.body ?? '');
-  const media = isObj(payload.media) ? payload.media : null;
+  let media = isObj(payload.media) ? payload.media : null;
   // com mídia, a v1 já mostrava a bolha na hora e reenviava quando o arquivo terminava de baixar
-  const mediaInBackground = !historical && !!(payload.hasMedia && media?.url);
+  // (motor GOWS: o webhook pode chegar com hasMedia mas sem media.url — o link é buscado em background)
+  const mediaInBackground = !historical && !!(payload.hasMedia && (media?.url || payload.id));
 
   const record = await createMessage({
     accountId: conversation.accountId,
@@ -199,14 +200,15 @@ export async function handleMessage(inbox: Inbox, payload: WahaPayload, opts: { 
         let data: Buffer | null = null;
         for (const wait of [0, 2, 4]) {
           if (wait) await sleep(wait * 1000);
-          data = await service.downloadMedia(media!.url!, 10000);
+          if (!media?.url && payload.id) media = (await service.midiaDaMensagem(chatId, String(payload.id))) ?? media;
+          if (media?.url) data = await service.downloadMedia(media.url, 10000);
           if (data) break;
         }
-        const mimetype = media!.mimetype || 'application/octet-stream';
+        const mimetype = media?.mimetype || 'application/octet-stream';
         let finalText = record.text;
         if (data) {
           const ext = mimetype.split('/').pop()?.split(';')[0] || 'bin';
-          await attach('Message', record.id, 'attachment', data, media!.filename || `${sourceId}.${ext}`, mimetype);
+          await attach('Message', record.id, 'attachment', data, media?.filename || `${sourceId}.${ext}`, mimetype);
           // (transcrição automática de áudio com IA: entra junto com o Agente de IA)
           if (!finalText) finalText = '📎 Anexo recebido';
         } else if (!finalText) {

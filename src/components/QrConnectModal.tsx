@@ -10,6 +10,7 @@ import { useWindowEvent } from '../lib/hooks'
 export default function QrConnectModal({ inbox, reconnect, onClose, onConnected }: { inbox: { id: number; name: string; phone_number?: string | null }; reconnect?: boolean; onClose: () => void; onConnected?: () => void }) {
   const [qr, setQr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [aviso, setAviso] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const done = useRef(false)
 
@@ -20,7 +21,10 @@ export default function QrConnectModal({ inbox, reconnect, onClose, onConnected 
     const fetchQr = async () => {
       try {
         const { data } = await api.get(`/inboxes/${inbox.id}/qr_code`)
-        if (alive && data.qr_code) { setQr(data.qr_code); setLoading(false) }
+        if (!alive) return
+        if (data.qr_code) { setQr(data.qr_code); setLoading(false); setAviso(null) }
+        else if (data.connected) markConnected()
+        else if (data.message) setAviso(data.message)
       } catch (e: any) { console.warn('Erro ao buscar QR Code:', e.message) }
     }
     fetchQr()
@@ -33,7 +37,7 @@ export default function QrConnectModal({ inbox, reconnect, onClose, onConnected 
       } catch { /* tenta de novo no próximo ciclo */ }
     }, 4000)
     // sem QR depois de um tempo: mostra o aviso em vez de ficar carregando pra sempre
-    const giveUp = setTimeout(() => { if (alive) setLoading(false) }, 12000)
+    const giveUp = setTimeout(() => { if (alive) setLoading(false) }, 90000) // o WhatsApp pode levar até 1 min pra ligar
     return () => { alive = false; clearInterval(timer); clearTimeout(giveUp) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inbox.id])
@@ -60,7 +64,7 @@ export default function QrConnectModal({ inbox, reconnect, onClose, onConnected 
         ) : qr ? (
           <img src={qr} alt="QR Code do WhatsApp" style={{ width: 250, height: 250, borderRadius: 8, border: '1px solid var(--line)' }} />
         ) : loading ? (
-          <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Aguardando o QR code da API…</p>
+          <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>{aviso || 'Aguardando o QR code da API…'}</p>
         ) : (
           <div style={{ color: 'var(--muted)', fontSize: 13, lineHeight: 1.6 }}>
             <p style={{ margin: 0, color: 'var(--ink)', fontWeight: 600 }}>O QR code não está disponível agora.</p>

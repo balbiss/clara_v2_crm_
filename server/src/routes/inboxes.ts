@@ -6,6 +6,7 @@ import { inboxes, inboxMembers, users, conversations } from '../db/schema.js';
 import { requireAuth, requirePerm, pode } from '../middleware/auth.js';
 import { assignedInboxes, inboxBadge } from '../lib/conversations.js';
 import { messagingService } from '../lib/waha.js';
+import { cache } from '../lib/cache.js';
 import { railsJson } from '../lib/serialize.js';
 import { chatCompletion } from '../lib/openai.js';
 import { historyProgress } from '../jobs/wahaHistorySync.js';
@@ -125,16 +126,23 @@ inboxesRouter.get('/inboxes/:id/qr_code', async (req, res, next) => {
   const i = await loadInbox(req, res);
   if (!i) return;
   const service = messagingService(i);
-  let qr = await service.fetchQrCode();
-  // só recria a sessão se não há QR E não está conectada (não derruba sessão funcionando)
-  if (!qr && !(await service.connected())) {
-    await service.deleteConnection().catch(() => {});
-    await new Promise(r => setTimeout(r, 500));
-    await service.createConnection(webhookUrlFor(i)).catch(() => {});
-    await new Promise(r => setTimeout(r, 2000));
-    qr = await service.fetchQrCode();
+  const qr = await service.fetchQrCode();
+  if (qr) return res.json({ qr_code: qr });
+  // Antes: sem QR na hora → apagava e recriava a sessão. A tela pergunta a cada 4 s e o WhatsApp leva
+  // 20-60 s pra ligar, então a sessão era apagada antes de chegar no QR e ficava presa em "STARTING"
+  // pra sempre (24/11). Agora só (re)liga quando está parada/com falha, e no máximo 1x por minuto.
+  const status = await service.sessionStatus();
+  if (status === 'WORKING') return res.json({ qr_code: null, connected: true });
+  if (status === 'STARTING' || status === 'SCAN_QR_CODE') {
+    return res.json({ qr_code: null, status, message: 'Ligando o WhatsApp… o QR code aparece em até 1 minuto.' });
   }
-  res.json(qr ? { qr_code: qr } : { qr_code: null, message: 'QR Code não disponível. Tente novamente em instantes.' });
+  const chave = `qr_religar_${i.id}`;
+  if (!cache.read(chave)) {
+    cache.write(chave, 1, 60);
+    if (status === 'FAILED') await service.restartConnection().catch(() => {});
+    else await service.createConnection(webhookUrlFor(i)).catch(() => {});
+  }
+  res.json({ qr_code: null, status, message: 'Ligando o WhatsApp… o QR code aparece em até 1 minuto.' });
 });
 
 inboxesRouter.get('/inboxes/:id/status', async (req, res) => {

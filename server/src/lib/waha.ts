@@ -234,6 +234,28 @@ export class WahaService {
     } catch { /* sem "digitando" não impede o envio */ }
   }
 
+  /** Link da mídia de uma mensagem já recebida (no GOWS o webhook pode vir sem media.url). */
+  async midiaDaMensagem(chatId: string, messageId: string): Promise<{ url?: string; mimetype?: string; filename?: string } | null> {
+    try {
+      const data = await this.json<{ media?: { url?: string; mimetype?: string; filename?: string } | null }>(await this.request('GET',
+        `/api/${this.session}/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}?downloadMedia=true`, undefined, 20000));
+      return data?.media?.url ? data.media : null;
+    } catch { return null; }
+  }
+
+  /** Status da sessão na WAHA (WORKING, STARTING, SCAN_QR_CODE, FAILED, STOPPED) ou null se não existe/sem resposta. */
+  async sessionStatus(): Promise<string | null> {
+    try {
+      const data = await this.json<{ status?: string }>(await this.request('GET', `/api/sessions/${this.session}`));
+      return data?.status ?? null;
+    } catch { return null; }
+  }
+
+  async restartConnection(): Promise<boolean> {
+    cache.delete(`inbox:${this.inbox.id}:status`);
+    try { return !!(await this.request('POST', `/api/sessions/${this.session}/restart`, {}, 40000))?.ok; } catch { return false; }
+  }
+
   async connected(): Promise<boolean> {
     try {
       const data = await this.json<{ status?: string }>(await this.request('GET', `/api/sessions/${this.session}`));

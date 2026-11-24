@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Columns3, List, MoreHorizontal, Settings, Trash2 } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { CalendarDays, ChevronDown, MessageCircle, ChevronLeft, ChevronRight, Columns3, List, MoreHorizontal, Settings, Trash2 } from 'lucide-react'
 import api from '../api'
 import { Modal } from '../components/ui'
+import { useAbrirConversaDoContato } from '../components/lists'
 import { toast, confirmBox } from '../components/ui2'
 import { useClickOutside, readUser } from '../lib/hooks'
 import { can, escopo } from '../lib/acesso'
@@ -35,6 +36,10 @@ function loadPrefs() { try { return { startHour: 8, weekend: true, ...JSON.parse
 
 export default function Calendario({ initialView = 'calendar' as View }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const abrirConversa = useAbrirConversaDoContato()
+  // nome da cliente na tarefa abre a CONVERSA e a conversa mostra "Voltar para Tarefas" (Bel, 24/11)
+  const irParaConversa = (contact: any) => abrirConversa(contact, null, location.pathname)
   const [view, setView] = useState<View>(initialView)
   const [span, setSpan] = useState<Span>('week')
   const [cursor, setCursor] = useState(() => new Date())
@@ -204,10 +209,10 @@ export default function Calendario({ initialView = 'calendar' as View }) {
       )}
 
       {view === 'board' && <TaskBoard tasks={tks} onOpen={setTaskOpen} />}
-      {view === 'list' && <TaskList tasks={tks} onOpen={setTaskOpen} onLead={id => navigate(`/contatos/${id}`)} />}
+      {view === 'list' && <TaskList tasks={tks} onOpen={setTaskOpen} onLead={irParaConversa} />}
 
       {evEdit && <EventForm ev={evEdit} agents={agents} onClose={() => setEvEdit(null)} onSaved={() => { setEvEdit(null); load() }} />}
-      {taskOpen && <TaskModal task={taskOpen} onClose={() => setTaskOpen(null)} onDone={() => { setTaskOpen(null); load() }} onLead={id => navigate(`/contatos/${id}`)} />}
+      {taskOpen && <TaskModal task={taskOpen} onClose={() => setTaskOpen(null)} onDone={() => { setTaskOpen(null); load() }} onLead={irParaConversa} onFicha={id => navigate(`/contatos/${id}`)} />}
       {prefsOpen && (
         <Modal title="Configurações de agendamento" onClose={() => setPrefsOpen(false)} footer={<button onClick={() => { localStorage.setItem('cal_prefs', JSON.stringify(prefs)); setPrefsOpen(false); if (gridRef.current) gridRef.current.scrollTop = prefs.startHour * HOUR_PX }} style={kBtn('blue')}>Salvar</button>}>
           <label style={lbl}>Início do expediente (o calendário abre nesse horário)</label>
@@ -275,7 +280,7 @@ function EventForm({ ev, agents, onClose, onSaved }: { ev: any; agents: any[]; o
   )
 }
 
-function TaskModal({ task, onClose, onDone, onLead }: { task: any; onClose: () => void; onDone: () => void; onLead: (id: number) => void }) {
+function TaskModal({ task, onClose, onDone, onLead, onFicha }: { task: any; onClose: () => void; onDone: () => void; onLead: (contact: any) => void; onFicha: (id: number) => void }) {
   const [res, setRes] = useState('')
   const done = async () => {
     try { await api.patch(`/tarefas/${task.id}/complete`, { resultado: res || null }); toast('success', 'Tarefa concluída.'); onDone() }
@@ -286,7 +291,12 @@ function TaskModal({ task, onClose, onDone, onLead }: { task: any; onClose: () =
       footer={<><button onClick={onClose} style={kBtn('ghost')}>Fechar</button><button onClick={done} style={kBtn('blue')}>Tarefa concluída</button></>}>
       <p style={{ fontSize: 15, margin: '0 0 6px' }}><b>{task.titulo}</b></p>
       {task.descricao && <p style={{ whiteSpace: 'pre-line', fontSize: 14, margin: '0 0 10px' }}>{task.descricao}</p>}
-      {task.contact && <button onClick={() => onLead(task.contact.id)} style={{ border: 'none', background: 'none', padding: 0, color: K.link, fontFamily: K.font, fontSize: 14, cursor: 'pointer' }}>{task.contact.name}</button>}
+      {task.contact && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <button onClick={() => onLead(task.contact)} style={kBtn('ghost')}><MessageCircle size={15} /> Abrir conversa com {task.contact.name}</button>
+          <button onClick={() => onFicha(task.contact.id)} style={{ border: 'none', background: 'none', padding: 0, color: K.link, fontFamily: K.font, fontSize: 13.5, cursor: 'pointer' }}>Ver ficha</button>
+        </div>
+      )}
       <input value={res} onChange={e => setRes(e.target.value)} placeholder="Adicionar resultado" style={{ ...kInput, marginTop: 12 }} />
     </Modal>
   )
@@ -331,7 +341,7 @@ function TaskBoard({ tasks, onOpen }: { tasks: any[]; onOpen: (t: any) => void }
 }
 
 /** Lista de tarefas do Kommo. */
-function TaskList({ tasks, onOpen, onLead }: { tasks: any[]; onOpen: (t: any) => void; onLead: (id: number) => void }) {
+function TaskList({ tasks, onOpen, onLead }: { tasks: any[]; onOpen: (t: any) => void; onLead: (contact: any) => void }) {
   const th: React.CSSProperties = { textAlign: 'left', padding: '10px 14px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: K.muted, borderBottom: `1px solid ${K.line}`, whiteSpace: 'nowrap' }
   const td: React.CSSProperties = { padding: '10px 14px', fontSize: 14, borderBottom: `1px solid ${K.line}` }
   const sorted = [...tasks].sort((a, b) => new Date(a.vencimento_em).getTime() - new Date(b.vencimento_em).getTime())
@@ -346,7 +356,7 @@ function TaskList({ tasks, onOpen, onLead }: { tasks: any[]; onOpen: (t: any) =>
               <tr key={t.id}>
                 <td style={{ ...td, color: late ? '#e2557a' : K.text, whiteSpace: 'nowrap' }}>{new Date(t.vencimento_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
                 <td style={td}>{t.user ? `${t.user.first_name || ''} ${t.user.last_name || ''}`.trim() : '—'}</td>
-                <td style={td}>{t.contact ? <button onClick={() => onLead(t.contact.id)} style={{ border: 'none', background: 'none', padding: 0, color: K.link, fontFamily: K.font, fontSize: 14, cursor: 'pointer' }}>{t.contact.name}</button> : '—'}</td>
+                <td style={td}>{t.contact ? <button title="Abrir a conversa" onClick={() => onLead(t.contact)} style={{ border: 'none', background: 'none', padding: 0, color: K.link, fontFamily: K.font, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}><MessageCircle size={13} />{t.contact.name}</button> : '—'}</td>
                 <td style={td}>{TIPOS_TAREFA[t.tipo] || t.tipo}</td>
                 <td style={td}>{t.titulo}</td>
                 <td style={td}><button onClick={() => onOpen(t)} style={{ ...kBtn('ghost'), height: 28, fontSize: 12 }}>Abrir</button></td>

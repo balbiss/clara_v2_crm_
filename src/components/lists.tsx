@@ -114,11 +114,12 @@ export const statusTone = (s?: string | null): 'muted' | 'blue' | 'green' | 'amb
 export function useAbrirConversaDoContato() {
   const navigate = useNavigate()
   const { start } = useStartConversation()
-  return async (contact: any, pipelineId?: number | null) => {
+  // voltarPara: tela de origem (ex.: /tarefas) — a conversa mostra "Voltar para …" (Bel, 24/11)
+  return async (contact: any, pipelineId?: number | null, voltarPara?: string) => {
     if (!contact?.id) return
     try {
       const { data } = await api.get('/conversations/do_contato', { params: { contact_id: contact.id, pipeline_id: pipelineId || undefined } })
-      navigate(`/conversas?abrir=${data.id}`)
+      navigate(`/conversas?abrir=${data.id}${voltarPara ? `&voltar=${encodeURIComponent(voltarPara)}` : ''}`)
     } catch (e: any) {
       if (e.response?.status === 404) start(contact)
       else toast('error', 'Não foi possível abrir a conversa.')

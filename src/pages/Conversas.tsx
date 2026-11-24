@@ -153,6 +153,7 @@ function WhatsappIcon({ source }: { source: string }) {
 export default function Conversas() {
   const params = useParams()
   const [query] = useSearchParams()
+  const voltarPara = (() => { const v = query.get('voltar') || ''; return /^\/(tarefas|calendario)(\/|$|\?)/.test(v) ? v : '' })()
   const navigate = useNavigate()
   const store = useSnapshot(conversationsStore) as Any
   const conv = store.activeConversation as Any
@@ -1393,6 +1394,12 @@ export default function Conversas() {
         <div className="conv-col" data-hide={v.mobileView === 'chat' ? '0' : '1'} style={{ background: '#f5f5f5', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           {conv ? (
             <>
+              {voltarPara && (
+                // veio de Tarefas/Calendário: volta pra lá (antes ficava preso em Conversas — Bel, 24/11)
+                <button onClick={() => navigate(voltarPara)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 16px', border: 'none', borderBottom: `1px solid ${K.line}`, background: '#FFF4F6', color: K.link, fontFamily: K.font, fontSize: 14, fontWeight: 600, cursor: 'pointer', flex: 'none', textAlign: 'left' }}>
+                  <ChevronLeft size={18} /> Voltar para {voltarPara.startsWith('/calendario') ? 'Calendário' : 'Tarefas'}
+                </button>
+              )}
               {(isMobile || !showDetails) && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: '#fff', borderBottom: `1px solid ${K.line}`, flex: 'none' }}>
                   <button className="conv-back" onClick={() => { s.mobileView = 'list' }} style={{ display: 'none', border: 'none', background: 'none', cursor: 'pointer' }}><ChevronLeft size={20} /></button>

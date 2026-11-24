@@ -26,11 +26,13 @@ resumo: Como ver, concluir e criar tarefas, para quem elas vão e como usar o ca
 - **Na conversa:** as suas tarefas pendentes daquela cliente aparecem no topo do histórico.
 
 ![Lista de tarefas](/ajuda/tarefas-lista.png)
-*Prazo em vermelho = atrasada. "Abrir" leva para a cliente.*
+*Prazo em vermelho = atrasada. Clicar no nome da cliente abre a conversa com ela.*
 
 - **Ver as tarefas de cada colaboradora** (gerência e diretoria): no topo, troque **Só as minhas** por **Todas as pessoas**, pelo nome de uma colaboradora ou por **Sem responsável**. Cada cartão mostra o nome da responsável (👤).
 - Escolha uma pessoa em **Todos os usuários** para ver as tarefas dela.
-- **Abrir** leva para a cliente, para você resolver.
+- **Clicar no nome da cliente** (com o balãozinho 💬) abre direto a **conversa** com ela. No topo da conversa aparece **‹ Voltar para Tarefas**: clique para voltar à lista de tarefas.
+- **Abrir** mostra a tarefa. Lá tem **Abrir conversa com…** (vai para a conversa) e **Ver ficha** (vai para a ficha da cliente).
+- Se a cliente ainda não tem conversa, o sistema oferece iniciar uma.
 
 ## Concluir uma tarefa
 

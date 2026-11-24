@@ -26,8 +26,15 @@ export class WahaService {
 
   constructor(private inbox: Inbox) {
     const force = process.env.WAHA_FORCE_ENV === 'true';
-    this.apiUrl = ((force ? '' : inbox.apiUrl) || process.env.WAHA_URL || '').replace(/\/$/, '');
-    this.apiKey = (force ? '' : inbox.apiKey) || process.env.WAHA_API_KEY || '';
+    // 2ª WAHA (motor GOWS, sem navegador): números listados em WAHA2_NUMEROS saem por ela. Criada em 24/11
+    // quando o WEBJS parou de gerar QR novo (mudança no WhatsApp Web); quem já estava conectado ficou na 1ª.
+    const digitos = String(inbox.phoneNumber || '').replace(/\D/g, '');
+    const naSegunda = !!digitos && !!process.env.WAHA2_URL &&
+      (process.env.WAHA2_NUMEROS || '').split(',').map(n => n.replace(/\D/g, '')).includes(digitos);
+    const envUrl = naSegunda ? process.env.WAHA2_URL : process.env.WAHA_URL;
+    const envKey = naSegunda ? process.env.WAHA2_API_KEY : process.env.WAHA_API_KEY;
+    this.apiUrl = ((force ? '' : inbox.apiUrl) || envUrl || '').replace(/\/$/, '');
+    this.apiKey = (force ? '' : inbox.apiKey) || envKey || '';
     // WAHA_SESSION_PREFIX separa as sessões deste CRM das de outro CRM no mesmo servidor WAHA
     // (a v2 de validação usa "clarav2_" pra nunca mexer nas sessões "waha_" da v1 em produção)
     this.session = (process.env.WAHA_SESSION_PREFIX || 'waha_') + String(inbox.phoneNumber || '').replace(/\D/g, '');

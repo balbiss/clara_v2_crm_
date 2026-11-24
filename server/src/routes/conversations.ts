@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { conversations, contacts, inboxes, messages, scheduledMessages, conversationTags, tags, accounts, users } from '../db/schema.js';
-import { requireAuth, pode, visibleContactsWhere, type User } from '../middleware/auth.js';
+import { requireAuth, pode, escopo, visibleContactsWhere, type User } from '../middleware/auth.js';
 import { visibleConversationsWhere, findVisibleConversation, formatConversations, formatConversation, conversationTagsOf, findOrCreateTag, addConversationTag, convStatusValue, assignedInboxes, inboxBadge, sendableInboxIds, canSendThrough, isGroupSql, caixaWhere, type Conversation } from '../lib/conversations.js';
 import { responsavelAoChamar, assumirConversaAoChamar } from '../lib/responsavel.js';
 import { createContact, searchByNameOrPhoneWhere, channelIdentifier, ACENTOS_DE, ACENTOS_PARA, semAcento, likeEscape, updateContact } from '../lib/contacts.js';
@@ -126,16 +126,20 @@ conversationsRouter.get('/conversations/search', async (req, res) => {
   const u = req.user!;
   const termo = String(req.query.q ?? '').trim();
   if (termo.length < 2) return res.json({ conversations: [], messages: [] });
-  // busca também respeita "cada número é separado": só os números dela, ou a caixa escolhida (?inbox_id)
+  // dentro de uma caixa (?inbox_id): só aquela caixa. No Conversas geral: quem vê todas as conversas
+  // (gerência/diretoria) acha a cliente em TODOS os números, igual ao Kommo (Bel, 24/11); consultora
+  // continua só nos números dela ("cada número é separado", 05/11)
+  const inboxId = Number(req.query.inbox_id) || null;
+  const todasAsCaixas = !inboxId && escopo(u, 'conversas.ver') === 'todos';
   const visibleIds = db.select({ id: conversations.id }).from(conversations).leftJoin(contacts, eq(contacts.id, conversations.contactId))
-    .where(and(await visibleConversationsWhere(u), await caixaWhere(u, Number(req.query.inbox_id) || null)));
+    .where(and(await visibleConversationsWhere(u), todasAsCaixas ? undefined : await caixaWhere(u, inboxId)));
   const usersMap = await accountUsersMap(u.accountId!);
 
   const contactIds = db.select({ id: contacts.id }).from(contacts).where(and(eq(contacts.accountId, u.accountId!), searchByNameOrPhoneWhere(termo)));
   const convs = await db.select({ c: conversations, contactName: contacts.name, contactPhone: contacts.phone, inboxName: inboxes.name })
     .from(conversations).leftJoin(contacts, eq(contacts.id, conversations.contactId)).leftJoin(inboxes, eq(inboxes.id, conversations.inboxId))
     .where(and(eq(conversations.accountId, u.accountId!), inArray(conversations.id, visibleIds), inArray(conversations.contactId, contactIds)))
-    .orderBy(sql`${conversations.lastActivityAt} DESC NULLS LAST`).limit(15);
+    .orderBy(sql`${conversations.lastActivityAt} DESC NULLS LAST`).limit(30);
 
   const palavras = semAcento(termo).split(/\s+/).filter(Boolean);
   const texto = sql`translate(lower(coalesce(${messages.text}, '') || ' ' || coalesce(${messages.transcription}, '')), ${ACENTOS_DE}, ${ACENTOS_PARA})`;

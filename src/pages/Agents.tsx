@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
-import { Plus, Pencil, Trash2, Lock, Unlock, RefreshCw, X, Check } from 'lucide-react'
+import { Plus, Pencil, Trash2, Lock, Unlock, RefreshCw, X, Check, Search } from 'lucide-react'
 import api from '../api'
 import { agentsStore } from '../store/agents'
 import { btn, inputStyle } from '../components/ui'
@@ -25,6 +25,23 @@ export default function Agents() {
   const [newGroup, setNewGroup] = useState('')
   const [editing, setEditing] = useState<{ id: number; name: string } | null>(null)
   const [toggling, setToggling] = useState<number | null>(null)
+  // filtro da lista (Bel, 24/11 — igual ao sistema antigo: nome, grupo/perfil, status; ativos primeiro)
+  const [perfis, setPerfis] = useState<any[]>([])
+  const [fNome, setFNome] = useState('')
+  const [fPerfil, setFPerfil] = useState('')
+  const [fStatus, setFStatus] = useState('')
+  useEffect(() => { api.get('/access_profiles').then(({ data }) => setPerfis(data.perfis || [])).catch(() => {}) }, [])
+  const perfilDe = (a: any) => perfis.find(p => !p.sistema && p.id === a.access_profile_id) || perfis.find(p => p.sistema && p.base_role === a.role)
+  const semAcento = (t: string) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const filtrados = store.agents.filter((a: any) => {
+    if (fStatus && a.status !== fStatus) return false
+    if (fPerfil && String(perfilDe(a)?.id ?? '') !== fPerfil) return false
+    const t = semAcento(fNome.trim())
+    if (t && !semAcento(`${a.first_name || ''} ${a.last_name || ''} ${a.email || ''} ${a.phone || ''}`).includes(t)) return false
+    return true
+  }).sort((a: any, b: any) => (a.status === 'blocked' ? 1 : 0) - (b.status === 'blocked' ? 1 : 0)
+    || `${a.first_name || ''} ${a.last_name || ''}`.localeCompare(`${b.first_name || ''} ${b.last_name || ''}`, 'pt-BR'))
+  const temFiltro = !!(fNome || fPerfil || fStatus)
 
   const loadGroups = async () => { try { setGroups((await api.get('/round_robin_groups')).data) } catch (e) { console.error('Erro ao carregar grupos de rodízio', e) } }
   useEffect(() => { agentsStore.fetchAgents(); loadGroups() }, [])
@@ -123,10 +140,29 @@ export default function Agents() {
         </div>
       ) : !store.isLoading && <p style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: 'var(--muted)', marginBottom: 18 }}><RefreshCw size={14} /> Nenhuma consultora na fila de rodízio. Ative o rodízio nas pessoas abaixo.</p>}
 
-      <DataTable loading={store.isLoading && !store.agents.length} empty="Nenhum agente cadastrado."
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 12 }}>
+        <span style={{ position: 'relative', flex: '2 1 220px' }}>
+          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+          <input value={fNome} onChange={e => setFNome(e.target.value)} placeholder="Nome, e-mail ou WhatsApp" style={{ ...inputStyle, paddingLeft: 30 }} />
+        </span>
+        <select value={fPerfil} onChange={e => setFPerfil(e.target.value)} style={{ ...inputStyle, flex: '1 1 170px' }}>
+          <option value="">Todos os perfis</option>
+          {perfis.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+        </select>
+        <select value={fStatus} onChange={e => setFStatus(e.target.value)} style={{ ...inputStyle, flex: '1 1 150px' }}>
+          <option value="">Todos os status</option>
+          <option value="active">Ativo</option>
+          <option value="blocked">Bloqueado</option>
+        </select>
+        {temFiltro && <button onClick={() => { setFNome(''); setFPerfil(''); setFStatus('') }} style={btn('ghost')}><X size={14} /> Limpar</button>}
+        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{filtrados.length} de {store.agents.length}</span>
+      </div>
+
+      <DataTable loading={store.isLoading && !store.agents.length} empty={store.agents.length ? 'Ninguém com esse filtro.' : 'Nenhum agente cadastrado.'}
         columns={[{ label: 'Pessoa' }, { label: 'Perfil' }, { label: 'WhatsApp' }, { label: 'Rodízio' }, { label: 'Status' }, { label: '', width: 110, align: 'right' }]}
-        rows={store.agents.map((a: any) => {
+        rows={filtrados.map((a: any) => {
           const role = ROLE[a.role] || ROLE.consultor
+          const perfil = perfilDe(a)
           return [
             <span key="n" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
               <ChatAvatar nome={`${a.first_name || ''} ${a.last_name || ''}`.trim() || a.email} foto={a.avatar_url} size={32} />
@@ -135,7 +171,7 @@ export default function Agents() {
                 <span style={{ fontSize: 12, color: 'var(--muted)' }}>{a.email}</span>
               </span>
             </span>,
-            <Badge key="p" tone={role.tone}>{role.label}</Badge>,
+            <Badge key="p" tone={role.tone}>{perfil && !perfil.sistema ? perfil.name : role.label}</Badge>,
             <span key="w" style={{ color: 'var(--muted)' }}>{a.phone || '—'}</span>,
             a.role === 'consultor' || !a.role ? (
               <button key="r" disabled={toggling === a.id || a.status === 'blocked'} onClick={() => toggleRR(a)} title={a.available_for_roundrobin ? 'Remover da fila' : 'Adicionar à fila'}

@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { contacts, conversations, conversationTags, messages } from '../db/schema.js';
 import { cache } from './cache.js';
@@ -367,11 +367,18 @@ export async function alreadyImported(inbox: Inbox, payload: WahaPayload): Promi
   }
   if (payload.fromMe && payload.body && Number(payload.timestamp) > 0) {
     const sentAt = Number(payload.timestamp) * 1000;
-    const [m] = await db.select({ id: messages.id }).from(messages)
+    const [m] = await db.select({ id: messages.id, status: messages.status, sourceId: messages.sourceId }).from(messages)
       .innerJoin(conversations, eq(conversations.id, messages.conversationId))
-      .where(and(eq(conversations.inboxId, inbox.id), eq(messages.senderType, 'User'), eq(messages.text, String(payload.body)),
+      .where(and(eq(conversations.inboxId, inbox.id), eq(messages.senderType, 'User'), inArray(messages.text, [String(payload.body), String(payload.body).replace(/^\*[^*\n]+:\*\n/, '')]),
         gte(messages.createdAt, new Date(sentAt - 180000)), lte(messages.createdAt, new Date(sentAt + 180000)))).limit(1);
-    if (m) return true;
+    if (m) {
+      // ficou "Não enviada" no CRM mas o WhatsApp mandou (eco/histórico provam): conserta pra enviada
+      if (m.status === messageStatusValue('failed') && !m.sourceId && sourceId) {
+        await db.update(messages).set({ status: messageStatusValue('sent'), sourceId }).where(eq(messages.id, m.id));
+        void rebroadcast(m.id).catch(() => {});
+      }
+      return true;
+    }
   }
   return false;
 }

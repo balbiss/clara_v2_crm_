@@ -19,6 +19,23 @@ export interface Attachment { data: Buffer; contentType: string; filename: strin
 
 type Json = Record<string, unknown>;
 
+/** Id da mensagem enviada, em qualquer engine: WEBJS devolve id._serialized; GOWS/NOWEB devolvem
+ *  id como texto ou key.id/ID (25/11: GOWS enviava de verdade e o CRM marcava "Não enviada" porque
+ *  só lia id._serialized). Resposta 2xx sem id reconhecível = enviada mesmo assim (id provisório). */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export function idDoEnvio(r: any, chatId: string): string | null {
+  if (!r || typeof r !== 'object') return null;
+  const id = r.id;
+  if (typeof id === 'string' && id) return id.includes('_') ? id : `true_${chatId}_${id}`;
+  if (id?._serialized) return String(id._serialized);
+  if (r._data?.id?._serialized) return String(r._data.id._serialized);
+  const k = r.key?.id || r.ID || r.Id || r.messageId || r._data?.key?.id || r._data?.Info?.ID || r._data?.ID || (typeof id?.id === 'string' ? id.id : '');
+  if (k) return `true_${chatId}_${k}`;
+  console.warn('Waha: envio aceito mas sem id reconhecível:', JSON.stringify(r).slice(0, 300));
+  return `true_${chatId}_crm${Date.now()}`;
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 export class WahaService {
   readonly session: string;
   private apiUrl: string;
@@ -154,9 +171,9 @@ export class WahaService {
       } else {
         res = await this.request('POST', '/api/sendText', { session: this.session, chatId, text }, 45000); // WEBJS às vezes passa de 15 s (Letícia 06/11: "Não enviada" por timeout)
       }
-      const parsed = await this.json<{ id?: { _serialized?: string }; _data?: { id?: { _serialized?: string } } }>(res);
+      const parsed = await this.json(res);
       if (!parsed) console.warn('Waha sendMessage falhou:', res?.status);
-      return parsed?.id?._serialized || parsed?._data?.id?._serialized || null;
+      return idDoEnvio(parsed, chatId);
     } catch (e) {
       console.error('Waha sendMessage error:', (e as Error).message);
       return null;
@@ -172,8 +189,7 @@ export class WahaService {
     if (caption && mediaType !== 'audio') payload.caption = caption;
     if (mediaType === 'audio') payload.ptt = true;
     try {
-      const parsed = await this.json<{ id?: { _serialized?: string }; _data?: { id?: { _serialized?: string } } }>(await this.request('POST', endpoint, payload, 40000));
-      return parsed?.id?._serialized || parsed?._data?.id?._serialized || null;
+      return idDoEnvio(await this.json(await this.request('POST', endpoint, payload, 40000)), chatId);
     } catch { return null; }
   }
 
